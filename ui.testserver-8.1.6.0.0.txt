@@ -1,0 +1,3298 @@
+JAR: ui.testserver-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\ui.testserver-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/ebike/gui/testinterface/ComponentPath.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface;
+
+import java.util.Arrays;
+import java.util.regex.Pattern;
+import org.apache.commons.lang3.StringUtils;
+
+class ComponentPath {
+  public static final String PATH_SEPARATOR = "/";
+  
+  public static final String WILDCARD_SYMBOL = "*";
+  
+  private static final String VALID_PATH_PATTERN = "^(\\/[^\\/*]+)*(\\/\\*)?$";
+  
+  private final String[] pathPieces;
+  
+  public ComponentPath(String path) {
+    if (!path.matches("^(\\/[^\\/*]+)*(\\/\\*)?$"))
+      throw new IllegalArgumentException("Invalid path '" + path + "'"); 
+    this.pathPieces = path.substring(1, path.length()).split("/");
+  }
+  
+  private ComponentPath(String[] path) {
+    this.pathPieces = path;
+  }
+  
+  public ComponentPath() {
+    this.pathPieces = new String[0];
+  }
+  
+  public String getPath() {
+    if (this.pathPieces.length > 0)
+      return "/" + StringUtils.join(this.pathPieces, "/"); 
+    return "";
+  }
+  
+  public ComponentPath getParent() {
+    String[] parentPath = Arrays.<String>copyOfRange(this.pathPieces, 0, this.pathPieces.length - 1);
+    return (parentPath.length == 0) ? null : new ComponentPath(parentPath);
+  }
+  
+  public String getName() {
+    return this.pathPieces[this.pathPieces.length - 1];
+  }
+  
+  public ComponentPath append(String componentName) {
+    String ourpath = getPath();
+    String newPath = String.format("%s%s%s", ourpath, "/", componentName);
+    return new ComponentPath(newPath);
+  }
+  
+  public boolean isWildcard() {
+    return getName().equals("*");
+  }
+  
+  public boolean matches(ComponentPath other) {
+    if (other.getPath().equals(getPath()))
+      return true; 
+    if (isWildcard()) {
+      String pattern = getPath().replace("*", ".*");
+      String otherpath = other.getPath();
+      return Pattern.matches(pattern, otherpath);
+    } 
+    return false;
+  }
+  
+  public ComponentPath getRoot() {
+    return new ComponentPath(new String[] { this.pathPieces[0] });
+  }
+  
+  public String toString() {
+    return getClass().getName() + "[" + getClass().getName() + "]";
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/ebike/gui/testinterface/generated/ObjectFactory.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.annotation.XmlElementDecl;
+import javax.xml.bind.annotation.XmlRegistry;
+import javax.xml.namespace.QName;
+
+@XmlRegistry
+public class ObjectFactory {
+  private static final QName _GetComponentPaths_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getComponentPaths");
+  
+  private static final QName _GetComponentPathsResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getComponentPathsResponse");
+  
+  private static final QName _GetComboboxItems_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getComboboxItems");
+  
+  private static final QName _GetComboboxItemsResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getComboboxItemsResponse");
+  
+  private static final QName _IsValueValid_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "isValueValid");
+  
+  private static final QName _IsValueValidResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "isValueValidResponse");
+  
+  private static final QName _GetSelectedItemCaption_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getSelectedItemCaption");
+  
+  private static final QName _GetSelectedItemCaptionResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getSelectedItemCaptionResponse");
+  
+  private static final QName _GetSpinnerValue_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getSpinnerValue");
+  
+  private static final QName _GetSpinnerValueResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getSpinnerValueResponse");
+  
+  private static final QName _GetText_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getText");
+  
+  private static final QName _GetTextResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getTextResponse");
+  
+  private static final QName _GetTreeNodes_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getTreeNodes");
+  
+  private static final QName _GetTreeNodesResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getTreeNodesResponse");
+  
+  private static final QName _GetValue_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getValue");
+  
+  private static final QName _GetValueAt_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getValueAt");
+  
+  private static final QName _GetValueAtResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getValueAtResponse");
+  
+  private static final QName _GetValueResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "getValueResponse");
+  
+  private static final QName _HighlightComponent_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "highlightComponent");
+  
+  private static final QName _HighlightComponentResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "highlightComponentResponse");
+  
+  private static final QName _IsEnabled_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "isEnabled");
+  
+  private static final QName _IsEnabledResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "isEnabledResponse");
+  
+  private static final QName _IsSelected_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "isSelected");
+  
+  private static final QName _IsSelectedResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "isSelectedResponse");
+  
+  private static final QName _IsVisible_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "isVisible");
+  
+  private static final QName _IsVisibleResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "isVisibleResponse");
+  
+  private static final QName _SetEnabled_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setEnabled");
+  
+  private static final QName _SetEnabledResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setEnabledResponse");
+  
+  private static final QName _SetSelected_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setSelected");
+  
+  private static final QName _SetSelectedItem_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setSelectedItem");
+  
+  private static final QName _SetSelectedItemResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setSelectedItemResponse");
+  
+  private static final QName _SetSelectedResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setSelectedResponse");
+  
+  private static final QName _SetSpinnerValue_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setSpinnerValue");
+  
+  private static final QName _SetSpinnerValueResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setSpinnerValueResponse");
+  
+  private static final QName _SetText_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setText");
+  
+  private static final QName _SetTextResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setTextResponse");
+  
+  private static final QName _SetValue_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setValue");
+  
+  private static final QName _SetValueResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setValueResponse");
+  
+  private static final QName _SetVisible_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setVisible");
+  
+  private static final QName _SetVisibleResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "setVisibleResponse");
+  
+  private static final QName _ClickComponent_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "clickComponent");
+  
+  private static final QName _ClickComponentResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "clickComponentResponse");
+  
+  private static final QName _KeyPress_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "keyPress");
+  
+  private static final QName _KeyPressResponse_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "keyPressResponse");
+  
+  public TgetComponentPaths createTgetComponentPaths() {
+    return new TgetComponentPaths();
+  }
+  
+  public TgetComponentPathsResponse createTgetComponentPathsResponse() {
+    return new TgetComponentPathsResponse();
+  }
+  
+  public TgetComboboxItems createTgetComboboxItems() {
+    return new TgetComboboxItems();
+  }
+  
+  public TgetComboboxItemsResponse createTgetComboboxItemsResponse() {
+    return new TgetComboboxItemsResponse();
+  }
+  
+  public TisValueValid createTisValueValid() {
+    return new TisValueValid();
+  }
+  
+  public TisValueValidResponse createTisValueValidResponse() {
+    return new TisValueValidResponse();
+  }
+  
+  public TgetSelectedItemCaption createTgetSelectedItemCaption() {
+    return new TgetSelectedItemCaption();
+  }
+  
+  public TgetSelectedItemCaptionResponse createTgetSelectedItemCaptionResponse() {
+    return new TgetSelectedItemCaptionResponse();
+  }
+  
+  public TgetSpinnerValue createTgetSpinnerValue() {
+    return new TgetSpinnerValue();
+  }
+  
+  public TgetSpinnerValueResponse createTgetSpinnerValueResponse() {
+    return new TgetSpinnerValueResponse();
+  }
+  
+  public TgetText createTgetText() {
+    return new TgetText();
+  }
+  
+  public TgetTextResponse createTgetTextResponse() {
+    return new TgetTextResponse();
+  }
+  
+  public TgetTreeNodes createTgetTreeNodes() {
+    return new TgetTreeNodes();
+  }
+  
+  public TgetTreeNodesResponse createTgetTreeNodesResponse() {
+    return new TgetTreeNodesResponse();
+  }
+  
+  public TgetValue createTgetValue() {
+    return new TgetValue();
+  }
+  
+  public TgetValueAt createTgetValueAt() {
+    return new TgetValueAt();
+  }
+  
+  public TgetValueAtResponse createTgetValueAtResponse() {
+    return new TgetValueAtResponse();
+  }
+  
+  public TgetValueResponse createTgetValueResponse() {
+    return new TgetValueResponse();
+  }
+  
+  public ThighlightComponent createThighlightComponent() {
+    return new ThighlightComponent();
+  }
+  
+  public ThighlightComponentResponse createThighlightComponentResponse() {
+    return new ThighlightComponentResponse();
+  }
+  
+  public TisEnabled createTisEnabled() {
+    return new TisEnabled();
+  }
+  
+  public TisEnabledResponse createTisEnabledResponse() {
+    return new TisEnabledResponse();
+  }
+  
+  public TisSelected createTisSelected() {
+    return new TisSelected();
+  }
+  
+  public TisSelectedResponse createTisSelectedResponse() {
+    return new TisSelectedResponse();
+  }
+  
+  public TisVisible createTisVisible() {
+    return new TisVisible();
+  }
+  
+  public TisVisibleResponse createTisVisibleResponse() {
+    return new TisVisibleResponse();
+  }
+  
+  public TsetEnabled createTsetEnabled() {
+    return new TsetEnabled();
+  }
+  
+  public TsetEnabledResponse createTsetEnabledResponse() {
+    return new TsetEnabledResponse();
+  }
+  
+  public TsetSelected createTsetSelected() {
+    return new TsetSelected();
+  }
+  
+  public TsetSelectedItem createTsetSelectedItem() {
+    return new TsetSelectedItem();
+  }
+  
+  public TsetSelectedItemResponse createTsetSelectedItemResponse() {
+    return new TsetSelectedItemResponse();
+  }
+  
+  public TsetSelectedResponse createTsetSelectedResponse() {
+    return new TsetSelectedResponse();
+  }
+  
+  public TsetSpinnerValue createTsetSpinnerValue() {
+    return new TsetSpinnerValue();
+  }
+  
+  public TsetSpinnerValueResponse createTsetSpinnerValueResponse() {
+    return new TsetSpinnerValueResponse();
+  }
+  
+  public TsetText createTsetText() {
+    return new TsetText();
+  }
+  
+  public TsetTextResponse createTsetTextResponse() {
+    return new TsetTextResponse();
+  }
+  
+  public TsetValue createTsetValue() {
+    return new TsetValue();
+  }
+  
+  public TsetValueResponse createTsetValueResponse() {
+    return new TsetValueResponse();
+  }
+  
+  public TsetVisible createTsetVisible() {
+    return new TsetVisible();
+  }
+  
+  public TsetVisibleResponse createTsetVisibleResponse() {
+    return new TsetVisibleResponse();
+  }
+  
+  public TclickComponent createTclickComponent() {
+    return new TclickComponent();
+  }
+  
+  public TclickComponentResponse createTclickComponentResponse() {
+    return new TclickComponentResponse();
+  }
+  
+  public TkeyPress createTkeyPress() {
+    return new TkeyPress();
+  }
+  
+  public TkeyPressResponse createTkeyPressResponse() {
+    return new TkeyPressResponse();
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getComponentPaths")
+  public JAXBElement<TgetComponentPaths> createGetComponentPaths(TgetComponentPaths value) {
+    return new JAXBElement(_GetComponentPaths_QNAME, TgetComponentPaths.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getComponentPathsResponse")
+  public JAXBElement<TgetComponentPathsResponse> createGetComponentPathsResponse(TgetComponentPathsResponse value) {
+    return new JAXBElement(_GetComponentPathsResponse_QNAME, TgetComponentPathsResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getComboboxItems")
+  public JAXBElement<TgetComboboxItems> createGetComboboxItems(TgetComboboxItems value) {
+    return new JAXBElement(_GetComboboxItems_QNAME, TgetComboboxItems.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getComboboxItemsResponse")
+  public JAXBElement<TgetComboboxItemsResponse> createGetComboboxItemsResponse(TgetComboboxItemsResponse value) {
+    return new JAXBElement(_GetComboboxItemsResponse_QNAME, TgetComboboxItemsResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "isValueValid")
+  public JAXBElement<TisValueValid> createIsValueValid(TisValueValid value) {
+    return new JAXBElement(_IsValueValid_QNAME, TisValueValid.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "isValueValidResponse")
+  public JAXBElement<TisValueValidResponse> createIsValueValidResponse(TisValueValidResponse value) {
+    return new JAXBElement(_IsValueValidResponse_QNAME, TisValueValidResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getSelectedItemCaption")
+  public JAXBElement<TgetSelectedItemCaption> createGetSelectedItemCaption(TgetSelectedItemCaption value) {
+    return new JAXBElement(_GetSelectedItemCaption_QNAME, TgetSelectedItemCaption.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getSelectedItemCaptionResponse")
+  public JAXBElement<TgetSelectedItemCaptionResponse> createGetSelectedItemCaptionResponse(TgetSelectedItemCaptionResponse value) {
+    return new JAXBElement(_GetSelectedItemCaptionResponse_QNAME, TgetSelectedItemCaptionResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getSpinnerValue")
+  public JAXBElement<TgetSpinnerValue> createGetSpinnerValue(TgetSpinnerValue value) {
+    return new JAXBElement(_GetSpinnerValue_QNAME, TgetSpinnerValue.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getSpinnerValueResponse")
+  public JAXBElement<TgetSpinnerValueResponse> createGetSpinnerValueResponse(TgetSpinnerValueResponse value) {
+    return new JAXBElement(_GetSpinnerValueResponse_QNAME, TgetSpinnerValueResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getText")
+  public JAXBElement<TgetText> createGetText(TgetText value) {
+    return new JAXBElement(_GetText_QNAME, TgetText.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getTextResponse")
+  public JAXBElement<TgetTextResponse> createGetTextResponse(TgetTextResponse value) {
+    return new JAXBElement(_GetTextResponse_QNAME, TgetTextResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getTreeNodes")
+  public JAXBElement<TgetTreeNodes> createGetTreeNodes(TgetTreeNodes value) {
+    return new JAXBElement(_GetTreeNodes_QNAME, TgetTreeNodes.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getTreeNodesResponse")
+  public JAXBElement<TgetTreeNodesResponse> createGetTreeNodesResponse(TgetTreeNodesResponse value) {
+    return new JAXBElement(_GetTreeNodesResponse_QNAME, TgetTreeNodesResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getValue")
+  public JAXBElement<TgetValue> createGetValue(TgetValue value) {
+    return new JAXBElement(_GetValue_QNAME, TgetValue.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getValueAt")
+  public JAXBElement<TgetValueAt> createGetValueAt(TgetValueAt value) {
+    return new JAXBElement(_GetValueAt_QNAME, TgetValueAt.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getValueAtResponse")
+  public JAXBElement<TgetValueAtResponse> createGetValueAtResponse(TgetValueAtResponse value) {
+    return new JAXBElement(_GetValueAtResponse_QNAME, TgetValueAtResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "getValueResponse")
+  public JAXBElement<TgetValueResponse> createGetValueResponse(TgetValueResponse value) {
+    return new JAXBElement(_GetValueResponse_QNAME, TgetValueResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "highlightComponent")
+  public JAXBElement<ThighlightComponent> createHighlightComponent(ThighlightComponent value) {
+    return new JAXBElement(_HighlightComponent_QNAME, ThighlightComponent.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "highlightComponentResponse")
+  public JAXBElement<ThighlightComponentResponse> createHighlightComponentResponse(ThighlightComponentResponse value) {
+    return new JAXBElement(_HighlightComponentResponse_QNAME, ThighlightComponentResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "isEnabled")
+  public JAXBElement<TisEnabled> createIsEnabled(TisEnabled value) {
+    return new JAXBElement(_IsEnabled_QNAME, TisEnabled.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "isEnabledResponse")
+  public JAXBElement<TisEnabledResponse> createIsEnabledResponse(TisEnabledResponse value) {
+    return new JAXBElement(_IsEnabledResponse_QNAME, TisEnabledResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "isSelected")
+  public JAXBElement<TisSelected> createIsSelected(TisSelected value) {
+    return new JAXBElement(_IsSelected_QNAME, TisSelected.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "isSelectedResponse")
+  public JAXBElement<TisSelectedResponse> createIsSelectedResponse(TisSelectedResponse value) {
+    return new JAXBElement(_IsSelectedResponse_QNAME, TisSelectedResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "isVisible")
+  public JAXBElement<TisVisible> createIsVisible(TisVisible value) {
+    return new JAXBElement(_IsVisible_QNAME, TisVisible.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "isVisibleResponse")
+  public JAXBElement<TisVisibleResponse> createIsVisibleResponse(TisVisibleResponse value) {
+    return new JAXBElement(_IsVisibleResponse_QNAME, TisVisibleResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setEnabled")
+  public JAXBElement<TsetEnabled> createSetEnabled(TsetEnabled value) {
+    return new JAXBElement(_SetEnabled_QNAME, TsetEnabled.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setEnabledResponse")
+  public JAXBElement<TsetEnabledResponse> createSetEnabledResponse(TsetEnabledResponse value) {
+    return new JAXBElement(_SetEnabledResponse_QNAME, TsetEnabledResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setSelected")
+  public JAXBElement<TsetSelected> createSetSelected(TsetSelected value) {
+    return new JAXBElement(_SetSelected_QNAME, TsetSelected.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setSelectedItem")
+  public JAXBElement<TsetSelectedItem> createSetSelectedItem(TsetSelectedItem value) {
+    return new JAXBElement(_SetSelectedItem_QNAME, TsetSelectedItem.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setSelectedItemResponse")
+  public JAXBElement<TsetSelectedItemResponse> createSetSelectedItemResponse(TsetSelectedItemResponse value) {
+    return new JAXBElement(_SetSelectedItemResponse_QNAME, TsetSelectedItemResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setSelectedResponse")
+  public JAXBElement<TsetSelectedResponse> createSetSelectedResponse(TsetSelectedResponse value) {
+    return new JAXBElement(_SetSelectedResponse_QNAME, TsetSelectedResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setSpinnerValue")
+  public JAXBElement<TsetSpinnerValue> createSetSpinnerValue(TsetSpinnerValue value) {
+    return new JAXBElement(_SetSpinnerValue_QNAME, TsetSpinnerValue.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setSpinnerValueResponse")
+  public JAXBElement<TsetSpinnerValueResponse> createSetSpinnerValueResponse(TsetSpinnerValueResponse value) {
+    return new JAXBElement(_SetSpinnerValueResponse_QNAME, TsetSpinnerValueResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setText")
+  public JAXBElement<TsetText> createSetText(TsetText value) {
+    return new JAXBElement(_SetText_QNAME, TsetText.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setTextResponse")
+  public JAXBElement<TsetTextResponse> createSetTextResponse(TsetTextResponse value) {
+    return new JAXBElement(_SetTextResponse_QNAME, TsetTextResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setValue")
+  public JAXBElement<TsetValue> createSetValue(TsetValue value) {
+    return new JAXBElement(_SetValue_QNAME, TsetValue.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setValueResponse")
+  public JAXBElement<TsetValueResponse> createSetValueResponse(TsetValueResponse value) {
+    return new JAXBElement(_SetValueResponse_QNAME, TsetValueResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setVisible")
+  public JAXBElement<TsetVisible> createSetVisible(TsetVisible value) {
+    return new JAXBElement(_SetVisible_QNAME, TsetVisible.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "setVisibleResponse")
+  public JAXBElement<TsetVisibleResponse> createSetVisibleResponse(TsetVisibleResponse value) {
+    return new JAXBElement(_SetVisibleResponse_QNAME, TsetVisibleResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "clickComponent")
+  public JAXBElement<TclickComponent> createClickComponent(TclickComponent value) {
+    return new JAXBElement(_ClickComponent_QNAME, TclickComponent.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "clickComponentResponse")
+  public JAXBElement<TclickComponentResponse> createClickComponentResponse(TclickComponentResponse value) {
+    return new JAXBElement(_ClickComponentResponse_QNAME, TclickComponentResponse.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "keyPress")
+  public JAXBElement<TkeyPress> createKeyPress(TkeyPress value) {
+    return new JAXBElement(_KeyPress_QNAME, TkeyPress.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://testinterface.gui.ebike.gigatronik.com/", name = "keyPressResponse")
+  public JAXBElement<TkeyPressResponse> createKeyPressResponse(TkeyPressResponse value) {
+    return new JAXBElement(_KeyPressResponse_QNAME, TkeyPressResponse.class, null, value);
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/ebike/gui/testinterface/generated/package-info.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlSchema;
+
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/ebike/gui/testinterface/generated/TclickComponent.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TclickComponent", propOrder = {"comPath"})
+public class TclickComponent {
+  protected String comPath;
+  
+  public String getComPath() {
+    return this.comPath;
+  }
+  
+  public void setComPath(String value) {
+    this.comPath = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/ebike/gui/testinterface/generated/TclickComponentResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TclickComponentResponse")
+public class TclickComponentResponse {}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/ebike/gui/testinterface/generated/TestInterface.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import java.util.List;
+import javax.jws.WebMethod;
+import javax.jws.WebParam;
+import javax.jws.WebResult;
+import javax.jws.WebService;
+import javax.xml.bind.annotation.XmlSeeAlso;
+import javax.xml.ws.Action;
+import javax.xml.ws.RequestWrapper;
+import javax.xml.ws.ResponseWrapper;
+
+@WebService(name = "TestInterface", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/")
+@XmlSeeAlso({ObjectFactory.class})
+public interface TestInterface {
+  @WebMethod
+  @WebResult(name = "result", targetNamespace = "")
+  @RequestWrapper(localName = "getValue", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetValue")
+  @ResponseWrapper(localName = "getValueResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetValueResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getValueRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getValueResponse")
+  int getValue(@WebParam(name = "arg0", targetNamespace = "") String paramString);
+  
+  @WebMethod
+  @RequestWrapper(localName = "setValue", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetValue")
+  @ResponseWrapper(localName = "setValueResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetValueResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setValueRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setValueResponse")
+  void setValue(@WebParam(name = "arg0", targetNamespace = "") String paramString, @WebParam(name = "arg1", targetNamespace = "") int paramInt);
+  
+  @WebMethod
+  @WebResult(name = "result", targetNamespace = "")
+  @RequestWrapper(localName = "isEnabled", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TisEnabled")
+  @ResponseWrapper(localName = "isEnabledResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TisEnabledResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/isEnabledRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/isEnabledResponse")
+  boolean isEnabled(@WebParam(name = "arg0", targetNamespace = "") String paramString);
+  
+  @WebMethod
+  @RequestWrapper(localName = "setEnabled", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetEnabled")
+  @ResponseWrapper(localName = "setEnabledResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetEnabledResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setEnabledRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setEnabledResponse")
+  void setEnabled(@WebParam(name = "arg0", targetNamespace = "") String paramString, @WebParam(name = "arg1", targetNamespace = "") boolean paramBoolean);
+  
+  @WebMethod
+  @WebResult(name = "result", targetNamespace = "")
+  @RequestWrapper(localName = "isVisible", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TisVisible")
+  @ResponseWrapper(localName = "isVisibleResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TisVisibleResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/isVisibleRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/isVisibleResponse")
+  boolean isVisible(@WebParam(name = "arg0", targetNamespace = "") String paramString);
+  
+  @WebMethod
+  @RequestWrapper(localName = "setVisible", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetVisible")
+  @ResponseWrapper(localName = "setVisibleResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetVisibleResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setVisibleRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setVisibleResponse")
+  void setVisible(@WebParam(name = "arg0", targetNamespace = "") String paramString, @WebParam(name = "arg1", targetNamespace = "") boolean paramBoolean);
+  
+  @WebMethod
+  @WebResult(name = "result", targetNamespace = "")
+  @RequestWrapper(localName = "isSelected", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TisSelected")
+  @ResponseWrapper(localName = "isSelectedResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TisSelectedResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/isSelectedRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/isSelectedResponse")
+  boolean isSelected(@WebParam(name = "arg0", targetNamespace = "") String paramString);
+  
+  @WebMethod
+  @RequestWrapper(localName = "setSelected", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetSelected")
+  @ResponseWrapper(localName = "setSelectedResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetSelectedResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setSelectedRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setSelectedResponse")
+  void setSelected(@WebParam(name = "arg0", targetNamespace = "") String paramString, @WebParam(name = "arg1", targetNamespace = "") boolean paramBoolean);
+  
+  @WebMethod
+  @WebResult(name = "result", targetNamespace = "")
+  @RequestWrapper(localName = "getText", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetText")
+  @ResponseWrapper(localName = "getTextResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetTextResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getTextRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getTextResponse")
+  String getText(@WebParam(name = "arg0", targetNamespace = "") String paramString);
+  
+  @WebMethod
+  @RequestWrapper(localName = "setText", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetText")
+  @ResponseWrapper(localName = "setTextResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetTextResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setTextRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setTextResponse")
+  void setText(@WebParam(name = "arg0", targetNamespace = "") String paramString1, @WebParam(name = "arg1", targetNamespace = "") String paramString2);
+  
+  @WebMethod
+  @WebResult(name = "result", targetNamespace = "")
+  @RequestWrapper(localName = "getComponentPaths", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetComponentPaths")
+  @ResponseWrapper(localName = "getComponentPathsResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetComponentPathsResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getComponentPathsRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getComponentPathsResponse")
+  List<String> getComponentPaths();
+  
+  @WebMethod
+  @RequestWrapper(localName = "highlightComponent", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.ThighlightComponent")
+  @ResponseWrapper(localName = "highlightComponentResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.ThighlightComponentResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/highlightComponentRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/highlightComponentResponse")
+  void highlightComponent(@WebParam(name = "arg0", targetNamespace = "") String paramString);
+  
+  @WebMethod
+  @WebResult(name = "result", targetNamespace = "")
+  @RequestWrapper(localName = "getSpinnerValue", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetSpinnerValue")
+  @ResponseWrapper(localName = "getSpinnerValueResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetSpinnerValueResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getSpinnerValueRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getSpinnerValueResponse")
+  Object getSpinnerValue(@WebParam(name = "arg0", targetNamespace = "") String paramString);
+  
+  @WebMethod
+  @RequestWrapper(localName = "setSpinnerValue", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetSpinnerValue")
+  @ResponseWrapper(localName = "setSpinnerValueResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetSpinnerValueResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setSpinnerValueRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setSpinnerValueResponse")
+  void setSpinnerValue(@WebParam(name = "arg0", targetNamespace = "") String paramString, @WebParam(name = "arg1", targetNamespace = "") Object paramObject);
+  
+  @WebMethod
+  @WebResult(name = "result", targetNamespace = "")
+  @RequestWrapper(localName = "getSelectedItemCaption", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetSelectedItemCaption")
+  @ResponseWrapper(localName = "getSelectedItemCaptionResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetSelectedItemCaptionResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getSelectedItemCaptionRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getSelectedItemCaptionResponse")
+  String getSelectedItemCaption(@WebParam(name = "arg0", targetNamespace = "") String paramString);
+  
+  @WebMethod
+  @RequestWrapper(localName = "setSelectedItem", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetSelectedItem")
+  @ResponseWrapper(localName = "setSelectedItemResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TsetSelectedItemResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setSelectedItemRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/setSelectedItemResponse")
+  void setSelectedItem(@WebParam(name = "arg0", targetNamespace = "") String paramString1, @WebParam(name = "arg1", targetNamespace = "") String paramString2);
+  
+  @WebMethod
+  @WebResult(name = "result", targetNamespace = "")
+  @RequestWrapper(localName = "getValueAt", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetValueAt")
+  @ResponseWrapper(localName = "getValueAtResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetValueAtResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getValueAtRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getValueAtResponse")
+  String getValueAt(@WebParam(name = "arg0", targetNamespace = "") String paramString, @WebParam(name = "arg1", targetNamespace = "") int paramInt1, @WebParam(name = "arg2", targetNamespace = "") int paramInt2);
+  
+  @WebMethod
+  @WebResult(name = "result", targetNamespace = "")
+  @RequestWrapper(localName = "getTreeNodes", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetTreeNodes")
+  @ResponseWrapper(localName = "getTreeNodesResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetTreeNodesResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getTreeNodesRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getTreeNodesResponse")
+  List<String> getTreeNodes(@WebParam(name = "arg0", targetNamespace = "") String paramString);
+  
+  @WebMethod
+  @WebResult(name = "result", targetNamespace = "")
+  @RequestWrapper(localName = "getComboboxItems", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetComboboxItems")
+  @ResponseWrapper(localName = "getComboboxItemsResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TgetComboboxItemsResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getComboboxItemsRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/getComboboxItemsResponse")
+  List<String> getComboboxItems(@WebParam(name = "arg0", targetNamespace = "") String paramString);
+  
+  @WebMethod
+  @RequestWrapper(localName = "clickComponent", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TclickComponent")
+  @ResponseWrapper(localName = "clickComponentResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TclickComponentResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/clickComponentRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/clickComponentResponse")
+  void clickComponent(@WebParam(name = "comPath", targetNamespace = "") String paramString);
+  
+  @WebMethod
+  @WebResult(name = "result", targetNamespace = "")
+  @RequestWrapper(localName = "isValueValid", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TisValueValid")
+  @ResponseWrapper(localName = "isValueValidResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TisValueValidResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/isValueValidRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/isValueValidResponse")
+  boolean isValueValid(@WebParam(name = "arg0", targetNamespace = "") String paramString);
+  
+  @WebMethod
+  @RequestWrapper(localName = "keyPress", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TkeyPress")
+  @ResponseWrapper(localName = "keyPressResponse", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", className = "com.gigatronik.ebike.gui.testinterface.generated.TkeyPressResponse")
+  @Action(input = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/keyPressRequest", output = "http://testinterface.gui.ebike.gigatronik.com/TestInterface/keyPressResponse")
+  void keyPress(@WebParam(name = "compPath", targetNamespace = "") String paramString1, @WebParam(name = "keyEvent", targetNamespace = "") String paramString2);
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/ebike/gui/testinterface/generated/TestInterfaceService.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import java.net.MalformedURLException;
+import java.net.URL;
+import javax.xml.namespace.QName;
+import javax.xml.ws.Service;
+import javax.xml.ws.WebEndpoint;
+import javax.xml.ws.WebServiceClient;
+import javax.xml.ws.WebServiceException;
+import javax.xml.ws.WebServiceFeature;
+
+@WebServiceClient(name = "TestInterfaceService", targetNamespace = "http://testinterface.gui.ebike.gigatronik.com/", wsdlLocation = "file:/D:/bamboo-agent-home/agent-4/xml-data/build-dir/BEDS-REL19-BR/Bosch-all/BEDS-app/ui.testserver/src/main/resources/TestInterfaceService.wsdl")
+public class TestInterfaceService extends Service {
+  private static final URL TESTINTERFACESERVICE_WSDL_LOCATION;
+  
+  private static final WebServiceException TESTINTERFACESERVICE_EXCEPTION;
+  
+  private static final QName TESTINTERFACESERVICE_QNAME = new QName("http://testinterface.gui.ebike.gigatronik.com/", "TestInterfaceService");
+  
+  static {
+    URL url = null;
+    WebServiceException e = null;
+    try {
+      url = new URL("file:/D:/bamboo-agent-home/agent-4/xml-data/build-dir/BEDS-REL19-BR/Bosch-all/BEDS-app/ui.testserver/src/main/resources/TestInterfaceService.wsdl");
+    } catch (MalformedURLException ex) {
+      e = new WebServiceException(ex);
+    } 
+    TESTINTERFACESERVICE_WSDL_LOCATION = url;
+    TESTINTERFACESERVICE_EXCEPTION = e;
+  }
+  
+  public TestInterfaceService() {
+    super(__getWsdlLocation(), TESTINTERFACESERVICE_QNAME);
+  }
+  
+  public TestInterfaceService(WebServiceFeature... features) {
+    super(__getWsdlLocation(), TESTINTERFACESERVICE_QNAME, features);
+  }
+  
+  public TestInterfaceService(URL wsdlLocation) {
+    super(wsdlLocation, TESTINTERFACESERVICE_QNAME);
+  }
+  
+  public TestInterfaceService(URL wsdlLocation, WebServiceFeature... features) {
+    super(wsdlLocation, TESTINTERFACESERVICE_QNAME, features);
+  }
+  
+  public TestInterfaceService(URL wsdlLocation, QName serviceName) {
+    super(wsdlLocation, serviceName);
+  }
+  
+  public TestInterfaceService(URL wsdlLocation, QName serviceName, WebServiceFeature... features) {
+    super(wsdlLocation, serviceName, features);
+  }
+  
+  @WebEndpoint(name = "TestInterfacePort")
+  public TestInterface getTestInterfacePort() {
+    return (TestInterface)getPort(new QName("http://testinterface.gui.ebike.gigatronik.com/", "TestInterfacePort"), TestInterface.class);
+  }
+  
+  @WebEndpoint(name = "TestInterfacePort")
+  public TestInterface getTestInterfacePort(WebServiceFeature... features) {
+    return (TestInterface)getPort(new QName("http://testinterface.gui.ebike.gigatronik.com/", "TestInterfacePort"), TestInterface.class, features);
+  }
+  
+  private static URL __getWsdlLocation() {
+    if (TESTINTERFACESERVICE_EXCEPTION != null)
+      throw TESTINTERFACESERVICE_EXCEPTION; 
+    return TESTINTERFACESERVICE_WSDL_LOCATION;
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/ebike/gui/testinterface/generated/TgetComboboxItems.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetComboboxItems", propOrder = {"arg0"})
+public class TgetComboboxItems {
+  protected String arg0;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/ebike/gui/testinterface/generated/TgetComboboxItemsResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetComboboxItemsResponse", propOrder = {"result"})
+public class TgetComboboxItemsResponse {
+  @XmlElement(nillable = true)
+  protected List<String> result;
+  
+  public List<String> getResult() {
+    if (this.result == null)
+      this.result = new ArrayList<>(); 
+    return this.result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/ebike/gui/testinterface/generated/TgetComponentPaths.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetComponentPaths")
+public class TgetComponentPaths {}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/ebike/gui/testinterface/generated/TgetComponentPathsResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(Object.FIELD)
+@XmlType(name = "TgetComponentPathsResponse", propOrder = {"result"})
+public class TgetComponentPathsResponse {
+  protected List<String> result;
+  
+  public List<String> getResult() {
+    if (this.result == null)
+      this.result = new ArrayList<>(); 
+    return this.result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/ebike/gui/testinterface/generated/TgetSelectedItemCaption.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetSelectedItemCaption", propOrder = {"arg0"})
+public class TgetSelectedItemCaption {
+  protected String arg0;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/ebike/gui/testinterface/generated/TgetSelectedItemCaptionResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetSelectedItemCaptionResponse", propOrder = {"result"})
+public class TgetSelectedItemCaptionResponse {
+  protected String result;
+  
+  public String getResult() {
+    return this.result;
+  }
+  
+  public void setResult(String value) {
+    this.result = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/ebike/gui/testinterface/generated/TgetSpinnerValue.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetSpinnerValue", propOrder = {"arg0"})
+public class TgetSpinnerValue {
+  protected String arg0;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/ebike/gui/testinterface/generated/TgetSpinnerValueResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetSpinnerValueResponse", propOrder = {"result"})
+public class TgetSpinnerValueResponse {
+  protected Object result;
+  
+  public Object getResult() {
+    return this.result;
+  }
+  
+  public void setResult(Object value) {
+    this.result = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/ebike/gui/testinterface/generated/TgetText.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetText", propOrder = {"arg0"})
+public class TgetText {
+  protected String arg0;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/ebike/gui/testinterface/generated/TgetTextResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetTextResponse", propOrder = {"result"})
+public class TgetTextResponse {
+  protected String result;
+  
+  public String getResult() {
+    return this.result;
+  }
+  
+  public void setResult(String value) {
+    this.result = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 18: com/gigatronik/ebike/gui/testinterface/generated/TgetTreeNodes.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetTreeNodes", propOrder = {"arg0"})
+public class TgetTreeNodes {
+  protected String arg0;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 19: com/gigatronik/ebike/gui/testinterface/generated/TgetTreeNodesResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetTreeNodesResponse", propOrder = {"result"})
+public class TgetTreeNodesResponse {
+  @XmlElement(nillable = true)
+  protected List<String> result;
+  
+  public List<String> getResult() {
+    if (this.result == null)
+      this.result = new ArrayList<>(); 
+    return this.result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 20: com/gigatronik/ebike/gui/testinterface/generated/TgetValue.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetValue", propOrder = {"arg0"})
+public class TgetValue {
+  protected String arg0;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 21: com/gigatronik/ebike/gui/testinterface/generated/TgetValueAt.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetValueAt", propOrder = {"arg0", "arg1", "arg2"})
+public class TgetValueAt {
+  protected String arg0;
+  
+  protected int arg1;
+  
+  protected int arg2;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+  
+  public int getArg1() {
+    return this.arg1;
+  }
+  
+  public void setArg1(int value) {
+    this.arg1 = value;
+  }
+  
+  public int getArg2() {
+    return this.arg2;
+  }
+  
+  public void setArg2(int value) {
+    this.arg2 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 22: com/gigatronik/ebike/gui/testinterface/generated/TgetValueAtResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetValueAtResponse", propOrder = {"result"})
+public class TgetValueAtResponse {
+  protected String result;
+  
+  public String getResult() {
+    return this.result;
+  }
+  
+  public void setResult(String value) {
+    this.result = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 23: com/gigatronik/ebike/gui/testinterface/generated/TgetValueResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TgetValueResponse", propOrder = {"result"})
+public class TgetValueResponse {
+  protected int result;
+  
+  public int getResult() {
+    return this.result;
+  }
+  
+  public void setResult(int value) {
+    this.result = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 24: com/gigatronik/ebike/gui/testinterface/generated/ThighlightComponent.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "ThighlightComponent", propOrder = {"arg0"})
+public class ThighlightComponent {
+  protected String arg0;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 25: com/gigatronik/ebike/gui/testinterface/generated/ThighlightComponentResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "ThighlightComponentResponse")
+public class ThighlightComponentResponse {}
+
+
+========================================================================================================================
+ITEM 26: com/gigatronik/ebike/gui/testinterface/generated/TisEnabled.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TisEnabled", propOrder = {"arg0"})
+public class TisEnabled {
+  protected String arg0;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 27: com/gigatronik/ebike/gui/testinterface/generated/TisEnabledResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TisEnabledResponse", propOrder = {"result"})
+public class TisEnabledResponse {
+  protected boolean result;
+  
+  public boolean isResult() {
+    return this.result;
+  }
+  
+  public void setResult(boolean value) {
+    this.result = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 28: com/gigatronik/ebike/gui/testinterface/generated/TisSelected.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(Object.FIELD)
+@XmlType(name = "TisSelected", propOrder = {"arg0"})
+public class TisSelected {
+  protected String arg0;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 29: com/gigatronik/ebike/gui/testinterface/generated/TisSelectedResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(Object.FIELD)
+@XmlType(name = "TisSelectedResponse", propOrder = {"result"})
+public class TisSelectedResponse {
+  protected boolean result;
+  
+  public boolean isResult() {
+    return this.result;
+  }
+  
+  public void setResult(boolean value) {
+    this.result = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 30: com/gigatronik/ebike/gui/testinterface/generated/TisValueValid.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TisValueValid", propOrder = {"arg0"})
+public class TisValueValid {
+  protected String arg0;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 31: com/gigatronik/ebike/gui/testinterface/generated/TisValueValidResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TisValueValidResponse", propOrder = {"result"})
+public class TisValueValidResponse {
+  protected boolean result;
+  
+  public boolean isResult() {
+    return this.result;
+  }
+  
+  public void setResult(boolean value) {
+    this.result = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 32: com/gigatronik/ebike/gui/testinterface/generated/TisVisible.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TisVisible", propOrder = {"arg0"})
+public class TisVisible {
+  protected String arg0;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 33: com/gigatronik/ebike/gui/testinterface/generated/TisVisibleResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TisVisibleResponse", propOrder = {"result"})
+public class TisVisibleResponse {
+  protected boolean result;
+  
+  public boolean isResult() {
+    return this.result;
+  }
+  
+  public void setResult(boolean value) {
+    this.result = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 34: com/gigatronik/ebike/gui/testinterface/generated/TkeyPress.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TkeyPress", propOrder = {"compPath", "keyEvent"})
+public class TkeyPress {
+  protected String compPath;
+  
+  protected String keyEvent;
+  
+  public String getCompPath() {
+    return this.compPath;
+  }
+  
+  public void setCompPath(String value) {
+    this.compPath = value;
+  }
+  
+  public String getKeyEvent() {
+    return this.keyEvent;
+  }
+  
+  public void setKeyEvent(String value) {
+    this.keyEvent = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 35: com/gigatronik/ebike/gui/testinterface/generated/TkeyPressResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TkeyPressResponse")
+public class TkeyPressResponse {}
+
+
+========================================================================================================================
+ITEM 36: com/gigatronik/ebike/gui/testinterface/generated/TsetEnabled.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetEnabled", propOrder = {"arg0", "arg1"})
+public class TsetEnabled {
+  protected String arg0;
+  
+  protected boolean arg1;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+  
+  public boolean isArg1() {
+    return this.arg1;
+  }
+  
+  public void setArg1(boolean value) {
+    this.arg1 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 37: com/gigatronik/ebike/gui/testinterface/generated/TsetEnabledResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetEnabledResponse")
+public class TsetEnabledResponse {}
+
+
+========================================================================================================================
+ITEM 38: com/gigatronik/ebike/gui/testinterface/generated/TsetSelected.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetSelected", propOrder = {"arg0", "arg1"})
+public class TsetSelected {
+  protected String arg0;
+  
+  protected boolean arg1;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+  
+  public boolean isArg1() {
+    return this.arg1;
+  }
+  
+  public void setArg1(boolean value) {
+    this.arg1 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 39: com/gigatronik/ebike/gui/testinterface/generated/TsetSelectedItem.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetSelectedItem", propOrder = {"arg0", "arg1"})
+public class TsetSelectedItem {
+  protected String arg0;
+  
+  protected String arg1;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+  
+  public String getArg1() {
+    return this.arg1;
+  }
+  
+  public void setArg1(String value) {
+    this.arg1 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 40: com/gigatronik/ebike/gui/testinterface/generated/TsetSelectedItemResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetSelectedItemResponse")
+public class TsetSelectedItemResponse {}
+
+
+========================================================================================================================
+ITEM 41: com/gigatronik/ebike/gui/testinterface/generated/TsetSelectedResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetSelectedResponse")
+public class TsetSelectedResponse {}
+
+
+========================================================================================================================
+ITEM 42: com/gigatronik/ebike/gui/testinterface/generated/TsetSpinnerValue.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetSpinnerValue", propOrder = {"arg0", "arg1"})
+public class TsetSpinnerValue {
+  protected String arg0;
+  
+  protected Object arg1;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+  
+  public Object getArg1() {
+    return this.arg1;
+  }
+  
+  public void setArg1(Object value) {
+    this.arg1 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 43: com/gigatronik/ebike/gui/testinterface/generated/TsetSpinnerValueResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetSpinnerValueResponse")
+public class TsetSpinnerValueResponse {}
+
+
+========================================================================================================================
+ITEM 44: com/gigatronik/ebike/gui/testinterface/generated/TsetText.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetText", propOrder = {"arg0", "arg1"})
+public class TsetText {
+  protected String arg0;
+  
+  protected String arg1;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+  
+  public String getArg1() {
+    return this.arg1;
+  }
+  
+  public void setArg1(String value) {
+    this.arg1 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 45: com/gigatronik/ebike/gui/testinterface/generated/TsetTextResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetTextResponse")
+public class TsetTextResponse {}
+
+
+========================================================================================================================
+ITEM 46: com/gigatronik/ebike/gui/testinterface/generated/TsetValue.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetValue", propOrder = {"arg0", "arg1"})
+public class TsetValue {
+  protected String arg0;
+  
+  protected int arg1;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+  
+  public int getArg1() {
+    return this.arg1;
+  }
+  
+  public void setArg1(int value) {
+    this.arg1 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 47: com/gigatronik/ebike/gui/testinterface/generated/TsetValueResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetValueResponse")
+public class TsetValueResponse {}
+
+
+========================================================================================================================
+ITEM 48: com/gigatronik/ebike/gui/testinterface/generated/TsetVisible.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetVisible", propOrder = {"arg0", "arg1"})
+public class TsetVisible {
+  protected String arg0;
+  
+  protected boolean arg1;
+  
+  public String getArg0() {
+    return this.arg0;
+  }
+  
+  public void setArg0(String value) {
+    this.arg0 = value;
+  }
+  
+  public boolean isArg1() {
+    return this.arg1;
+  }
+  
+  public void setArg1(boolean value) {
+    this.arg1 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 49: com/gigatronik/ebike/gui/testinterface/generated/TsetVisibleResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "TsetVisibleResponse")
+public class TsetVisibleResponse {}
+
+
+========================================================================================================================
+ITEM 50: com/gigatronik/ebike/gui/testinterface/interfaces/ValidatableWsdl.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface.interfaces;
+
+public interface ValidatableWsdl {
+  boolean isValidWsdl();
+}
+
+
+========================================================================================================================
+ITEM 51: com/gigatronik/ebike/gui/testinterface/TestableJComboBox.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface;
+
+import com.gigatronik.ebike.gui.testinterface.interfaces.ValidatableWsdl;
+import java.awt.Dimension;
+import javax.swing.JComboBox;
+
+public class TestableJComboBox<E> extends JComboBox implements ValidatableWsdl {
+  private boolean valid = false;
+  
+  public TestableJComboBox() {
+    TestManager.getInstance().register(this);
+    setPreferredSize(new Dimension(0, 25));
+  }
+  
+  public boolean isValidWsdl() {
+    return this.valid;
+  }
+  
+  public void setValidWsdl(boolean valid) {
+    this.valid = valid;
+  }
+}
+
+
+========================================================================================================================
+ITEM 52: com/gigatronik/ebike/gui/testinterface/TestableJDialog.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface;
+
+import java.awt.Frame;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+
+public class TestableJDialog extends JDialog {
+  private static final long serialVersionUID = 8859523551779196880L;
+  
+  public TestableJDialog() {
+    init();
+    TestManager.getInstance().register(this);
+  }
+  
+  public TestableJDialog(JFrame frame) {
+    super((Frame)frame);
+    init();
+    TestManager.getInstance().register(this);
+  }
+  
+  public TestableJDialog(JFrame frame, boolean b) {
+    super(frame, b);
+    init();
+    TestManager.getInstance().register(this);
+  }
+  
+  private void init() {
+    getRootPane().setName("pnlRoot");
+  }
+}
+
+
+========================================================================================================================
+ITEM 53: com/gigatronik/ebike/gui/testinterface/TestableJFrame.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface;
+
+import javax.swing.JFrame;
+
+public class TestableJFrame extends JFrame {
+  private static final long serialVersionUID = 5742336862867036686L;
+  
+  public TestableJFrame() {
+    TestManager.getInstance().register(this);
+  }
+}
+
+
+========================================================================================================================
+ITEM 54: com/gigatronik/ebike/gui/testinterface/TestableJOptionPane.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface;
+
+import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Dialog;
+import java.awt.Dimension;
+import java.awt.Frame;
+import java.awt.HeadlessException;
+import java.awt.Image;
+import java.awt.KeyboardFocusManager;
+import java.awt.Point;
+import java.awt.Window;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyVetoException;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import javax.swing.Icon;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JInternalFrame;
+import javax.swing.JLayeredPane;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+import javax.swing.event.InternalFrameAdapter;
+import javax.swing.event.InternalFrameEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class TestableJOptionPane extends JOptionPane {
+  private static final long serialVersionUID = -4539323014334006403L;
+  
+  private static final transient Logger LOGGER = LoggerFactory.getLogger(TestableJOptionPane.class);
+  
+  private static final transient String DEFAULT_OPTION_PANE_INPUT_DIALOG_TITLE = "OptionPane.inputDialogTitle";
+  
+  private static final transient String DEFAULT_OPTION_PANE_MESSAGE_DIALOG_TITLE = "OptionPane.messageDialogTitle";
+  
+  private static final transient String DEFAULT_OPTION_PANE_TITLE_TEXT = "OptionPane.titleText";
+  
+  private static final transient String DEFAULT_LOGGER_ERROR_MESSAGE = "Error in TestableJOptionPane ";
+  
+  private static JFrame defaultParentFrame;
+  
+  public TestableJOptionPane() {}
+  
+  public TestableJOptionPane(Object message) {
+    super(message);
+  }
+  
+  public TestableJOptionPane(Object message, int messageType) {
+    super(message, messageType);
+  }
+  
+  public TestableJOptionPane(Object message, int messageType, int optionType) {
+    super(message, messageType, optionType);
+  }
+  
+  public TestableJOptionPane(Object message, int messageType, int optionType, Icon icon) {
+    super(message, messageType, optionType, icon);
+  }
+  
+  public TestableJOptionPane(Object message, int messageType, int optionType, Icon icon, Object[] options) {
+    super(message, messageType, optionType, icon, options);
+  }
+  
+  public TestableJOptionPane(Object message, int messageType, int optionType, Icon icon, Object[] options, Object initialValue) {
+    super(message, messageType, optionType, icon, options, initialValue);
+  }
+  
+  public static void setDefaultParentFrame(JFrame parent) {
+    defaultParentFrame = parent;
+  }
+  
+  public static JFrame getDefaultParentFrame() {
+    return defaultParentFrame;
+  }
+  
+  static Window getWindowForComponent(Component parentComponent) throws HeadlessException {
+    if (parentComponent == null)
+      return getRootFrame(); 
+    if (parentComponent instanceof Frame || parentComponent instanceof Dialog)
+      return (Window)parentComponent; 
+    return getWindowForComponent(parentComponent.getParent());
+  }
+  
+  static String getString(Object key, Component c) {
+    Locale l = (c == null) ? Locale.getDefault() : c.getLocale();
+    return UIManager.getString(key, l);
+  }
+  
+  public static String showInputDialog(Component parentComponent, Object message) throws HeadlessException {
+    return showInputDialog(parentComponent, message, getString("OptionPane.inputDialogTitle", parentComponent), 3);
+  }
+  
+  public static String showInputDialog(Object message) throws HeadlessException {
+    return showInputDialog((Component)defaultParentFrame, message);
+  }
+  
+  public static String showInputDialog(Component parentComponent, Object message, Object initialSelectionValue) {
+    return (String)showInputDialog(parentComponent, message, getString("OptionPane.inputDialogTitle", parentComponent), 3, null, null, initialSelectionValue);
+  }
+  
+  public static String showInputDialog(Object message, Object initialSelectionValue) {
+    return showInputDialog(defaultParentFrame, message, initialSelectionValue);
+  }
+  
+  public static String showInputDialog(Component parentComponent, Object message, String title, int messageType) throws HeadlessException {
+    return (String)showInputDialog(parentComponent, message, title, messageType, null, null, null);
+  }
+  
+  public static String showInputDialog(Object message, String title, int messageType) throws HeadlessException {
+    return (String)showInputDialog(defaultParentFrame, message, title, messageType, null, null, null);
+  }
+  
+  public static Object showInputDialog(Component parentComponent, Object message, String title, int messageType, Icon icon, Object[] selectionValues, Object initialSelectionValue) throws HeadlessException {
+    TestableJOptionPane pane = new TestableJOptionPane(message, messageType, 2, icon, null, null);
+    pane.setWantsInput(true);
+    pane.setSelectionValues(selectionValues);
+    pane.setInitialSelectionValue(initialSelectionValue);
+    pane.setComponentOrientation(((parentComponent == null) ? 
+        getRootFrame() : parentComponent).getComponentOrientation());
+    int style = styleFromMessageType(messageType);
+    JDialog dialog = pane.createDialogInternal(parentComponent, title, style);
+    TestManager.getInstance().register(dialog);
+    pane.selectInitialValue();
+    dialog.setVisible(true);
+    dialog.dispose();
+    Object value = pane.getInputValue();
+    if (value == UNINITIALIZED_VALUE)
+      return null; 
+    return value;
+  }
+  
+  public static Object showInputDialog(Object message, String title, int messageType, Icon icon, Object[] selectionValues, Object initialSelectionValue) throws HeadlessException {
+    return showInputDialog(defaultParentFrame, message, title, messageType, icon, selectionValues, initialSelectionValue);
+  }
+  
+  public static void showMessageDialog(Component parentComponent, Object message) throws HeadlessException {
+    showMessageDialog(parentComponent, message, getString("OptionPane.messageDialogTitle", parentComponent), 1);
+  }
+  
+  public static void showMessageDialog(Object message) throws HeadlessException {
+    showMessageDialog(defaultParentFrame, message, getString("OptionPane.messageDialogTitle", defaultParentFrame), 1);
+  }
+  
+  public static void showMessageDialog(Component parentComponent, Object message, String title, int messageType) throws HeadlessException {
+    showMessageDialog(parentComponent, message, title, messageType, null);
+  }
+  
+  public static void showMessageDialog(Object message, String title, int messageType) throws HeadlessException {
+    showMessageDialog(defaultParentFrame, message, title, messageType, null);
+  }
+  
+  public static void showMessageDialog(Component parentComponent, Object message, String title, int messageType, Icon icon) throws HeadlessException {
+    showOptionDialog(parentComponent, message, title, -1, messageType, icon, null, null);
+  }
+  
+  public static void showMessageDialog(Object message, String title, int messageType, Icon icon) throws HeadlessException {
+    showOptionDialog(defaultParentFrame, message, title, -1, messageType, icon, null, null);
+  }
+  
+  public static int showConfirmDialog(Component parentComponent, Object message) throws HeadlessException {
+    return showConfirmDialog(parentComponent, message, UIManager.getString("OptionPane.titleText"), 1);
+  }
+  
+  public static int showConfirmDialog(Object message) throws HeadlessException {
+    return showConfirmDialog(defaultParentFrame, message, UIManager.getString("OptionPane.titleText"), 1);
+  }
+  
+  public static int showConfirmDialog(Component parentComponent, Object message, String title, int optionType) throws HeadlessException {
+    return showConfirmDialog(parentComponent, message, title, optionType, 3);
+  }
+  
+  public static int showConfirmDialog(Object message, String title, int optionType) throws HeadlessException {
+    return showConfirmDialog(defaultParentFrame, message, title, optionType, 3);
+  }
+  
+  public static int showConfirmDialog(Component parentComponent, Object message, String title, int optionType, int messageType) throws HeadlessException {
+    return showConfirmDialog(parentComponent, message, title, optionType, messageType, null);
+  }
+  
+  public static int showConfirmDialog(Object message, String title, int optionType, int messageType) throws HeadlessException {
+    return showConfirmDialog(defaultParentFrame, message, title, optionType, messageType, null);
+  }
+  
+  public static int showConfirmDialog(Component parentComponent, Object message, String title, int optionType, int messageType, Icon icon) throws HeadlessException {
+    return showOptionDialog(parentComponent, message, title, optionType, messageType, icon, null, null);
+  }
+  
+  public static int showConfirmDialog(Object message, String title, int optionType, int messageType, Icon icon) throws HeadlessException {
+    return showOptionDialog(defaultParentFrame, message, title, optionType, messageType, icon, null, null);
+  }
+  
+  public static int showOptionDialog(Component parentComponent, Object message, String title, int optionType, int messageType, Icon icon, Object[] options, Object initialValue) throws HeadlessException {
+    if (icon == null)
+      icon = getIconForMessageType(messageType); 
+    TestableJOptionPane pane = new TestableJOptionPane(message, messageType, optionType, icon, options, initialValue);
+    pane.setInitialValue(initialValue);
+    pane.setComponentOrientation(((parentComponent == null) ? getRootFrame() : parentComponent).getComponentOrientation());
+    int style = styleFromMessageType(messageType);
+    JDialog dialog = pane.createDialogInternal(parentComponent, title, style);
+    TestManager.getInstance().register(dialog);
+    pane.selectInitialValue();
+    dialog.setVisible(true);
+    dialog.dispose();
+    return handleReturnValues(pane, options);
+  }
+  
+  private static Icon getIconForMessageType(int messageType) {
+    switch (messageType) {
+      case 0:
+        return getScaledIconFromResource("OptionPane.errorIcon");
+      case 1:
+        return getScaledIconFromResource("OptionPane.informationIcon");
+      case 2:
+        return getScaledIconFromResource("OptionPane.warningIcon");
+      case 3:
+        return getScaledIconFromResource("OptionPane.questionIcon");
+    } 
+    return null;
+  }
+  
+  private static Icon getScaledIconFromResource(String key) {
+    Icon icon = UIManager.getIcon(key);
+    if (icon != null) {
+      ImageIcon image = (ImageIcon)icon;
+      Image scaledImage = image.getImage().getScaledInstance(34, 34, 4);
+      return new ImageIcon(scaledImage);
+    } 
+    return null;
+  }
+  
+  public static int showOptionDialog(Object message, String title, int optionType, int messageType, Icon icon, Object[] options, Object initialValue) throws HeadlessException {
+    return showOptionDialog(defaultParentFrame, message, title, optionType, messageType, icon, options, initialValue);
+  }
+  
+  public JDialog createDialog(Component parentComponent, String title) throws HeadlessException {
+    int style = styleFromMessageType(getMessageType());
+    return createDialogInternal(parentComponent, title, style);
+  }
+  
+  public JDialog createDialog(String title) throws HeadlessException {
+    int style = styleFromMessageType(getMessageType());
+    JDialog dialog = new JDialog((Dialog)null, title, true);
+    initDialogInternal(dialog, style, null);
+    TestManager.getInstance().register(dialog);
+    renameComponents(dialog);
+    return dialog;
+  }
+  
+  private JDialog createDialogInternal(Component parentComponent, String title, int style) throws HeadlessException {
+    JDialog dialog;
+    Window window = getWindowForComponent(parentComponent);
+    if (window instanceof Frame) {
+      dialog = new JDialog((Frame)window, title, true);
+    } else {
+      dialog = new JDialog((Dialog)window, title, true);
+    } 
+    initDialogInternal(dialog, style, parentComponent);
+    TestManager.getInstance().register(dialog);
+    renameComponents(dialog);
+    return dialog;
+  }
+  
+  private void initDialogInternal(final JDialog dialog, int style, Component parentComponent) {
+    dialog.setComponentOrientation(getComponentOrientation());
+    Container contentPane = dialog.getContentPane();
+    contentPane.setLayout(new BorderLayout());
+    contentPane.add(this, "Center");
+    dialog.setResizable(false);
+    if (JDialog.isDefaultLookAndFeelDecorated()) {
+      boolean supportsWindowDecorations = UIManager.getLookAndFeel().getSupportsWindowDecorations();
+      if (supportsWindowDecorations) {
+        dialog.setUndecorated(true);
+        getRootPane().setWindowDecorationStyle(style);
+      } 
+    } 
+    dialog.pack();
+    dialog.setLocationRelativeTo(parentComponent);
+    final PropertyChangeListener listener = event -> {
+        if (dialog.isVisible() && event.getSource() == this && 
+          event.getPropertyName().equals("value") && 
+          event.getNewValue() != null && 
+          event.getNewValue() != JOptionPane.UNINITIALIZED_VALUE)
+          dialog.setVisible(false); 
+      };
+    WindowAdapter adapter = new WindowAdapter() {
+        private boolean gotFocus = false;
+        
+        public void windowClosing(WindowEvent we) {
+          TestableJOptionPane.this.setValue(null);
+        }
+        
+        public void windowClosed(WindowEvent e) {
+          TestableJOptionPane.this.removePropertyChangeListener(listener);
+          dialog.getContentPane().removeAll();
+        }
+        
+        public void windowGainedFocus(WindowEvent we) {
+          if (!this.gotFocus) {
+            TestableJOptionPane.this.selectInitialValue();
+            this.gotFocus = true;
+          } 
+        }
+      };
+    dialog.addWindowListener(adapter);
+    dialog.addWindowFocusListener(adapter);
+    dialog.addComponentListener(new ComponentAdapter() {
+          public void componentShown(ComponentEvent ce) {
+            TestableJOptionPane.this.setValue(JOptionPane.UNINITIALIZED_VALUE);
+          }
+        });
+    addPropertyChangeListener(listener);
+  }
+  
+  public static void showInternalMessageDialog(Component parentComponent, Object message, String title, int messageType) {
+    showInternalMessageDialog(parentComponent, message, title, messageType, null);
+  }
+  
+  public static void showInternalMessageDialog(Component parentComponent, Object message, String title, int messageType, Icon icon) {
+    showInternalOptionDialog(parentComponent, message, title, -1, messageType, icon, null, null);
+  }
+  
+  public static int showInternalConfirmDialog(Component parentComponent, Object message) {
+    return showInternalConfirmDialog(parentComponent, message, UIManager.getString("OptionPane.titleText"), 1);
+  }
+  
+  public static int showInternalConfirmDialog(Component parentComponent, Object message, String title, int optionType) {
+    return showInternalConfirmDialog(parentComponent, message, title, optionType, 3);
+  }
+  
+  public static int showInternalConfirmDialog(Component parentComponent, Object message, String title, int optionType, int messageType) {
+    return showInternalConfirmDialog(parentComponent, message, title, optionType, messageType, null);
+  }
+  
+  public static int showInternalConfirmDialog(Component parentComponent, Object message, String title, int optionType, int messageType, Icon icon) {
+    return showInternalOptionDialog(parentComponent, message, title, optionType, messageType, icon, null, null);
+  }
+  
+  public static int showInternalOptionDialog(Component parentComponent, Object message, String title, int optionType, int messageType, Icon icon, Object[] options, Object initialValue) {
+    TestableJOptionPane pane = new TestableJOptionPane(message, messageType, optionType, icon, options, initialValue);
+    Component fo = KeyboardFocusManager.getCurrentKeyboardFocusManager()
+      .getFocusOwner();
+    pane.setInitialValue(initialValue);
+    handleDialog(pane, parentComponent, title, fo);
+    return handleReturnValues(pane, options);
+  }
+  
+  private static void handleDialog(TestableJOptionPane pane, Component parentComponent, String title, Component fo) {
+    JInternalFrame dialog = pane.createInternalFrame(parentComponent, title);
+    TestManager.getInstance().register(dialog);
+    pane.selectInitialValue();
+    dialog.setVisible(true);
+    if (dialog.isVisible() && !dialog.isShowing()) {
+      Container parent = dialog.getParent();
+      while (parent != null) {
+        if (!parent.isVisible())
+          parent.setVisible(true); 
+        parent = parent.getParent();
+      } 
+    } 
+    try {
+      Method method = AccessController.<Method>doPrivileged(new ModalPrivilegedAction(Container.class, "startLWModal"));
+      if (method != null)
+        method.invoke(dialog, null); 
+    } catch (IllegalAccessException|IllegalArgumentException|java.lang.reflect.InvocationTargetException ex) {
+      LOGGER.error("Error in TestableJOptionPane ", (Throwable)ex);
+    } 
+    if (parentComponent instanceof JInternalFrame)
+      try {
+        ((JInternalFrame)parentComponent).setSelected(true);
+      } catch (PropertyVetoException e) {
+        LOGGER.error("Error in TestableJOptionPane ", (Throwable)e);
+      }  
+    if (fo != null && fo.isShowing())
+      fo.requestFocus(); 
+  }
+  
+  private static int handleReturnValues(TestableJOptionPane pane, Object[] options) {
+    Object selectedValue = pane.getValue();
+    if (selectedValue == null)
+      return -1; 
+    if (options == null) {
+      if (selectedValue instanceof Integer)
+        return (Integer)selectedValue; 
+      return -1;
+    } 
+    for (int counter = 0, maxCounter = options.length; counter < maxCounter; counter++) {
+      if (options[counter].equals(selectedValue))
+        return counter; 
+    } 
+    return -1;
+  }
+  
+  public static String showInternalInputDialog(Component parentComponent, Object message) {
+    return showInternalInputDialog(parentComponent, message, getString("OptionPane.inputDialogTitle", parentComponent), 3);
+  }
+  
+  public static String showInternalInputDialog(Component parentComponent, Object message, String title, int messageType) {
+    return (String)showInternalInputDialog(parentComponent, message, title, messageType, null, null, null);
+  }
+  
+  public static Object showInternalInputDialog(Component parentComponent, Object message, String title, int messageType, Icon icon, Object[] selectionValues, Object initialSelectionValue) {
+    TestableJOptionPane pane = new TestableJOptionPane(message, messageType, 2, icon, null, null);
+    Component fo = KeyboardFocusManager.getCurrentKeyboardFocusManager()
+      .getFocusOwner();
+    pane.setWantsInput(true);
+    pane.setSelectionValues(selectionValues);
+    pane.setInitialSelectionValue(initialSelectionValue);
+    handleDialog(pane, parentComponent, title, fo);
+    Object value = pane.getInputValue();
+    if (value == UNINITIALIZED_VALUE)
+      return null; 
+    return value;
+  }
+  
+  public JInternalFrame createInternalFrame(Component parentComponent, String title) {
+    Container parent = JOptionPane.getDesktopPaneForComponent(parentComponent);
+    if (parent == null && (parentComponent == null || (
+      parent = parentComponent.getParent()) == null))
+      throw new RuntimeException("JOptionPane: parentComponent does not have a valid parent"); 
+    JInternalFrame iFrame = new JInternalFrame(title, false, true, false, false);
+    iFrame.putClientProperty("JInternalFrame.frameType", "optionDialog");
+    iFrame.putClientProperty("JInternalFrame.messageType", Integer.valueOf(getMessageType()));
+    iFrame.addInternalFrameListener(new InternalFrameAdapter() {
+          public void internalFrameClosing(InternalFrameEvent e) {
+            if (TestableJOptionPane.this.getValue() == JOptionPane.UNINITIALIZED_VALUE)
+              TestableJOptionPane.this.setValue(null); 
+          }
+        });
+    addPropertyChangeListener(event -> {
+          if (iFrame.isVisible() && 
+            event.getSource() == this && 
+            event.getPropertyName().equals("value")) {
+            try {
+              Method method = AccessController.<Method>doPrivileged(new ModalPrivilegedAction(Container.class, "stopLWModal"));
+              if (method != null)
+                method.invoke(iFrame, null); 
+            } catch (IllegalAccessException|IllegalArgumentException|java.lang.reflect.InvocationTargetException ex) {
+              LOGGER.error("Error in TestableJOptionPane ", (Throwable)ex);
+            } 
+            try {
+              iFrame.setClosed(true);
+            } catch (PropertyVetoException e) {
+              LOGGER.error("Error in TestableJOptionPane ", (Throwable)e);
+            } 
+            iFrame.setVisible(false);
+          } 
+        });
+    iFrame.getContentPane().add(this, "Center");
+    if (parent instanceof javax.swing.JDesktopPane) {
+      parent.add(iFrame, JLayeredPane.MODAL_LAYER);
+    } else {
+      parent.add(iFrame, "Center");
+    } 
+    Dimension iFrameSize = iFrame.getPreferredSize();
+    Dimension rootSize = parent.getSize();
+    Dimension parentSize = parentComponent.getSize();
+    iFrame.setBounds((rootSize.width - iFrameSize.width) / 2, (rootSize.height - iFrameSize.height) / 2, iFrameSize.width, iFrameSize.height);
+    Point iFrameCoord = SwingUtilities.convertPoint(parentComponent, 0, 0, parent);
+    int x = (parentSize.width - iFrameSize.width) / 2 + iFrameCoord.x;
+    int y = (parentSize.height - iFrameSize.height) / 2 + iFrameCoord.y;
+    int ovrx = x + iFrameSize.width - rootSize.width;
+    int ovry = y + iFrameSize.height - rootSize.height;
+    x = Math.max((ovrx > 0) ? (x - ovrx) : x, 0);
+    y = Math.max((ovry > 0) ? (y - ovry) : y, 0);
+    iFrame.setBounds(x, y, iFrameSize.width, iFrameSize.height);
+    parent.validate();
+    try {
+      iFrame.setSelected(true);
+    } catch (PropertyVetoException e) {
+      LOGGER.error("Error in TestableJOptionPane ", (Throwable)e);
+    } 
+    TestManager.getInstance().register(iFrame);
+    renameComponents(iFrame);
+    return iFrame;
+  }
+  
+  private static int styleFromMessageType(int messageType) {
+    switch (messageType) {
+      case 0:
+        return 4;
+      case 3:
+        return 7;
+      case 2:
+        return 8;
+      case 1:
+        return 3;
+    } 
+    return 2;
+  }
+  
+  private static void renameComponents(Component component) {
+    List<Component> allComponents = searchForComponent(Component.class, component);
+    int i = 0;
+    for (Component element : allComponents) {
+      if (JButton.class.isAssignableFrom(element.getClass())) {
+        element.setName(String.format("btn_%s%d", element.getClass().getSimpleName(), i++));
+        continue;
+      } 
+      element.setName(element.getClass().getSimpleName());
+    } 
+  }
+  
+  private static <T> List<T> searchForComponent(Class<T> clazz, Component component) {
+    List<T> result = new ArrayList<>();
+    if (component instanceof Container) {
+      Container container = (Container)component;
+      for (Component child : container.getComponents()) {
+        List<T> subResult = searchForComponent(clazz, child);
+        result.addAll(subResult);
+      } 
+    } 
+    if (clazz.isAssignableFrom(component.getClass()))
+      result.add((T)component); 
+    return result;
+  }
+  
+  private static class ModalPrivilegedAction implements PrivilegedAction<Method> {
+    private final Class<?> clazz;
+    
+    private final String methodName;
+    
+    public ModalPrivilegedAction(Class<?> clazz, String methodName) {
+      this.clazz = clazz;
+      this.methodName = methodName;
+    }
+    
+    public Method run() {
+      Method method = null;
+      try {
+        method = this.clazz.getDeclaredMethod(this.methodName, null);
+      } catch (NoSuchMethodException ex) {
+        TestableJOptionPane.LOGGER.error("Error in TestableJOptionPane ", (Throwable)ex);
+      } 
+      if (method != null)
+        method.setAccessible(true); 
+      return method;
+    }
+  }
+}
+
+
+========================================================================================================================
+ITEM 55: com/gigatronik/ebike/gui/testinterface/TestableJPanel.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface;
+
+import com.gigatronik.ebike.gui.testinterface.interfaces.ValidatableWsdl;
+import javax.swing.JPanel;
+
+public class TestableJPanel extends JPanel implements ValidatableWsdl {
+  private static final long serialVersionUID = -2550570867380576162L;
+  
+  public TestableJPanel() {
+    TestManager.getInstance().register(this);
+  }
+  
+  public void onClickComponentWsdl() {}
+  
+  public void setValueWsdl(Object value) {}
+  
+  public Object getValueWsdl() {
+    return null;
+  }
+  
+  public boolean isValidWsdl() {
+    return true;
+  }
+}
+
+
+========================================================================================================================
+ITEM 56: com/gigatronik/ebike/gui/testinterface/TestableJTabbedPane.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface;
+
+import javax.swing.JTabbedPane;
+
+public class TestableJTabbedPane extends JTabbedPane {
+  public TestableJTabbedPane() {
+    TestManager.getInstance().register(this);
+  }
+  
+  public TestableJTabbedPane(int tabPlacement, int tabLayoutPolicy) {
+    super(tabPlacement, tabLayoutPolicy);
+    TestManager.getInstance().register(this);
+  }
+  
+  public TestableJTabbedPane(int tabPlacement) {
+    super(tabPlacement);
+    TestManager.getInstance().register(this);
+  }
+}
+
+
+========================================================================================================================
+ITEM 57: com/gigatronik/ebike/gui/testinterface/TestableJTable.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface;
+
+import javax.swing.JTable;
+
+public class TestableJTable extends JTable {
+  public TestableJTable() {
+    TestManager.getInstance().register(this);
+  }
+}
+
+
+========================================================================================================================
+ITEM 58: com/gigatronik/ebike/gui/testinterface/TestableJTextField.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface;
+
+import com.gigatronik.ebike.gui.testinterface.interfaces.ValidatableWsdl;
+import javax.swing.JTextField;
+
+public class TestableJTextField extends JTextField implements ValidatableWsdl {
+  private boolean valid = false;
+  
+  public TestableJTextField(String text) {
+    super(text);
+    TestManager.getInstance().register(this);
+  }
+  
+  public TestableJTextField() {
+    TestManager.getInstance().register(this);
+  }
+  
+  public void setValidWsdl(boolean valid) {
+    this.valid = valid;
+  }
+  
+  public boolean isValidWsdl() {
+    return this.valid;
+  }
+}
+
+
+========================================================================================================================
+ITEM 59: com/gigatronik/ebike/gui/testinterface/TestManager.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface;
+
+import com.gigatronik.ebike.gui.testinterface.generated.TestInterface;
+import com.gigatronik.ebike.gui.testinterface.interfaces.ValidatableWsdl;
+import java.awt.Checkbox;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.EventQueue;
+import java.awt.KeyboardFocusManager;
+import java.awt.event.KeyEvent;
+import java.lang.ref.WeakReference;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Executors;
+import javax.jws.WebService;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.JProgressBar;
+import javax.swing.JRadioButton;
+import javax.swing.JSlider;
+import javax.swing.JSpinner;
+import javax.swing.JTabbedPane;
+import javax.swing.JTable;
+import javax.swing.JToggleButton;
+import javax.swing.JTree;
+import javax.swing.SwingUtilities;
+import javax.swing.text.JTextComponent;
+import javax.swing.tree.DefaultMutableTreeNode;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.commons.lang3.reflect.FieldUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@WebService(endpointInterface = "com.gigatronik.ebike.gui.testinterface.generated.TestInterface")
+public class TestManager implements TestInterface {
+  private static final String ERROR_THREAD_INTERRUPTED = "Error in thread. This thread was interrupted.";
+  
+  private static final String NO_SUCH_PROPERTY = "No such property for given component";
+  
+  private static final String ILLEGAL_ARGUMENT = "illegal argument";
+  
+  private static final String CTRL_ALT = "CTRL+ALT+";
+  
+  private static final String COMPONENT_NOT_FOUND = "Component not found";
+  
+  private static final String ERROR_MODIFY_COMPONENT = "Error modifying component";
+  
+  private static final String FRAME_MAIN = "/frmMain";
+  
+  private final List<WeakReference<Container>> CONTAINERS = new LinkedList<>();
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(TestManager.class);
+  
+  private static TestManager instance = null;
+  
+  public static synchronized TestManager getInstance() {
+    if (instance == null)
+      instance = new TestManager(); 
+    return instance;
+  }
+  
+  protected void register(Container container) {
+    LOGGER.trace("Registering component {}", container);
+    WeakReference<Container> reference = new WeakReference<>(container);
+    synchronized (this.CONTAINERS) {
+      this.CONTAINERS.add(reference);
+    } 
+  }
+  
+  private Component getComponentByPath(String path) {
+    LOGGER.trace("getComponentByPath() arg {}", path);
+    List<Component> components = Collections.emptyList();
+    try {
+      components = getComponentsByPath(path);
+    } catch (StringIndexOutOfBoundsException e) {
+      LOGGER.error("could not find component", (Throwable)e);
+    } 
+    if (components.isEmpty())
+      return null; 
+    return components.get(0);
+  }
+  
+  private List<Component> getComponentsByPath(String path) {
+    ComponentPath searchpath = new ComponentPath(path);
+    Map<String, Component> componentsWithPaths = searchForComponent(searchpath);
+    List<Component> result = new LinkedList<>();
+    result.addAll(componentsWithPaths.values());
+    return result;
+  }
+  
+  private Map<String, Component> searchForComponent(ComponentPath searchpath) {
+    Map<String, Component> result = new HashMap<>();
+    synchronized (this.CONTAINERS) {
+      for (WeakReference<Container> weakReference : this.CONTAINERS) {
+        Container container = weakReference.get();
+        if (container != null)
+          result.putAll(searchForComponent(searchpath, container, new ComponentPath())); 
+      } 
+    } 
+    return result;
+  }
+  
+  private Map<String, Component> searchForComponent(ComponentPath searchpath, Component component, ComponentPath currentPath) {
+    Map<String, Component> result = new HashMap<>();
+    String componentName = StringUtils.isEmpty(component.getName()) ? generateUniqueName(component) : component.getName();
+    currentPath = currentPath.append(componentName);
+    if (searchpath.matches(currentPath))
+      result.put(currentPath.getPath(), component); 
+    if (component instanceof Container) {
+      Container container = (Container)component;
+      for (Component child : container.getComponents())
+        result.putAll(searchForComponent(searchpath, child, currentPath)); 
+    } 
+    return result;
+  }
+  
+  private boolean isSetContainingName(Set<String> keySet, String path) {
+    return keySet.stream().anyMatch(keyApplicationRootPaths -> StringUtils.contains(keyApplicationRootPaths, path));
+  }
+  
+  public List<String> getComponentPaths() {
+    ComponentPath searchpathAll = new ComponentPath("/*");
+    ComponentPath searchpathApplicationRoot = new ComponentPath("/pnlContent/*");
+    Map<String, Component> componentsWithApplicationRootPaths = searchForComponent(searchpathApplicationRoot);
+    Map<String, Component> componentsWithAllPaths = searchForComponent(searchpathAll);
+    for (String path : componentsWithAllPaths.keySet()) {
+      if (!StringUtils.equals(path, "/frmMain") && StringUtils.countMatches(path, "/") == 1 && !isSetContainingName(componentsWithApplicationRootPaths.keySet(), path))
+        componentsWithApplicationRootPaths.putAll(searchForComponent(new ComponentPath(path + "/*"))); 
+    } 
+    List<String> result = new LinkedList<>();
+    result.addAll(componentsWithApplicationRootPaths.keySet());
+    return result;
+  }
+  
+  public void highlightComponent(String path) {
+    LOGGER.trace("highlightComponent() with arg {}", path);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    try {
+      SwingUtilities.invokeAndWait(() -> comp.setBackground(Color.RED));
+    } catch (InvocationTargetException ex) {
+      throw new IllegalArgumentException("Error modifying component", ex);
+    } catch (InterruptedException in) {
+      Thread.currentThread().interrupt();
+      LOGGER.error("Error in thread. This thread was interrupted.");
+    } 
+  }
+  
+  public boolean isValueValid(String path) {
+    LOGGER.trace("isValueValid() with arg {}", path);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof ValidatableWsdl) {
+      ValidatableWsdl validatableComp = (ValidatableWsdl)comp;
+      boolean res = validatableComp.isValidWsdl();
+      LOGGER.trace("isValueValid() returns {} ", Boolean.valueOf(res));
+      return res;
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  public boolean isEnabled(String path) {
+    LOGGER.trace("isEnabled() with arg {}", path);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    LOGGER.trace("isEnabled() returns {}", Boolean.valueOf(comp.isEnabled()));
+    return comp.isEnabled();
+  }
+  
+  public void setEnabled(String path, boolean value) {
+    LOGGER.trace("setEnabled() with args {} and {}", path, Boolean.valueOf(value));
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    try {
+      SwingUtilities.invokeAndWait(() -> comp.setEnabled(value));
+    } catch (InvocationTargetException ex) {
+      throw new IllegalArgumentException("Component not found");
+    } catch (InterruptedException in) {
+      Thread.currentThread().interrupt();
+      LOGGER.error("Error in thread. This thread was interrupted.");
+    } 
+  }
+  
+  public boolean isVisible(String path) {
+    LOGGER.trace("isVisible() with args {} ", path);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    LOGGER.trace("isVisible() is {} ", Boolean.valueOf(comp.isVisible()));
+    return comp.isVisible();
+  }
+  
+  public void setVisible(String path, boolean value) {
+    LOGGER.trace("setVisible() with args {} and {}", path, Boolean.valueOf(value));
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    try {
+      SwingUtilities.invokeAndWait(() -> comp.setVisible(value));
+    } catch (InvocationTargetException ex) {
+      throw new IllegalArgumentException("Error modifying component", ex);
+    } catch (InterruptedException in) {
+      Thread.currentThread().interrupt();
+      LOGGER.error("Error in thread. This thread was interrupted.");
+    } 
+  }
+  
+  public boolean isSelected(String path) {
+    LOGGER.trace("isSelected() with args {} ", path);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof JToggleButton) {
+      JToggleButton toggleButton = (JToggleButton)comp;
+      LOGGER.trace("isSelected() returns {} ", Boolean.valueOf(toggleButton.isSelected()));
+      return toggleButton.isSelected();
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  public void setSelected(String path, boolean value) {
+    LOGGER.trace("setSelected() with args {} and {}", path, Boolean.valueOf(value));
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof JToggleButton) {
+      JToggleButton toggleButton = (JToggleButton)comp;
+      if (toggleButton.isSelected() != value)
+        try {
+          SwingUtilities.invokeAndWait(() -> toggleButton.doClick());
+        } catch (InvocationTargetException ex) {
+          throw new IllegalArgumentException("Error modifying component", ex);
+        } catch (InterruptedException in) {
+          Thread.currentThread().interrupt();
+          LOGGER.error("Error in thread. This thread was interrupted.");
+        }  
+      return;
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  public String getText(String path) {
+    LOGGER.trace("getText() with args {}", path);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof JTextComponent) {
+      JTextComponent textComponent = (JTextComponent)comp;
+      LOGGER.trace("JTextComponent getText() returns {}", textComponent.getText());
+      return textComponent.getText();
+    } 
+    if (comp instanceof JLabel) {
+      JLabel label = (JLabel)comp;
+      LOGGER.trace("JLabel getText() returns {}", label.getText());
+      return label.getText();
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  public void setText(String path, String text) {
+    LOGGER.trace("setText() with args {}, {}", path, text);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof JTextComponent) {
+      JTextComponent textComponent = (JTextComponent)comp;
+      try {
+        SwingUtilities.invokeAndWait(() -> textComponent.setText(text));
+      } catch (InvocationTargetException ex) {
+        throw new IllegalArgumentException("Error modifying component", ex);
+      } catch (InterruptedException in) {
+        Thread.currentThread().interrupt();
+        LOGGER.error("Error in thread. This thread was interrupted.");
+      } 
+      return;
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  public int getValue(String path) {
+    LOGGER.trace("getValue() with args {}", path);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof JProgressBar) {
+      JProgressBar progressBar = (JProgressBar)comp;
+      LOGGER.trace("getValue() JProgressBar returns {}", Integer.valueOf(progressBar.getValue()));
+      return progressBar.getValue();
+    } 
+    if (comp instanceof JSlider) {
+      JSlider slider = (JSlider)comp;
+      LOGGER.trace("getValue() JSlider returns {}", Integer.valueOf(slider.getValue()));
+      return slider.getValue();
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  public void setValue(String path, int value) {
+    LOGGER.trace("setValue() with args {}, {}", path, Integer.valueOf(value));
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof JSlider) {
+      JSlider slider = (JSlider)comp;
+      LOGGER.trace("setValue() JSlider Max: {}", Integer.valueOf(slider.getMaximum()));
+      LOGGER.trace("setValue() JSlider Min: {}", Integer.valueOf(slider.getMinimum()));
+      if (value < slider.getMinimum() || value > slider.getMaximum())
+        throw new IllegalArgumentException("illegal argument"); 
+      try {
+        SwingUtilities.invokeAndWait(() -> slider.setValue(value));
+      } catch (InvocationTargetException ex) {
+        throw new IllegalArgumentException("Error modifying component", ex);
+      } catch (InterruptedException in) {
+        Thread.currentThread().interrupt();
+        LOGGER.error("Error in thread. This thread was interrupted.");
+      } 
+      return;
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  public Object getSpinnerValue(String path) {
+    LOGGER.trace("getSpinnerValue() with args {}", path);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof JSpinner) {
+      JSpinner spinner = (JSpinner)comp;
+      LOGGER.trace("getSpinnerValue() JSpinner returns {}", spinner.getValue());
+      return spinner.getValue();
+    } 
+    if (comp instanceof TestableJPanel) {
+      Object result = ((TestableJPanel)comp).getValueWsdl();
+      LOGGER.trace("getSpinnerValue() Customspinner returns {}", result);
+      return (result == null) ? "" : result;
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  public void setSpinnerValue(String path, Object value) {
+    LOGGER.trace("setSpinnerValue() with args: {}, {}", path, value);
+    if (!NumberUtils.isParsable(value.toString()))
+      throw new IllegalArgumentException("illegal argument"); 
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof JSpinner) {
+      JSpinner spinner = (JSpinner)comp;
+      LOGGER.trace("setSpinnerValue() JSpinner set to {}", value);
+      try {
+        SwingUtilities.invokeAndWait(() -> spinner.setValue(value));
+      } catch (InvocationTargetException ex) {
+        throw new IllegalArgumentException("Error modifying component", ex);
+      } catch (InterruptedException in) {
+        Thread.currentThread().interrupt();
+        LOGGER.error("Error in thread. This thread was interrupted.");
+      } 
+      return;
+    } 
+    if (comp instanceof TestableJPanel) {
+      TestableJPanel spinner = (TestableJPanel)comp;
+      try {
+        SwingUtilities.invokeAndWait(() -> spinner.setValueWsdl(value));
+      } catch (InvocationTargetException ex) {
+        throw new IllegalArgumentException("Error modifying component", ex);
+      } catch (InterruptedException in) {
+        Thread.currentThread().interrupt();
+        LOGGER.error("Error in thread. This thread was interrupted.");
+      } 
+      return;
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  public String getSelectedItemCaption(String path) {
+    LOGGER.trace("getSelectedItemCaption() with args: {}", path);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof JComboBox) {
+      JComboBox<?> comboBox = (JComboBox)comp;
+      LOGGER.trace("getSelectedItemCaption() JComboBox returns {}: ", comboBox.getSelectedItem().toString());
+      return comboBox.getSelectedItem().toString();
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  public void setSelectedItem(String path, String caption) {
+    LOGGER.trace("setSelectedItem() with args: {}, {}", path, caption);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof JComboBox) {
+      JComboBox<?> comboBox = (JComboBox)comp;
+      for (int i = 0; i < comboBox.getItemCount(); i++) {
+        if (StringUtils.equals(caption, comboBox.getItemAt(i).toString())) {
+          LOGGER.trace("setSelectedItem()JComboBox setting index to: {}, item: {}", Integer.valueOf(i), comboBox.getItemAt(i));
+          comboBox.setSelectedIndex(i);
+          return;
+        } 
+      } 
+      throw new IllegalArgumentException("No matching caption found in combobox");
+    } 
+    if (comp instanceof JTabbedPane) {
+      JTabbedPane tabbedPane = (JTabbedPane)comp;
+      if (tabbedPane.indexOfTab(caption) >= 0) {
+        LOGGER.trace("setSelectedItem()JTabbedPane setting to: {}", Integer.valueOf(tabbedPane.indexOfTab(caption)));
+        int index = tabbedPane.indexOfTab(caption);
+        boolean isEnabled = tabbedPane.isEnabledAt(index);
+        LOGGER.trace("Is panel '{}' enabled? -> {}", caption, Boolean.valueOf(isEnabled));
+        if (isEnabled)
+          tabbedPane.setSelectedIndex(index); 
+      } 
+      return;
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  public String getValueAt(String path, int row, int column) {
+    LOGGER.trace("getValueAt() with args: {}, {}, {}", path, row, column);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof JTable) {
+      JTable table = (JTable)comp;
+      int indexChartTable = findChartTableIndex(table);
+      LOGGER.trace("getValueAt() JTable, indexChartTable: {}", Integer.valueOf(indexChartTable));
+      if (indexChartTable == -1 || row < indexChartTable) {
+        LOGGER.trace("getValueAt() JTable table entry is : {}", table.getValueAt(row, column));
+        return (table.getValueAt(row, column) == null) ? "" : table.getValueAt(row, column).toString().trim();
+      } 
+      LOGGER.trace("getValueAt() JTable, row is >= indexChartTable, while a chartTable exists!");
+      JTable tblWithChart = (JTable)((TestableJPanel)table.getValueAt(indexChartTable, column)).getValueWsdl();
+      if (row < indexChartTable + tblWithChart.getModel().getRowCount()) {
+        int i = row - indexChartTable;
+        LOGGER.trace("getValueAt() JTable, return {}", tblWithChart.getValueAt(i, 0));
+        return (tblWithChart.getValueAt(i, 0) == null) ? "" : tblWithChart.getValueAt(i, 0).toString().trim();
+      } 
+      int currentRow = row - tblWithChart.getModel().getRowCount() + 1;
+      LOGGER.trace("getValueAt() JTable, return {}", table.getValueAt(currentRow, column));
+      return (table.getValueAt(currentRow, column) == null) ? "" : table.getValueAt(currentRow, column).toString().trim();
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  private int findChartTableIndex(JTable table) {
+    for (int row = 0; row < table.getModel().getRowCount(); row++) {
+      if (table.getValueAt(row, 0) instanceof TestableJPanel)
+        return row; 
+    } 
+    return -1;
+  }
+  
+  public List<String> getTreeNodes(String path) {
+    LOGGER.trace("getTreeNodes() with args: {}", path);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof JTree) {
+      JTree tree = (JTree)comp;
+      DefaultMutableTreeNode root = (DefaultMutableTreeNode)tree.getModel().getRoot();
+      String rootPath = root.toString();
+      if (root.getUserObject() instanceof Checkbox) {
+        Checkbox rootChb = (Checkbox)root.getUserObject();
+        rootPath = rootChb.getLabel();
+      } 
+      Enumeration<?> e = root.preorderEnumeration();
+      List<String> nodesList = new ArrayList<>();
+      while (e.hasMoreElements()) {
+        DefaultMutableTreeNode node = (DefaultMutableTreeNode)e.nextElement();
+        nodesList.add(getNodePath(node, rootPath));
+      } 
+      return nodesList;
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  public List<String> getComboboxItems(String compPath) {
+    LOGGER.trace("getComboboxItems() with args: {}", compPath);
+    Component comp = getComponentByPath(compPath);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (comp instanceof JComboBox) {
+      ArrayList<String> resultList = new ArrayList<>();
+      JComboBox cmbBox = (JComboBox)comp;
+      for (int i = 0; i < cmbBox.getItemCount(); i++) {
+        resultList.add(cmbBox.getItemAt(i).toString());
+        LOGGER.trace("getComboboxItems() JComboBox returning: {}", cmbBox.getItemAt(i));
+      } 
+      return resultList;
+    } 
+    throw new IllegalArgumentException("No such property for given component");
+  }
+  
+  private String getNodePath(DefaultMutableTreeNode node, String rootPath) {
+    String path = rootPath;
+    if (node.getParent() != null) {
+      path = getNodePath((DefaultMutableTreeNode)node.getParent(), rootPath) + "/" + getNodePath((DefaultMutableTreeNode)node.getParent(), rootPath);
+      if (node.getUserObject() instanceof Checkbox) {
+        Checkbox nodeChb = (Checkbox)node.getUserObject();
+        path = getNodePath((DefaultMutableTreeNode)node.getParent(), rootPath) + "/" + getNodePath((DefaultMutableTreeNode)node.getParent(), rootPath);
+      } 
+    } 
+    return path;
+  }
+  
+  private String generateUniqueName(Component component) {
+    return String.format("DYNNAME@%s@%d", component.getClass().getName(), component.toString().hashCode());
+  }
+  
+  public void clickComponent(String path) {
+    LOGGER.trace("clickComponent() with args: {}", path);
+    Component comp = getComponentByPath(path);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    try {
+      if (comp instanceof JButton) {
+        LOGGER.trace("clickComponent() do click on JButton");
+        EventQueue.invokeAndWait(() -> ((JButton)comp).doClick());
+      } else if (comp instanceof JCheckBox) {
+        LOGGER.trace("clickComponent() do click on JCheckBox");
+        EventQueue.invokeAndWait(() -> ((JCheckBox)comp).doClick());
+      } else if (comp instanceof JRadioButton) {
+        LOGGER.trace("clickComponent() do click on JRadioButton");
+        EventQueue.invokeAndWait(() -> ((JRadioButton)comp).doClick());
+      } else if (comp instanceof JComboBox) {
+        LOGGER.trace("clickComponent() showPopup on JComboBox");
+        EventQueue.invokeAndWait(() -> ((JComboBox)comp).showPopup());
+      } else if (comp instanceof TestableJPanel) {
+        LOGGER.trace("clickComponent() onClickComponentWsdl on TestableJPanel {}", (TestableJPanel)comp);
+        EventQueue.invokeAndWait(() -> ((TestableJPanel)comp).onClickComponentWsdl());
+      } 
+    } catch (InvocationTargetException ex) {
+      throw new IllegalArgumentException("Error modifying component", ex);
+    } catch (InterruptedException in) {
+      Thread.currentThread().interrupt();
+      LOGGER.error("Error in thread. This thread was interrupted.");
+    } 
+  }
+  
+  public void keyPress(String compPath, String keyValue) {
+    LOGGER.trace("keyPress() with args: {}, {}", compPath, keyValue);
+    Component comp = getComponentByPath(compPath);
+    if (comp == null)
+      throw new IllegalArgumentException("Component not found"); 
+    if (StringUtils.contains(keyValue, "CTRL+ALT+") || containsStrokeF(keyValue)) {
+      triggerKeyStroke(comp, keyValue);
+    } else {
+      dispatchEvent(comp, keyValue);
+    } 
+  }
+  
+  private boolean containsStrokeF(String keyValue) {
+    return (keyValue.endsWith("F1") || keyValue.endsWith("F2") || keyValue.endsWith("F3"));
+  }
+  
+  private void dispatchEvent(Component comp, String keyValue) {
+    List<KeyEvent> listEventsToBeDispatched = buildEvents(comp, keyValue);
+    KeyboardFocusManager currentKeyboardFocusManager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+    listEventsToBeDispatched.forEach(keyEvent -> dispatchEvents(currentKeyboardFocusManager, keyEvent));
+  }
+  
+  private void dispatchEvents(KeyboardFocusManager currentKeyboardFocusManager, KeyEvent keyEvent) {
+    try {
+      EventQueue.invokeAndWait(() -> currentKeyboardFocusManager.dispatchKeyEvent(keyEvent));
+    } catch (InvocationTargetException ex) {
+      throw new IllegalArgumentException("Error modifying component", ex);
+    } catch (InterruptedException in) {
+      Thread.currentThread().interrupt();
+      LOGGER.error("Error in thread. This thread was interrupted.");
+    } 
+  }
+  
+  private void triggerKeyStroke(Component comp, String keyValue) {
+    Executors.newSingleThreadExecutor().submit(() -> {
+          String keyChar = keyValue;
+          int modifiers = 0;
+          if (StringUtils.contains(keyValue, "CTRL+ALT+")) {
+            keyChar = keyValue.replace("CTRL+ALT+", "").toUpperCase();
+            modifiers = 640;
+          } 
+          int keyCode = getKeyCode(keyChar, comp);
+          if (keyCode > 0) {
+            KeyEvent keyComboKeyEvent = new KeyEvent(comp, 401, System.currentTimeMillis(), modifiers, keyCode, Character.MAX_VALUE);
+            try {
+              EventQueue.invokeAndWait(() -> comp.dispatchEvent(keyComboKeyEvent));
+            } catch (InvocationTargetException ex) {
+              throw new IllegalArgumentException("Error modifying component", ex);
+            } catch (InterruptedException in) {
+              Thread.currentThread().interrupt();
+              LOGGER.error("Error in thread. This thread was interrupted.");
+            } 
+          } 
+        });
+  }
+  
+  private List<KeyEvent> buildEvents(Component comp, String keyValue) {
+    List<KeyEvent> resultList = new ArrayList<>();
+    int keyEvent = getKeyCode(keyValue, comp);
+    if (keyEvent >= 0 && StringUtils.isAllUpperCase(StringUtils.replaceAll(keyValue, "_", "")) && StringUtils.length(keyValue) > 1) {
+      resultList.add(new KeyEvent(comp, 401, System.currentTimeMillis(), 0, keyEvent, Character.MAX_VALUE));
+    } else {
+      List<KeyEvent> singleCharList = new ArrayList<>();
+      for (char c : keyValue.toCharArray())
+        singleCharList.add(new KeyEvent(comp, 400, System.currentTimeMillis(), 0, 0, c)); 
+      resultList.addAll(singleCharList);
+    } 
+    return resultList;
+  }
+  
+  public int getKeyCode(String keyValue, Component comp) {
+    int keyCode = -1;
+    try {
+      Object fieldValue = FieldUtils.getDeclaredField(KeyEvent.class, "VK_" + keyValue).get(new KeyEvent(comp, 0, 0L, 0, 0, Character.MAX_VALUE));
+      if (fieldValue != null && fieldValue instanceof Integer)
+        keyCode = (Integer)fieldValue; 
+    } catch (Exception ex) {
+      LOGGER.warn("Keyvalue {} could not be converted to key code.", keyValue, ex);
+    } 
+    return keyCode;
+  }
+}
+
+
+========================================================================================================================
+ITEM 60: com/gigatronik/ebike/gui/testinterface/TestServer.java
+========================================================================================================================
+package com.gigatronik.ebike.gui.testinterface;
+
+import com.gigatronik.beds.settings.SettingsProxy;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import javax.xml.ws.Endpoint;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class TestServer {
+  private static final Logger LOGGER = LoggerFactory.getLogger(TestServer.class);
+  
+  private int port = 60155;
+  
+  public void start() {
+    try {
+      this.port = SettingsProxy.getInstance().getGlobalSettings().getInteger("test_server_port");
+    } catch (ConfigurationNotFoundException e1) {
+      LOGGER.trace("Global setting 'test_server_port' not found, using default port number " + this.port, (Throwable)e1);
+    } 
+    TestManager implementor = TestManager.getInstance();
+    try {
+      Endpoint.publish("http://localhost:" + this.port + "/testinterface", implementor);
+    } catch (RuntimeException e2) {
+      LOGGER.error("Error starting test server: ", (Throwable)e2);
+    } 
+    LOGGER.trace("Test server started on port number {}", Integer.valueOf(this.port));
+  }
+  
+  public static void main(String[] args) {
+    TestServer testServer = new TestServer();
+    testServer.start();
+  }
+}
+

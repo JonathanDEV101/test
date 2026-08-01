@@ -1,0 +1,2205 @@
+JAR: diagnostic.datapool-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\diagnostic.datapool-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/diagnosticdatapool/api/exception/ServiceNotImplementedException.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.api.exception;
+
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.ServiceParameter;
+
+public class ServiceNotImplementedException extends IllegalArgumentException {
+  public ServiceNotImplementedException(ServiceParameter serviceParameter) {
+    super("The Service Parameter " + serviceParameter.getText() + " has not been yet implemented for " + serviceParameter.getEcuType());
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/diagnosticdatapool/api/serviceparameter/AbsServiceParameter.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.api.serviceparameter;
+
+public enum AbsServiceParameter implements ServiceParameter {
+  MANUFACTURE_DATE("Date_of_manufacture"),
+  MANUFACTURE_DATE_CODED("Date_of_manufacture_coded"),
+  PARTNUMBER_KIT("PartNumber_Kit"),
+  PART_NUMBER("PartNumber_HU"),
+  PRODUCT_CODE("ProductCode"),
+  COMPONENT_TYPE("ComponentType"),
+  SERIAL_NUMBER("SerialNumber_HU"),
+  HW_VERSION("HW_Version"),
+  SW_VERSION("SW_Version"),
+  BRAKE_PRESSURE("Brake_Lever_Front"),
+  WHEEL_SPEED_FRONT("Speed_Front_Wheel"),
+  WHEEL_SPEED_REAR("Speed_Rear_Wheel"),
+  WSS_MOUNTING_TEST_FRONT_STATUS("WSS_Test_Front"),
+  WSS_MOUNTING_TEST_BACK_STATUS("WSS_Test_Back"),
+  NUMBER_OF_CONTROLS("NumOf_Controls"),
+  MOUNTING_TEST_RESULT("Mounting_Test_Result"),
+  FLASH_COUNTER("NumOf_SW_Updates"),
+  VARIANT_CODE("Abs_Variant_Id"),
+  VARIANT_CHECKSUM("Abs_Variant_Id_Checksum"),
+  SAFETY_LAMP_DEACTIVATION_EVENT("Safety_Lamp_Deactivation_Event"),
+  EXTENDED_WSS_MOUNTING_TEST_RESULT("Extended_Wss_Mounting_Test_Result"),
+  LIFT_EVENTS("LiftEvents"),
+  SLIP_EVENTS("SlipEvents"),
+  BREAK_EVENTS("BreakEvents");
+  
+  String text;
+  
+  AbsServiceParameter(String text) {
+    this.text = text;
+  }
+  
+  public String getText() {
+    return this.text;
+  }
+  
+  public ServiceParameter.Ecu getEcuType() {
+    return ServiceParameter.Ecu.ABS;
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/diagnosticdatapool/api/serviceparameter/BcsServiceParameter.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.api.serviceparameter;
+
+public enum BcsServiceParameter implements ServiceParameter {
+  MANUFACTURING_DATE("Date_of_manufacture_coded"),
+  PART_NUMBER("Part_number"),
+  PRODUCT_CODE("Product_code"),
+  COMPONENT_TYPE("ComponentType"),
+  SERIAL_NUMBER("Serial_number"),
+  HW_VERSION("HW_Version"),
+  SW_VERSION("SW_Version"),
+  DELIVERED_CHARGE_OVER_LIFETIME("Provided_Ah_over_life_time");
+  
+  String text;
+  
+  BcsServiceParameter(String text) {
+    this.text = text;
+  }
+  
+  public String getText() {
+    return this.text;
+  }
+  
+  public ServiceParameter.Ecu getEcuType() {
+    return ServiceParameter.Ecu.BCS;
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/diagnosticdatapool/api/serviceparameter/BctServiceParameter.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.api.serviceparameter;
+
+public enum BctServiceParameter implements ServiceParameter {
+  PART_NUMBER("PartNumber"),
+  PRODUCT_CODE("ProductCode"),
+  COMPONENT_TYPE("ComponentType"),
+  SERIAL_NUMBER("SerialNumber"),
+  HW_VERSION("HW_Version"),
+  SW_VERSION("SW_Version");
+  
+  String text;
+  
+  BctServiceParameter(String text) {
+    this.text = text;
+  }
+  
+  public String getText() {
+    return this.text;
+  }
+  
+  public ServiceParameter.Ecu getEcuType() {
+    return ServiceParameter.Ecu.BCT;
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/diagnosticdatapool/api/serviceparameter/Bms2ServiceParameter.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.api.serviceparameter;
+
+public enum Bms2ServiceParameter implements ServiceParameter {
+  MANUFACTURING_DATE("Date_of_manufacture"),
+  PART_NUMBER("ASCII_PartNumber"),
+  PRODUCT_CODE("ProductCode"),
+  COMPONENT_TYPE("ComponentType"),
+  SERIAL_NUMBER("Serial_number"),
+  HW_VERSION("HW_Version"),
+  SW_VERSION("SW_Version"),
+  MAX_POSSIBLE_CURRENT_BATTERY("Max_Possible_Current_Battery"),
+  BATTERY_VOLTAGE("Battery_voltage"),
+  LOWEST_BATTERY_CELL_VOLTAGE("Lowest_Battery_Cell_voltage"),
+  BATTERY_TEMPERATURE("Battery_temperature"),
+  BATTERY_CHARGE_STATE("Battery_charge_state"),
+  BATTERY_DEACTIVATION("Battery_deactivation"),
+  BATTERY_CELLDEBALANCE_TIME("Battery_debalance_time"),
+  BATTERY_CELLDEBALANCE_THRESHOLDVOLTAGE("Battery_debalance_threshold"),
+  BATTERY_CELLTYPE("Battery_celltype"),
+  LOAD_CYCLES("Load_cycles"),
+  MAX_TEMP_LIFETIME("Max_temperature_in_life_time"),
+  MIN_PACK_TEMPERATURE("MinPackTemperature"),
+  DURATION_THERMAL_PROTECTION("Duration_in_thermal_protection"),
+  BATTERY_CODE("Battery_code"),
+  PROV_AH_OVER_LIFETIME("Provided_Ah_over_life_time");
+  
+  String text;
+  
+  Bms2ServiceParameter(String text) {
+    this.text = text;
+  }
+  
+  public String getText() {
+    return this.text;
+  }
+  
+  public ServiceParameter.Ecu getEcuType() {
+    return ServiceParameter.Ecu.BMS2;
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/diagnosticdatapool/api/serviceparameter/BmsServiceParameter.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.api.serviceparameter;
+
+public enum BmsServiceParameter implements ServiceParameter {
+  MANUFACTURING_DATE("Date_of_manufacture"),
+  PART_NUMBER("ASCII_PartNumber"),
+  PRODUCT_CODE("ProductCode"),
+  COMPONENT_TYPE("ComponentType"),
+  SERIAL_NUMBER("Serial_number"),
+  HW_VERSION("HW_Version"),
+  SW_VERSION("SW_Version"),
+  MAX_POSSIBLE_CURRENT_BATTERY("Max_Possible_Current_Battery"),
+  BATTERY_VOLTAGE("Battery_voltage"),
+  LOWEST_BATTERY_CELL_VOLTAGE("Lowest_Battery_Cell_voltage"),
+  BATTERY_TEMPERATURE("Battery_temperature"),
+  BATTERY_CHARGE_STATE("Battery_charge_state"),
+  BATTERY_DEACTIVATION("Battery_deactivation"),
+  BATTERY_CELLDEBALANCE_TIME("Battery_debalance_time"),
+  BATTERY_CELLDEBALANCE_THRESHOLDVOLTAGE("Battery_debalance_threshold"),
+  BATTERY_CELLTYPE("Battery_celltype"),
+  LOAD_CYCLES("Load_cycles"),
+  MAX_TEMP_LIFETIME("Max_temperature_in_life_time"),
+  MIN_PACK_TEMPERATURE("MinPackTemperature"),
+  DURATION_THERMAL_PROTECTION("Duration_in_thermal_protection"),
+  BATTERY_CODE("Battery_code"),
+  PROV_AH_OVER_LIFETIME("Provided_Ah_over_life_time");
+  
+  String text;
+  
+  BmsServiceParameter(String text) {
+    this.text = text;
+  }
+  
+  public String getText() {
+    return this.text;
+  }
+  
+  public ServiceParameter.Ecu getEcuType() {
+    return ServiceParameter.Ecu.BMS1;
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/diagnosticdatapool/api/serviceparameter/DuServiceParameter.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.api.serviceparameter;
+
+public enum DuServiceParameter implements ServiceParameter {
+  MANUFACTURING_DATE("Date_of_manufacture"),
+  PART_NUMBER("ASCII_PartNumber"),
+  PRODUCT_CODE("ProductCode"),
+  COMPONENT_TYPE("ComponentType"),
+  SERIAL_NUMBER("Serial_number"),
+  HW_VERSION("HW_Version"),
+  SW_VERSION("SW_Version"),
+  APPLICATION_ID("applicationId"),
+  BIKE_DATE_OF_MANUFACTURE("Bike_date_of_manufacture"),
+  MANUFACTURE_LOCALISATION("Manufacture_localisation"),
+  BIKE_ID("Bike_Number"),
+  BATTERY_LOCK_KEY_NUMBER("BatteryLockKeyNumber"),
+  HIGHEST_WHEEL_RATIO("Highest_wheel_ratio"),
+  LOWEST_WHEEL_RATIO("Lowest_wheel_ratio"),
+  WHEELSIZE_CIRCUMFERENCE("Wheelsize_circumference"),
+  WHEELSIZE_CIRCUMFERENCE_CHECKSUM("Wheelsize_circumference_checksum"),
+  WHEELSIZE_CORRECTION("Wheelsize_correction"),
+  LIGHT_SWITCH_STATUS("Lightmode"),
+  LIGHT_OUTPUT("LightPowerSupplyLevel"),
+  LIGHT_POWER("LightPower"),
+  WALK_ASSIST_STATE("WalkAssistState"),
+  DRIVE_OFF_STATE("DriveOffState"),
+  ABS_VARIANT_ID("Abs_Variant_Id"),
+  ABS_VARIANT_ID_CHECKSUM("Abs_Variant_Id_Checksum"),
+  HMI_LESS_SYSTEM("HMILess_System"),
+  ODOMETER("Odometer"),
+  TOT_ACTIVE_OPERATINGTIME_WITH_ASSIST("Total_active_operating_time_with_assistance"),
+  TOT_PASSIVE_OPERATINGTIME_WITHOUT_ASSIST("Total_passive_operating_time_without_assistance"),
+  MANIPULATION("Manipulation"),
+  MANIPULATIONS_NUMBER("ManipulationsNumber"),
+  HIGH_POWER_PORT("HighPowerPortMode"),
+  DISABLER_FUNCTION_STATUS("Disabler_Function_Status"),
+  DISABLER_STATUS("Disabler_Status"),
+  DISABLER_RECOVERY_IDENTIFIER("Disabler_Recovery_Identifier"),
+  MODEL_NAME("Model_Name"),
+  MODEL_YEAR("Model_Year"),
+  EMTB_MODE_CONFIGURED("EmtbModeConfigured"),
+  ASSISTANCE_MODE_DISTANCE_TURBO("ASSIST_MODE_DISTANCE_TURBO"),
+  ASSISTANCE_MODE_DISTANCE_SPORT("ASSIST_MODE_DISTANCE_SPORT"),
+  ASSISTANCE_MODE_DISTANCE_TOUR("ASSIST_MODE_DISTANCE_TOUR"),
+  ASSISTANCE_MODE_DISTANCE_ECO("ASSIST_MODE_DISTANCE_ECO"),
+  ASSISTANCE_MODE_DISTANCE_OFF("ASSIST_MODE_DISTANCE_OFF"),
+  ASSISTANCE_MODE_DISTANCE_USER1("ASSIST_MODE_DISTANCE_USER1"),
+  ASSISTANCE_MODE_DISTANCE_USER2("ASSIST_MODE_DISTANCE_USER2"),
+  ASSISTANCE_MODE_DISTANCE_USER3("ASSIST_MODE_DISTANCE_USER3"),
+  ASSISTANCE_MODE_DISTANCE_USER4("ASSIST_MODE_DISTANCE_USER4"),
+  ASSISTANCE_MODE_ENERGY_TURBO("ASSIST_MODE_ENERGY_TURBO"),
+  ASSISTANCE_MODE_ENERGY_SPORT("ASSIST_MODE_ENERGY_SPORT"),
+  ASSISTANCE_MODE_ENERGY_TOUR("ASSIST_MODE_ENERGY_TOUR"),
+  ASSISTANCE_MODE_ENERGY_ECO("ASSIST_MODE_ENERGY_ECO"),
+  ASSISTANCE_MODE_ENERGY_OFF("ASSIST_MODE_ENERGY_OFF"),
+  ASSISTANCE_MODE_ENERGY_USER1("ASSIST_MODE_ENERGY_USER1"),
+  ASSISTANCE_MODE_ENERGY_USER2("ASSIST_MODE_ENERGY_USER2"),
+  ASSISTANCE_MODE_ENERGY_USER3("ASSIST_MODE_ENERGY_USER3"),
+  ASSISTANCE_MODE_ENERGY_USER4("ASSIST_MODE_ENERGY_USER4"),
+  PRODUCT_LINE("productline"),
+  BIKE_TYPE("BikeType"),
+  MAX_SPEED_FOR_ASSISTANCE("Max_speed_for_assistance"),
+  MAX_ALLOWED_MOTOR_POWER("Max_allowed_motor_power"),
+  MOTOR_GEAR_RATIO("Motor_gear_ratio"),
+  START_OF_SLEEP_MODE("Start_of_sleep_mode"),
+  AUTO_GEAR("AutoGear"),
+  AUTO_DOWN_SHIFT("AutoDownShift"),
+  DEFAULT_GEAR("DefaultGear");
+  
+  String text;
+  
+  DuServiceParameter(String text) {
+    this.text = text;
+  }
+  
+  public String getText() {
+    return this.text;
+  }
+  
+  public ServiceParameter.Ecu getEcuType() {
+    return ServiceParameter.Ecu.DU;
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/beds/diagnosticdatapool/api/serviceparameter/EShiftServiceParameter.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.api.serviceparameter;
+
+public enum EShiftServiceParameter implements ServiceParameter {
+  GEARBOX_TYPE("GearBoxType"),
+  NUMBER_OF_GEARS("NumberOfGears"),
+  HW_VERSION("HW_Version"),
+  SW_VERSION("SWVersion"),
+  VENDOR_ID("VendorId"),
+  PRODUCT_ID("ProductId"),
+  SERIAL_NUMBER("SerialNumber");
+  
+  String text;
+  
+  EShiftServiceParameter(String text) {
+    this.text = text;
+  }
+  
+  public String getText() {
+    return this.text;
+  }
+  
+  public ServiceParameter.Ecu getEcuType() {
+    return ServiceParameter.Ecu.ESHIFT;
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/beds/diagnosticdatapool/api/serviceparameter/HmiServiceParameter.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.api.serviceparameter;
+
+public enum HmiServiceParameter implements ServiceParameter {
+  MANUFACTURING_DATE("Date_of_manufacture"),
+  PART_NUMBER("HmiPartNumber"),
+  PRODUCT_CODE("ProductCode"),
+  COMPONENT_TYPE("ComponentType"),
+  SERIAL_NUMBER("SerialNumber"),
+  HW_VERSION("HW_Version"),
+  SW_VERSION("SW_Version"),
+  SW_VERSION_FRONTEND("SwVersionFrontendRootFs"),
+  MAP_VERSION_REQUIRED("SwVersionFrontendMap"),
+  DISTANCE_UNIT("DistanceUnit"),
+  LANGUAGE("language"),
+  PRESENT_TIME("presentTime"),
+  PRESENT_DATE("presentDate"),
+  CLOCK_FORMAT("ClockDisplayFormat"),
+  TRIP_TIME("TripTime"),
+  TRIP_DISTANCE("TripDistance"),
+  MAX_SPEED("MaxSpeed"),
+  COMPONENT("Component"),
+  BATTERY_CHARGE_VALUE("batteryChargeValue"),
+  BATTERY_STATE("batteryState"),
+  BUTTON_ONBOARD_POWER("Button_onboard_power"),
+  BUTTON_ONBOARD_PLUS("Button_onboard_plus"),
+  BUTTON_ONBOARD_MINUS("Button_onboard_minus"),
+  BUTTON_ONBOARD_WALK_ASSIST("Button_onboard_walk_assist"),
+  BUTTON_ONBOARD_RESET("Button_onboard_reset"),
+  BUTTON_ONBOARD_INFO("Button_onboard_info"),
+  BUTTON_ONBOARD_LIGHT("Button_onboard_light"),
+  BUTTON_ONBOARD_MENU("Button_onboard_menu"),
+  BUTTON_ONBOARD_LEFT("Button_onboard_left"),
+  BUTTON_ONBOARD_RIGHT("Button_onboard_right"),
+  BUTTON_ONBOARD_UP("Button_onboard_up"),
+  BUTTON_ONBOARD_DOWN("Button_onboard_down"),
+  BUTTON_ONBOARD_CENTER("Button_onboard_center"),
+  BUTTON_REMOTE_PLUS("Button_remote_plus"),
+  BUTTON_REMOTE_MINUS("Button_remote_minus"),
+  BUTTON_REMOTE_WALK_ASSIST("Button_remote_walk_assist"),
+  BUTTON_REMOTE_INFO("Button_remote_info"),
+  BUTTON_REMOTE_MENU("Button_remote_menu"),
+  BUTTON_REMOTE_LEFT("Button_remote_left"),
+  BUTTON_REMOTE_RIGHT("Button_remote_right"),
+  BUTTON_REMOTE_UP("Button_remote_up"),
+  BUTTON_REMOTE_DOWN("Button_remote_down"),
+  BUTTON_REMOTE_CENTER("Button_remote_center"),
+  UDAM_DATA("udam_data");
+  
+  String text;
+  
+  HmiServiceParameter(String text) {
+    this.text = text;
+  }
+  
+  public String getText() {
+    return this.text;
+  }
+  
+  public ServiceParameter.Ecu getEcuType() {
+    return ServiceParameter.Ecu.HMI;
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/beds/diagnosticdatapool/api/serviceparameter/ServiceParameter.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.api.serviceparameter;
+
+public interface ServiceParameter {
+  String getText();
+  
+  Ecu getEcuType();
+  
+  public enum Ecu {
+    HMI, DU, BMS1, BMS2, ABS, BCS, BCT, ESHIFT;
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/beds/diagnosticdatapool/api/ServiceParameterDatapool.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.api;
+
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.ServiceParameter;
+import com.gigatronik.beds.diagnosticdatapool.impl.DatapoolUpdatesListener;
+import com.gigatronik.beds.service.ecu.data.DtcResponse;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import java.util.List;
+import java.util.Map;
+
+public interface ServiceParameterDatapool {
+  ComplexResponse getServiceParameter(ServiceParameter paramServiceParameter);
+  
+  Map<ServiceParameter, ComplexResponse> getServiceParameterBundle(List<ServiceParameter> paramList);
+  
+  Map<ServiceParameter, ComplexResponse> getCleanServiceParameterBundle(List<ServiceParameter> paramList);
+  
+  DtcResponse getErrorMemoryContent(ServiceParameter.Ecu paramEcu);
+  
+  void resetServiceParameterCache(ServiceParameter.Ecu paramEcu);
+  
+  void resetServiceParameterCache(ServiceParameter paramServiceParameter);
+  
+  void resetDtcCache(ServiceParameter.Ecu paramEcu);
+  
+  void registerListener(DatapoolUpdatesListener paramDatapoolUpdatesListener);
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/beds/diagnosticdatapool/impl/DatapoolUpdatesListener.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.impl;
+
+public interface DatapoolUpdatesListener {
+  void onDatapoolUpdated();
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/beds/diagnosticdatapool/impl/reader/AbsServiceParameterReader.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.impl.reader;
+
+import com.gigatronik.beds.diagnosticdatapool.api.exception.ServiceNotImplementedException;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.AbsServiceParameter;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.ServiceParameter;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.ecu.api.Abs;
+import com.gigatronik.beds.service.ecu.api.Ecu;
+import com.gigatronik.beds.service.ecu.data.DtcResponse;
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.NegativeResponse;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class AbsServiceParameterReader extends EcuServiceParameterReader {
+  private static final Logger LOGGER = LoggerFactory.getLogger(AbsServiceParameterReader.class);
+  
+  private double wheelSpeedFactor = 0.132D;
+  
+  public AbsServiceParameterReader(CommunicationManager communicationManager, BikeIdentification bikeIdentification) {
+    super(communicationManager, bikeIdentification);
+    this.ecu = (Ecu)communicationManager.getAbsCom();
+    this.ecuIdentification = bikeIdentification.getAbsIdentification();
+  }
+  
+  public void updateWheelSizeFromDriveUnit() {
+    int wheelSize = 2200;
+    if (this.bikeIdentification.isDuConnected())
+      try {
+        wheelSize = Integer.parseInt(this.communicationManager.getDuCom().readWheelSize().getString());
+      } catch (ComplexResponse.DataAccessException|NumberFormatException ex) {
+        LOGGER.error("Parsing wheel size response failed", (Throwable)ex);
+      }  
+    this.wheelSpeedFactor = (double)wheelSize * 60.0D / 1000000.0D;
+  }
+  
+  public Map<ServiceParameter, ComplexResponse> readServiceParameter(ServiceParameter serviceParameter) {
+    return mappingParameterToMethod(serviceParameter);
+  }
+  
+  public DtcResponse readDtcs() {
+    return getEcuDtcs();
+  }
+  
+  protected Map<ServiceParameter, ComplexResponse> mappingParameterToMethod(ServiceParameter serviceParameter) {
+    switch ((AbsServiceParameter)serviceParameter) {
+      case MANUFACTURE_DATE:
+        return readManufactureDate(serviceParameter);
+      case PARTNUMBER_KIT:
+        return readPartNumberKit(serviceParameter);
+      case NUMBER_OF_CONTROLS:
+        return readNumberOfControls(serviceParameter);
+      case SAFETY_LAMP_DEACTIVATION_EVENT:
+        return readSafetyLampDeactivationEvent(serviceParameter);
+      case FLASH_COUNTER:
+        return readFlashCounter(serviceParameter);
+      case EXTENDED_WSS_MOUNTING_TEST_RESULT:
+        return readMountingTestResult(serviceParameter);
+      case VARIANT_CHECKSUM:
+      case VARIANT_CODE:
+        return readVariantCode();
+      case PART_NUMBER:
+        return readPartNumber(serviceParameter);
+      case PRODUCT_CODE:
+        return readProductCode(serviceParameter);
+      case COMPONENT_TYPE:
+        return readComponentType(serviceParameter);
+      case SERIAL_NUMBER:
+        return readSerialNumber(serviceParameter);
+      case HW_VERSION:
+        return readHardwareVersion(serviceParameter);
+      case SW_VERSION:
+        return readSoftwareVersion(serviceParameter);
+      case WSS_MOUNTING_TEST_BACK_STATUS:
+      case WSS_MOUNTING_TEST_FRONT_STATUS:
+        return readExtendedWssMountingTest();
+      case MOUNTING_TEST_RESULT:
+        return readMountingTestResult();
+      case WHEEL_SPEED_FRONT:
+      case WHEEL_SPEED_REAR:
+      case BRAKE_PRESSURE:
+        return readWheelSpeedAndBrakePressure();
+      case SLIP_EVENTS:
+      case LIFT_EVENTS:
+      case BREAK_EVENTS:
+        return readEventCounterSpeed();
+    } 
+    throw new ServiceNotImplementedException(serviceParameter);
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readWheelSpeedAndBrakePressure() {
+    Map<ServiceParameter, ComplexResponse> responseBundle = new HashMap<>();
+    Map<String, String> expectedResponse = ((Abs)this.ecu).readWheelSpeedsAndPressures();
+    if (!expectedResponse.isEmpty()) {
+      responseBundle.put(AbsServiceParameter.WHEEL_SPEED_FRONT, customizeWheelSpeed(expectedResponse.get("WheelSpeedFront")));
+      responseBundle.put(AbsServiceParameter.WHEEL_SPEED_REAR, customizeWheelSpeed(expectedResponse.get("WheelSpeedRear")));
+      responseBundle.put(AbsServiceParameter.BRAKE_PRESSURE, new ComplexResponse(expectedResponse.get("EffectiveBrakePressure")));
+    } else {
+      this.log.warn("The response from the ABS is empty!");
+      responseBundle.put(AbsServiceParameter.WHEEL_SPEED_FRONT, new ComplexResponse(NegativeResponse.UNSPECIFIED));
+      responseBundle.put(AbsServiceParameter.WHEEL_SPEED_REAR, new ComplexResponse(NegativeResponse.UNSPECIFIED));
+      responseBundle.put(AbsServiceParameter.BRAKE_PRESSURE, new ComplexResponse(NegativeResponse.UNSPECIFIED));
+    } 
+    return responseBundle;
+  }
+  
+  private ComplexResponse customizeWheelSpeed(String value) {
+    try {
+      int speed = Integer.parseInt(value);
+      return new ComplexResponse(Long.toString(Math.round((double)speed * this.wheelSpeedFactor)));
+    } catch (NumberFormatException ex) {
+      LOGGER.error("Parsing wheel speed response failed", (Throwable)ex);
+      return new ComplexResponse(value);
+    } 
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readMountingTestResult(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Abs)this.ecu).readExtWSSMountingTestResult());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readExtendedWssMountingTest() {
+    Map<ServiceParameter, ComplexResponse> responseBundle = new HashMap<>();
+    Map<String, String> expectedResponse = ((Abs)this.ecu).readExtWSSMountingTest();
+    if (!expectedResponse.isEmpty()) {
+      responseBundle.put(AbsServiceParameter.WSS_MOUNTING_TEST_FRONT_STATUS, new ComplexResponse(expectedResponse.get("WSS_front_status")));
+      responseBundle.put(AbsServiceParameter.WSS_MOUNTING_TEST_BACK_STATUS, new ComplexResponse(expectedResponse.get("WSS_back_status")));
+    } else {
+      this.log.warn("The response from the ABS is empty!");
+      responseBundle.put(AbsServiceParameter.WSS_MOUNTING_TEST_FRONT_STATUS, new ComplexResponse(NegativeResponse.UNSPECIFIED));
+      responseBundle.put(AbsServiceParameter.WSS_MOUNTING_TEST_BACK_STATUS, new ComplexResponse(NegativeResponse.UNSPECIFIED));
+    } 
+    return responseBundle;
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readVariantCode() {
+    Map<ServiceParameter, ComplexResponse> responseBundle = new HashMap<>();
+    ComplexResponse expectedResponse = ((Abs)this.ecu).readVariantCode();
+    try {
+      responseBundle.put(AbsServiceParameter.VARIANT_CODE, new ComplexResponse(expectedResponse.getParameterByName("AbsVariantCode").getValue()));
+      responseBundle.put(AbsServiceParameter.VARIANT_CHECKSUM, new ComplexResponse(expectedResponse.getParameterByName("AbsVariantCode_CheckPattern").getValue()));
+    } catch (ComplexResponse.DataAccessException e) {
+      this.log.warn("Problem retrieving data from the ABS response", (Throwable)e);
+      responseBundle.put(AbsServiceParameter.VARIANT_CODE, expectedResponse);
+      responseBundle.put(AbsServiceParameter.VARIANT_CHECKSUM, expectedResponse);
+    } 
+    return responseBundle;
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readMountingTestResult() {
+    Map<ServiceParameter, ComplexResponse> responseBundle = new HashMap<>();
+    responseBundle.put(AbsServiceParameter.SAFETY_LAMP_DEACTIVATION_EVENT, ((Abs)this.ecu).readSafetyLampDeactivatonEvent());
+    responseBundle.put(AbsServiceParameter.EXTENDED_WSS_MOUNTING_TEST_RESULT, ((Abs)this.ecu).readExtWSSMountingTestResult());
+    return responseBundle;
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readFlashCounter(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Abs)this.ecu).readFlashCounter());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readSafetyLampDeactivationEvent(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Abs)this.ecu).readSafetyLampDeactivatonEvent());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readNumberOfControls(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Abs)this.ecu).readNumberOfControlOverLifetime());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readPartNumberKit(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Abs)this.ecu).readPartNumberKit());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readManufactureDate(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, this.ecu.readManufacturingDate());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readEventCounterSpeed() {
+    Map<ServiceParameter, ComplexResponse> responseBundle = new HashMap<>();
+    ComplexResponse expectedResponse = ((Abs)this.ecu).readEventCounterSpeed();
+    try {
+      responseBundle.put(AbsServiceParameter.LIFT_EVENTS, new ComplexResponse(expectedResponse.getParameterByName("LiftEvents").getValue()));
+      responseBundle.put(AbsServiceParameter.SLIP_EVENTS, new ComplexResponse(expectedResponse.getParameterByName("SlipEvents").getValue()));
+      responseBundle.put(AbsServiceParameter.BREAK_EVENTS, new ComplexResponse(expectedResponse.getParameterByName("BreakEvents").getValue()));
+    } catch (ComplexResponse.DataAccessException ex) {
+      this.log.warn("Problem retrieving data from the ABS response", (Throwable)ex);
+      responseBundle.put(AbsServiceParameter.LIFT_EVENTS, expectedResponse);
+      responseBundle.put(AbsServiceParameter.SLIP_EVENTS, expectedResponse);
+      responseBundle.put(AbsServiceParameter.BREAK_EVENTS, expectedResponse);
+    } 
+    return responseBundle;
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/beds/diagnosticdatapool/impl/reader/BcsServiceParameterReader.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.impl.reader;
+
+import com.gigatronik.beds.diagnosticdatapool.api.exception.ServiceNotImplementedException;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.BcsServiceParameter;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.ServiceParameter;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.ecu.api.Bcs;
+import com.gigatronik.beds.service.ecu.api.Ecu;
+import com.gigatronik.beds.service.ecu.data.DtcResponse;
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import java.util.Collections;
+import java.util.Map;
+
+public class BcsServiceParameterReader extends EcuServiceParameterReader {
+  public BcsServiceParameterReader(CommunicationManager communicationManager, BikeIdentification bikeIdentification) {
+    super(communicationManager, bikeIdentification);
+    this.ecu = (Ecu)communicationManager.getBcsCom();
+    this.ecuIdentification = bikeIdentification.getBcsIdentification();
+  }
+  
+  public Map<ServiceParameter, ComplexResponse> readServiceParameter(ServiceParameter serviceParameter) {
+    return mappingParameterToMethod(serviceParameter);
+  }
+  
+  public DtcResponse readDtcs() {
+    return getEcuDtcs();
+  }
+  
+  protected Map<ServiceParameter, ComplexResponse> mappingParameterToMethod(ServiceParameter serviceParameter) {
+    switch ((BcsServiceParameter)serviceParameter) {
+      case MANUFACTURING_DATE:
+        return readManufacturingDate(serviceParameter);
+      case PART_NUMBER:
+        return readPartNumber(serviceParameter);
+      case PRODUCT_CODE:
+        return readProductCode(serviceParameter);
+      case COMPONENT_TYPE:
+        return readComponentType(serviceParameter);
+      case SERIAL_NUMBER:
+        return readSerialNumber(serviceParameter);
+      case HW_VERSION:
+        return readHardwareVersion(serviceParameter);
+      case SW_VERSION:
+        return readSoftwareVersion(serviceParameter);
+      case DELIVERED_CHARGE_OVER_LIFETIME:
+        return readDeliveredChargeOverLifetime(serviceParameter);
+    } 
+    throw new ServiceNotImplementedException(serviceParameter);
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readDeliveredChargeOverLifetime(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bcs)this.ecu).readProvidedEnergyOverLifetime());
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/beds/diagnosticdatapool/impl/reader/BctServiceParameterReader.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.impl.reader;
+
+import com.gigatronik.beds.diagnosticdatapool.api.exception.ServiceNotImplementedException;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.BctServiceParameter;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.ServiceParameter;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.ecu.api.Ecu;
+import com.gigatronik.beds.service.ecu.data.DtcResponse;
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import java.util.Map;
+
+public class BctServiceParameterReader extends EcuServiceParameterReader {
+  public BctServiceParameterReader(CommunicationManager communicationManager, BikeIdentification bikeIdentification) {
+    super(communicationManager, bikeIdentification);
+    this.ecu = (Ecu)communicationManager.getBctCom();
+    this.ecuIdentification = bikeIdentification.getBctIdentification();
+  }
+  
+  public Map<ServiceParameter, ComplexResponse> readServiceParameter(ServiceParameter serviceParameter) {
+    return mappingParameterToMethod(serviceParameter);
+  }
+  
+  public DtcResponse readDtcs() {
+    return getEcuDtcs();
+  }
+  
+  protected Map<ServiceParameter, ComplexResponse> mappingParameterToMethod(ServiceParameter serviceParameter) {
+    switch ((BctServiceParameter)serviceParameter) {
+      case PART_NUMBER:
+        return readPartNumber(serviceParameter);
+      case PRODUCT_CODE:
+        return readProductCode(serviceParameter);
+      case COMPONENT_TYPE:
+        return readComponentType(serviceParameter);
+      case SERIAL_NUMBER:
+        return readSerialNumber(serviceParameter);
+      case HW_VERSION:
+        return readHardwareVersion(serviceParameter);
+      case SW_VERSION:
+        return readSoftwareVersion(serviceParameter);
+    } 
+    throw new ServiceNotImplementedException(serviceParameter);
+  }
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/beds/diagnosticdatapool/impl/reader/BmsServiceParameterReader.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.impl.reader;
+
+import com.gigatronik.beds.diagnosticdatapool.api.exception.ServiceNotImplementedException;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.Bms2ServiceParameter;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.BmsServiceParameter;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.ServiceParameter;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.ecu.api.Bms;
+import com.gigatronik.beds.service.ecu.api.Ecu;
+import com.gigatronik.beds.service.ecu.data.DtcResponse;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.Constants;
+import com.gigatronik.ebike.common.configuration.EcuIdentification;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+public class BmsServiceParameterReader extends EcuServiceParameterReader {
+  public BmsServiceParameterReader(CommunicationManager communicationManager, BikeIdentification bikeIdentification) {
+    super(communicationManager, bikeIdentification);
+  }
+  
+  public Map<ServiceParameter, ComplexResponse> readServiceParameter(ServiceParameter serviceParameter) {
+    if (serviceParameter.getEcuType() == ServiceParameter.Ecu.BMS2)
+      return readServiceParameterBms2(serviceParameter); 
+    this.ecu = (Ecu)this.communicationManager.getBms1Com();
+    this.ecuIdentification = (EcuIdentification)this.bikeIdentification.getBms1Identification();
+    return (this.bikeIdentification.getSystemType() == Constants.SystemType.VICTOR) ? 
+      mappingParameterToMethod(serviceParameter) : 
+      mappingParameterToMethodWithClassicPlus(serviceParameter);
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readServiceParameterBms2(ServiceParameter serviceParameter) {
+    this.ecu = (Ecu)this.communicationManager.getBms2Com();
+    this.ecuIdentification = (EcuIdentification)this.bikeIdentification.getBms2Identification();
+    return mappingParameterToMethodBms2(serviceParameter);
+  }
+  
+  public DtcResponse readDtcs() {
+    this.ecu = (Ecu)this.communicationManager.getBms1Com();
+    this.ecuIdentification = (EcuIdentification)this.bikeIdentification.getBms1Identification();
+    return getEcuDtcs();
+  }
+  
+  public DtcResponse readDtcsBms2() {
+    this.ecu = (Ecu)this.communicationManager.getBms2Com();
+    this.ecuIdentification = (EcuIdentification)this.bikeIdentification.getBms2Identification();
+    return getEcuDtcs();
+  }
+  
+  protected Map<ServiceParameter, ComplexResponse> mappingParameterToMethod(ServiceParameter serviceParameter) {
+    switch ((BmsServiceParameter)serviceParameter) {
+      case MANUFACTURING_DATE:
+        return readManufacturingDate(serviceParameter);
+      case BATTERY_VOLTAGE:
+        return readBatteryVoltage(serviceParameter);
+      case LOWEST_BATTERY_CELL_VOLTAGE:
+        return readLowestBatteryCellVoltage(serviceParameter);
+      case BATTERY_TEMPERATURE:
+        return readBatteryTemperature(serviceParameter);
+      case BATTERY_CHARGE_STATE:
+        return readBatteryChargeState(serviceParameter);
+      case LOAD_CYCLES:
+        return readLoadCycles(serviceParameter);
+      case PROV_AH_OVER_LIFETIME:
+        return readProvAhOverLifetime(serviceParameter);
+      case MAX_TEMP_LIFETIME:
+        return readMaxTempLifetime(serviceParameter);
+      case DURATION_THERMAL_PROTECTION:
+        return readDurationThermalProtection(serviceParameter);
+      case MIN_PACK_TEMPERATURE:
+        return readMinPackTemperature(serviceParameter);
+      case PART_NUMBER:
+        return readPartNumber(serviceParameter);
+      case PRODUCT_CODE:
+        return readProductCode(serviceParameter);
+      case COMPONENT_TYPE:
+        return readComponentType(serviceParameter);
+      case SERIAL_NUMBER:
+        return readSerialNumber(serviceParameter);
+      case HW_VERSION:
+        return readHardwareVersion(serviceParameter);
+      case SW_VERSION:
+        return readSoftwareVersion(serviceParameter);
+      case MAX_POSSIBLE_CURRENT_BATTERY:
+        return readMaxPossibleCurrentBattery(serviceParameter);
+      case BATTERY_CODE:
+        return readBatteryCode(serviceParameter);
+      case BATTERY_DEACTIVATION:
+        return readBatteryDeactivationState(serviceParameter);
+      case BATTERY_CELLDEBALANCE_THRESHOLDVOLTAGE:
+        return readVoltageCellDebalanceMax(serviceParameter);
+      case BATTERY_CELLDEBALANCE_TIME:
+        return readBalanceDurationTotal(serviceParameter);
+      case BATTERY_CELLTYPE:
+        return readBatteryCellType(serviceParameter);
+    } 
+    throw new ServiceNotImplementedException(serviceParameter);
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> mappingParameterToMethodBms2(ServiceParameter serviceParameter) {
+    switch ((Bms2ServiceParameter)serviceParameter) {
+      case MANUFACTURING_DATE:
+        return readManufacturingDate(serviceParameter);
+      case BATTERY_VOLTAGE:
+        return readBatteryVoltage(serviceParameter);
+      case LOWEST_BATTERY_CELL_VOLTAGE:
+        return readLowestBatteryCellVoltage(serviceParameter);
+      case BATTERY_TEMPERATURE:
+        return readBatteryTemperature(serviceParameter);
+      case BATTERY_CHARGE_STATE:
+        return readBatteryChargeState(serviceParameter);
+      case LOAD_CYCLES:
+        return readLoadCycles(serviceParameter);
+      case PROV_AH_OVER_LIFETIME:
+        return readProvAhOverLifetime(serviceParameter);
+      case MAX_TEMP_LIFETIME:
+        return readMaxTempLifetime(serviceParameter);
+      case DURATION_THERMAL_PROTECTION:
+        return readDurationThermalProtection(serviceParameter);
+      case MIN_PACK_TEMPERATURE:
+        return readMinPackTemperature(serviceParameter);
+      case PART_NUMBER:
+        return readPartNumber(serviceParameter);
+      case PRODUCT_CODE:
+        return readProductCode(serviceParameter);
+      case COMPONENT_TYPE:
+        return readComponentType(serviceParameter);
+      case SERIAL_NUMBER:
+        return readSerialNumber(serviceParameter);
+      case HW_VERSION:
+        return readHardwareVersion(serviceParameter);
+      case SW_VERSION:
+        return readSoftwareVersion(serviceParameter);
+      case MAX_POSSIBLE_CURRENT_BATTERY:
+        return readMaxPossibleCurrentBattery(serviceParameter);
+      case BATTERY_CODE:
+        return readBatteryCode(serviceParameter);
+      case BATTERY_DEACTIVATION:
+        return readBatteryDeactivationState(serviceParameter);
+      case BATTERY_CELLDEBALANCE_THRESHOLDVOLTAGE:
+        return readVoltageCellDebalanceMax(serviceParameter);
+      case BATTERY_CELLDEBALANCE_TIME:
+        return readBalanceDurationTotal(serviceParameter);
+      case BATTERY_CELLTYPE:
+        return readBatteryCellType(serviceParameter);
+    } 
+    throw new ServiceNotImplementedException(serviceParameter);
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readBatteryDeactivationState(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readBatteryDeactivationState());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readBatteryCode(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readBatteryCode(refreshBmsVersion()));
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readMaxPossibleCurrentBattery(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readMaxPossibleCurrentOfBattery());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readMinPackTemperature(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readMinPackTemperature());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readDurationThermalProtection(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readDurationInThermalProtection());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readMaxTempLifetime(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readMaxTemperature());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readProvAhOverLifetime(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readProvidedChargeTotal(refreshBmsVersion()));
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readBalanceDurationTotal(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readBalanceDurationTotal(refreshBmsVersion()));
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readVoltageCellDebalanceMax(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readVoltageCellDebalanceMax(refreshBmsVersion()));
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readBatteryCellType(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readCellType(refreshBmsVersion()));
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readLoadCycles(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readLoadCycles());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readBatteryChargeState(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readBatteryChargeState(refreshBmsVersion()));
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readBatteryTemperature(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readBatteryTemperature());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readLowestBatteryCellVoltage(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readMinBatteryVoltage(refreshBmsVersion()));
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readBatteryVoltage(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Bms)this.ecu).readBatteryVoltage());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> mappingParameterToMethodWithClassicPlus(ServiceParameter serviceParameter) {
+    switch ((BmsServiceParameter)serviceParameter) {
+      case MANUFACTURING_DATE:
+        return readManufacturingDate(serviceParameter);
+      case PART_NUMBER:
+        return readPartNumber(serviceParameter);
+      case PRODUCT_CODE:
+        return readProductCode(serviceParameter);
+      case SERIAL_NUMBER:
+        return readSerialNumber(serviceParameter);
+      case HW_VERSION:
+        return readHardwareVersion(serviceParameter);
+      case SW_VERSION:
+        return readSoftwareVersion(serviceParameter);
+      case MAX_POSSIBLE_CURRENT_BATTERY:
+        return readMaxPossibleCurrentBattery(serviceParameter);
+      case BATTERY_DEACTIVATION:
+        return readBatteryDeactivationState(serviceParameter);
+      case BATTERY_VOLTAGE:
+      case BATTERY_TEMPERATURE:
+      case BATTERY_CHARGE_STATE:
+        return readClassicPlusBatteryInformation();
+      case LOAD_CYCLES:
+      case PROV_AH_OVER_LIFETIME:
+      case MAX_TEMP_LIFETIME:
+      case DURATION_THERMAL_PROTECTION:
+        return readClassicPlusBatteryLifetime();
+    } 
+    throw new ServiceNotImplementedException(serviceParameter);
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readClassicPlusBatteryInformation() {
+    ComplexResponse expectedResponse = ((Bms)this.ecu).readBmsInformation();
+    Map<ServiceParameter, ComplexResponse> returningMap = new HashMap<>();
+    try {
+      returningMap.put(BmsServiceParameter.BATTERY_VOLTAGE, new ComplexResponse(expectedResponse.getParameterByName("Battery_voltage").getValue()));
+      returningMap.put(BmsServiceParameter.BATTERY_TEMPERATURE, new ComplexResponse(expectedResponse.getParameterByName("Battery_temperature").getValue()));
+      returningMap.put(BmsServiceParameter.BATTERY_CHARGE_STATE, new ComplexResponse(expectedResponse.getParameterByName("Battery_charge_state").getValue()));
+    } catch (ComplexResponse.DataAccessException ex) {
+      returningMap.put(BmsServiceParameter.BATTERY_VOLTAGE, expectedResponse);
+      returningMap.put(BmsServiceParameter.BATTERY_TEMPERATURE, expectedResponse);
+      returningMap.put(BmsServiceParameter.BATTERY_CHARGE_STATE, expectedResponse);
+    } 
+    return returningMap;
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readClassicPlusBatteryLifetime() {
+    ComplexResponse expectedResponse = ((Bms)this.ecu).readBmsLifetimeInfo();
+    Map<ServiceParameter, ComplexResponse> returningMap = new HashMap<>();
+    try {
+      returningMap.put(BmsServiceParameter.LOAD_CYCLES, new ComplexResponse(expectedResponse.getParameterByName("Load_cycles").getValue()));
+      returningMap.put(BmsServiceParameter.PROV_AH_OVER_LIFETIME, new ComplexResponse(expectedResponse.getParameterByName("Provided_Ah_over_life_time").getValue()));
+      returningMap.put(BmsServiceParameter.MAX_TEMP_LIFETIME, new ComplexResponse(expectedResponse.getParameterByName("Max_temperature_in_life_time").getValue()));
+      returningMap.put(BmsServiceParameter.DURATION_THERMAL_PROTECTION, new ComplexResponse(expectedResponse.getParameterByName("Duration_in_thermal_protection").getValue()));
+    } catch (ComplexResponse.DataAccessException ex) {
+      returningMap.put(BmsServiceParameter.LOAD_CYCLES, expectedResponse);
+      returningMap.put(BmsServiceParameter.PROV_AH_OVER_LIFETIME, expectedResponse);
+      returningMap.put(BmsServiceParameter.MAX_TEMP_LIFETIME, expectedResponse);
+      returningMap.put(BmsServiceParameter.DURATION_THERMAL_PROTECTION, expectedResponse);
+    } 
+    return returningMap;
+  }
+  
+  private Version refreshBmsVersion() {
+    Version bmsVersion = null;
+    try {
+      bmsVersion = this.ecuIdentification.getSwVersionResponse().getVersion();
+    } catch (ComplexResponse.DataAccessException e) {
+      this.log.warn("Problem retrieving data from the BMS response {}", (Throwable)e);
+    } 
+    return bmsVersion;
+  }
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/beds/diagnosticdatapool/impl/reader/DuServiceParameterReader.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.impl.reader;
+
+import com.gigatronik.beds.diagnosticdatapool.api.exception.ServiceNotImplementedException;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.DuServiceParameter;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.ServiceParameter;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.ecu.api.Du;
+import com.gigatronik.beds.service.ecu.api.Ecu;
+import com.gigatronik.beds.service.ecu.data.DtcResponse;
+import com.gigatronik.beds.service.ecu.impl.du.AssistanceMode;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.ComponentType;
+import com.gigatronik.ebike.common.configuration.Constants;
+import com.gigatronik.ebike.common.configuration.DuIdentification;
+import com.gigatronik.ebike.common.configuration.EcuIdentification;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class DuServiceParameterReader extends EcuServiceParameterReader {
+  private static final Logger LOGGER = LoggerFactory.getLogger(DuServiceParameterReader.class);
+  
+  private static final Version MAX_SPEED_DISPLAY_VALUE_MIN_VERSION = new Version(new Integer[] { 1, 1, 1, 0 });
+  
+  public DuServiceParameterReader(CommunicationManager communicationManager, BikeIdentification bikeIdentification) {
+    super(communicationManager, bikeIdentification);
+    this.ecu = (Ecu)communicationManager.getDuCom();
+    this.ecuIdentification = (EcuIdentification)bikeIdentification.getDuIdentification();
+  }
+  
+  public Map<ServiceParameter, ComplexResponse> readServiceParameter(ServiceParameter serviceParameter) {
+    return mappingParameterToMethod(serviceParameter);
+  }
+  
+  public DtcResponse readDtcs() {
+    return getEcuDtcs();
+  }
+  
+  protected Map<ServiceParameter, ComplexResponse> mappingParameterToMethod(ServiceParameter serviceParameter) {
+    switch ((DuServiceParameter)serviceParameter) {
+      case MANUFACTURING_DATE:
+        return readManufacturingDate(serviceParameter);
+      case BIKE_DATE_OF_MANUFACTURE:
+        return readBikeDateOfManufacture(serviceParameter);
+      case MANUFACTURE_LOCALISATION:
+        return readManufactureLocalisation(serviceParameter);
+      case LIGHT_SWITCH_STATUS:
+        return readLightSwitchStatus(serviceParameter);
+      case WALK_ASSIST_STATE:
+        return readWalkAssistState(serviceParameter);
+      case WHEELSIZE_CIRCUMFERENCE:
+        return readWheelsizeCircumference(serviceParameter);
+      case HIGHEST_WHEEL_RATIO:
+        return readHighestWheelRatio(serviceParameter);
+      case LOWEST_WHEEL_RATIO:
+        return readLowestWheelRatio(serviceParameter);
+      case MAX_SPEED_FOR_ASSISTANCE:
+        return readMaxSpeedForAssistance(serviceParameter);
+      case MAX_ALLOWED_MOTOR_POWER:
+      case MOTOR_GEAR_RATIO:
+      case START_OF_SLEEP_MODE:
+        return readDuConfigurationBundle();
+      case TOT_ACTIVE_OPERATINGTIME_WITH_ASSIST:
+        return readTotActiveOperatingTimeWithAssist(serviceParameter);
+      case TOT_PASSIVE_OPERATINGTIME_WITHOUT_ASSIST:
+        return readTotPasiveOperatingTimeWithoutAssist(serviceParameter);
+      case BATTERY_LOCK_KEY_NUMBER:
+        return readBatteryLockKeyNumber(serviceParameter);
+      case WHEELSIZE_CORRECTION:
+        return readWheelsizeCorrection(serviceParameter);
+      case LIGHT_OUTPUT:
+        return readLightOutput(serviceParameter);
+      case DRIVE_OFF_STATE:
+        return readDriveOffState(serviceParameter);
+      case ODOMETER:
+        return readOdometer(serviceParameter);
+      case MANIPULATION:
+        return readManipulation(serviceParameter);
+      case MANIPULATIONS_NUMBER:
+        return readManipulationNumber(serviceParameter);
+      case AUTO_DOWN_SHIFT:
+        return readAutoDownShift(serviceParameter);
+      case DEFAULT_GEAR:
+        return readDefaultGear(serviceParameter);
+      case HIGH_POWER_PORT:
+        return readHighPowerPort(serviceParameter);
+      case DISABLER_FUNCTION_STATUS:
+        return readDisablerFunctionStatus(serviceParameter);
+      case DISABLER_STATUS:
+        return readDisablerStatus(serviceParameter);
+      case DISABLER_RECOVERY_IDENTIFIER:
+        return readDisablerRecoveryIdentifier(serviceParameter);
+      case LIGHT_POWER:
+        return readLightPower(serviceParameter);
+      case WHEELSIZE_CIRCUMFERENCE_CHECKSUM:
+        return readWheelsizeCircumferenceChecksum(serviceParameter);
+      case ABS_VARIANT_ID:
+      case ABS_VARIANT_ID_CHECKSUM:
+        return readAbsVariantId();
+      case PART_NUMBER:
+        return readPartNumber(serviceParameter);
+      case PRODUCT_CODE:
+        return readProductCode(serviceParameter);
+      case COMPONENT_TYPE:
+        return readComponentType(serviceParameter);
+      case SERIAL_NUMBER:
+        return readSerialNumber(serviceParameter);
+      case HW_VERSION:
+        return readHardwareVersion(serviceParameter);
+      case SW_VERSION:
+        return readSoftwareVersion(serviceParameter);
+      case APPLICATION_ID:
+        return readApplicationId(serviceParameter);
+      case MODEL_NAME:
+        return readModelName(serviceParameter);
+      case MODEL_YEAR:
+        return readModelYear(serviceParameter);
+      case EMTB_MODE_CONFIGURED:
+        return readEmtbModeConfigured(serviceParameter);
+      case BIKE_ID:
+        return readBikeIdentification(serviceParameter);
+      case HMI_LESS_SYSTEM:
+        return readHmiLessSystem(serviceParameter);
+      case ASSISTANCE_MODE_DISTANCE_TURBO:
+      case ASSISTANCE_MODE_DISTANCE_SPORT:
+      case ASSISTANCE_MODE_DISTANCE_TOUR:
+      case ASSISTANCE_MODE_DISTANCE_ECO:
+      case ASSISTANCE_MODE_DISTANCE_OFF:
+        return readDistanceInAssistanceModes();
+      case ASSISTANCE_MODE_DISTANCE_USER1:
+      case ASSISTANCE_MODE_DISTANCE_USER2:
+      case ASSISTANCE_MODE_DISTANCE_USER3:
+      case ASSISTANCE_MODE_DISTANCE_USER4:
+        return readDistanceInUserDefinedAssistanceModes();
+      case ASSISTANCE_MODE_ENERGY_TURBO:
+      case ASSISTANCE_MODE_ENERGY_SPORT:
+      case ASSISTANCE_MODE_ENERGY_TOUR:
+      case ASSISTANCE_MODE_ENERGY_ECO:
+      case ASSISTANCE_MODE_ENERGY_OFF:
+        return readEnergyInAssistanceModes();
+      case ASSISTANCE_MODE_ENERGY_USER1:
+      case ASSISTANCE_MODE_ENERGY_USER2:
+      case ASSISTANCE_MODE_ENERGY_USER3:
+      case ASSISTANCE_MODE_ENERGY_USER4:
+        return readEnergyInUserDefinedAssistanceModes();
+      case PRODUCT_LINE:
+        return readProductLine(serviceParameter);
+      case BIKE_TYPE:
+        return readBikeType(serviceParameter);
+      case AUTO_GEAR:
+        return readAutoGear(serviceParameter);
+    } 
+    throw new ServiceNotImplementedException(serviceParameter);
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readModelYear(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readModelYear());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readModelName(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, new ComplexResponse(""));
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readAutoGear(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, this.bikeIdentification.getEShiftIdentification().getAutoGearStateResponse());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readBikeType(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, new ComplexResponse(((DuIdentification)this.ecuIdentification).getBikeType().getDisplayName()));
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readProductLine(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, new ComplexResponse(((DuIdentification)this.ecuIdentification).getProductLine().getDisplayName()));
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readDistanceInAssistanceModes() {
+    Map<AssistanceMode, ComplexResponse> expectedResponse = ((Du)this.ecu).readDistanceInAssistanceModes();
+    Map<ServiceParameter, ComplexResponse> returnResponse = new HashMap<>();
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_DISTANCE_TURBO, expectedResponse.get(AssistanceMode.TURBO));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_DISTANCE_SPORT, expectedResponse.get(AssistanceMode.SPORT));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_DISTANCE_TOUR, expectedResponse.get(AssistanceMode.TOUR));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_DISTANCE_ECO, expectedResponse.get(AssistanceMode.ECO));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_DISTANCE_OFF, expectedResponse.get(AssistanceMode.OFF));
+    return returnResponse;
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readDistanceInUserDefinedAssistanceModes() {
+    Map<AssistanceMode, ComplexResponse> expectedResponse = ((Du)this.ecu).readDistanceInUserDefinedAssistanceModes();
+    Map<ServiceParameter, ComplexResponse> returnResponse = new HashMap<>();
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_DISTANCE_USER1, expectedResponse.get(AssistanceMode.USER1));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_DISTANCE_USER2, expectedResponse.get(AssistanceMode.USER2));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_DISTANCE_USER3, expectedResponse.get(AssistanceMode.USER3));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_DISTANCE_USER4, expectedResponse.get(AssistanceMode.USER4));
+    return returnResponse;
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readEnergyInAssistanceModes() {
+    Map<AssistanceMode, ComplexResponse> expectedResponse = ((Du)this.ecu).readEnergyInAssistanceModes();
+    Map<ServiceParameter, ComplexResponse> returnResponse = new HashMap<>();
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_ENERGY_SPORT, expectedResponse.get(AssistanceMode.SPORT));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_ENERGY_TURBO, expectedResponse.get(AssistanceMode.TURBO));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_ENERGY_OFF, expectedResponse.get(AssistanceMode.OFF));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_ENERGY_ECO, expectedResponse.get(AssistanceMode.ECO));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_ENERGY_TOUR, expectedResponse.get(AssistanceMode.TOUR));
+    return returnResponse;
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readEnergyInUserDefinedAssistanceModes() {
+    Map<AssistanceMode, ComplexResponse> expectedResponse = ((Du)this.ecu).readEnergyInUserDefinedAssistanceModes();
+    Map<ServiceParameter, ComplexResponse> returnResponse = new HashMap<>();
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_ENERGY_USER4, expectedResponse.get(AssistanceMode.USER4));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_ENERGY_USER3, expectedResponse.get(AssistanceMode.USER3));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_ENERGY_USER2, expectedResponse.get(AssistanceMode.USER2));
+    returnResponse.put(DuServiceParameter.ASSISTANCE_MODE_ENERGY_USER1, expectedResponse.get(AssistanceMode.USER1));
+    return returnResponse;
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readHmiLessSystem(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((DuIdentification)this.ecuIdentification).getHmiLessSystem());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readBikeIdentification(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((DuIdentification)this.ecuIdentification).getBikeId());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readEmtbModeConfigured(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readEmtbModeConfigured());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readApplicationId(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((DuIdentification)this.ecuIdentification).getApplicationId());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readAbsVariantId() {
+    ComplexResponse expectedResponse = ((Du)this.ecu).readAbsVariantCodeWithChecksum();
+    Map<ServiceParameter, ComplexResponse> returnResponse = new HashMap<>();
+    try {
+      returnResponse.put(DuServiceParameter.ABS_VARIANT_ID, new ComplexResponse(expectedResponse.getParameterByName("AbsVariantCode").getValue()));
+      returnResponse.put(DuServiceParameter.ABS_VARIANT_ID_CHECKSUM, new ComplexResponse(expectedResponse.getParameterByName("AbsVariantCodeCheckPattern").getValue()));
+    } catch (ComplexResponse.DataAccessException e) {
+      returnResponse.put(DuServiceParameter.ABS_VARIANT_ID, expectedResponse);
+      returnResponse.put(DuServiceParameter.ABS_VARIANT_ID_CHECKSUM, expectedResponse);
+    } 
+    return returnResponse;
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readWheelsizeCircumferenceChecksum(ServiceParameter serviceParameter) {
+    ComplexResponse expectedResponse = ((Du)this.ecu).readWheelSizeWithChecksum();
+    Map<ServiceParameter, ComplexResponse> returnResponse = new HashMap<>();
+    try {
+      returnResponse.put(serviceParameter, new ComplexResponse(expectedResponse.getParameterByName("OemWheelCircumferenceCheckPattern").getValue()));
+    } catch (ComplexResponse.DataAccessException e) {
+      returnResponse.put(serviceParameter, expectedResponse);
+    } 
+    return returnResponse;
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readLightPower(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readLightPower());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readDisablerRecoveryIdentifier(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readRecoveryIdentifier());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readDisablerStatus(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readDisablerStatusLocked());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readDisablerFunctionStatus(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readDisablerFunctionEnable());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readHighPowerPort(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, getDuHighPowerPort());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readDefaultGear(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readDefaultStartGear());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readAutoDownShift(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readAutoDownShiftActive());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readManipulationNumber(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readManipulationsNumber());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readManipulation(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readManipulationDetected());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readOdometer(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readOdometer());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readDriveOffState(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readDriveOffEnable());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readLightOutput(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readLightPowerSupplyLevel());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readWheelsizeCorrection(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readWheelSizeCorrection());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readBatteryLockKeyNumber(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readBatteryLockKeyNumber());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readTotPasiveOperatingTimeWithoutAssist(ServiceParameter serviceParameter) {
+    return (this.bikeIdentification.getSystemType() == Constants.SystemType.CLASSIC_PLUS) ? 
+      readDuLifetimeInfoBundle() : Collections.<ServiceParameter, ComplexResponse>singletonMap(serviceParameter, ((Du)this.ecu).readTotalPowerOnTime());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readTotActiveOperatingTimeWithAssist(ServiceParameter serviceParameter) {
+    return (this.bikeIdentification.getSystemType() == Constants.SystemType.CLASSIC_PLUS) ? 
+      readDuLifetimeInfoBundle() : Collections.<ServiceParameter, ComplexResponse>singletonMap(serviceParameter, ((Du)this.ecu).readTotalMotorOnTime());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readMaxSpeedForAssistance(ServiceParameter serviceParameter) {
+    ComponentType type = this.bikeIdentification.getDuIdentification().getComponentType();
+    if (type.isBDU1xx())
+      return readDuConfigurationBundle(); 
+    if (type.isBDU2xx())
+      try {
+        Version version = Version.parse(this.bikeIdentification.getDuIdentification().getSwVersion());
+        if (version.compareTo(MAX_SPEED_DISPLAY_VALUE_MIN_VERSION) < 0)
+          return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readMaxSpeedForAssistance()); 
+      } catch (IOException e) {
+        LOGGER.error("Error parsing DU software version for reading maximum speed for assistance", (Throwable)e);
+      }  
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readDisplayValueMaxSpeed());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readLowestWheelRatio(ServiceParameter serviceParameter) {
+    return (this.bikeIdentification.getSystemType() == Constants.SystemType.CLASSIC_PLUS) ? 
+      readWheelSizeAndGearRatioBundle() : Collections.<ServiceParameter, ComplexResponse>singletonMap(serviceParameter, ((Du)this.ecu).readMinGearRatio());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readHighestWheelRatio(ServiceParameter serviceParameter) {
+    return (this.bikeIdentification.getSystemType() == Constants.SystemType.CLASSIC_PLUS) ? 
+      readWheelSizeAndGearRatioBundle() : Collections.<ServiceParameter, ComplexResponse>singletonMap(serviceParameter, ((Du)this.ecu).readMaxGearRatio());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readWheelsizeCircumference(ServiceParameter serviceParameter) {
+    return (this.bikeIdentification.getSystemType() == Constants.SystemType.CLASSIC_PLUS) ? 
+      readWheelSizeAndGearRatioBundle() : Collections.<ServiceParameter, ComplexResponse>singletonMap(serviceParameter, ((Du)this.ecu).readWheelSize());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readWalkAssistState(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readWalkAssistEnable());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readLightSwitchStatus(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readLightSwitchingMode());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readManufactureLocalisation(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readBikeManufactureLocation());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readBikeDateOfManufacture(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Du)this.ecu).readBikeManufacturingDate());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readWheelSizeAndGearRatioBundle() {
+    ComplexResponse expectedResponse = ((Du)this.ecu).readWheelSizeAndGearRatio();
+    Map<ServiceParameter, ComplexResponse> responseBundle = new HashMap<>();
+    try {
+      responseBundle.put(DuServiceParameter.HIGHEST_WHEEL_RATIO, new ComplexResponse(expectedResponse.getParameterByName("Highest_wheel_ratio").getValue()));
+      responseBundle.put(DuServiceParameter.WHEELSIZE_CIRCUMFERENCE, new ComplexResponse(expectedResponse.getParameterByName("Wheelsize_circumference").getValue()));
+      responseBundle.put(DuServiceParameter.LOWEST_WHEEL_RATIO, new ComplexResponse(expectedResponse.getParameterByName("Lowest_wheel_ratio").getValue()));
+    } catch (ComplexResponse.DataAccessException ex) {
+      this.log.warn("Problem retrieving data of wheel size and gear ratio from the DU response {}", (Throwable)ex);
+      responseBundle.put(DuServiceParameter.WHEELSIZE_CIRCUMFERENCE, expectedResponse);
+      responseBundle.put(DuServiceParameter.HIGHEST_WHEEL_RATIO, expectedResponse);
+      responseBundle.put(DuServiceParameter.LOWEST_WHEEL_RATIO, expectedResponse);
+    } 
+    return responseBundle;
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readDuConfigurationBundle() {
+    ComplexResponse expectedResponse = ((Du)this.ecu).readDuConfiguration();
+    Map<ServiceParameter, ComplexResponse> responseBundle = new HashMap<>();
+    try {
+      responseBundle.put(DuServiceParameter.MAX_SPEED_FOR_ASSISTANCE, new ComplexResponse(expectedResponse.getParameterByName("Max_speed_for_assistance").getValue()));
+      responseBundle.put(DuServiceParameter.START_OF_SLEEP_MODE, new ComplexResponse(expectedResponse.getParameterByName("Start_of_sleep_mode").getValue()));
+      responseBundle.put(DuServiceParameter.MAX_ALLOWED_MOTOR_POWER, new ComplexResponse(expectedResponse.getParameterByName("Max_allowed_motor_power").getValue()));
+      responseBundle.put(DuServiceParameter.MOTOR_GEAR_RATIO, new ComplexResponse(expectedResponse.getParameterByName("Motor_gear_ratio").getValue()));
+    } catch (ComplexResponse.DataAccessException ex) {
+      this.log.warn("Problem retrieving data of basic configuration from the DU response {}", (Throwable)ex);
+      responseBundle.put(DuServiceParameter.MOTOR_GEAR_RATIO, expectedResponse);
+      responseBundle.put(DuServiceParameter.START_OF_SLEEP_MODE, expectedResponse);
+      responseBundle.put(DuServiceParameter.MAX_ALLOWED_MOTOR_POWER, expectedResponse);
+      responseBundle.put(DuServiceParameter.MAX_SPEED_FOR_ASSISTANCE, expectedResponse);
+    } 
+    return responseBundle;
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readDuLifetimeInfoBundle() {
+    ComplexResponse expectedResponse = ((Du)this.ecu).readDuLifeTimeInfo();
+    Map<ServiceParameter, ComplexResponse> responseBundle = new HashMap<>();
+    try {
+      responseBundle.put(DuServiceParameter.TOT_ACTIVE_OPERATINGTIME_WITH_ASSIST, new ComplexResponse(expectedResponse.getParameterByName("Total_active_operating_time_with_assistance").getValue()));
+      responseBundle.put(DuServiceParameter.TOT_PASSIVE_OPERATINGTIME_WITHOUT_ASSIST, new ComplexResponse(expectedResponse.getParameterByName("Total_passive_operating_time_without_assistance").getValue()));
+    } catch (ComplexResponse.DataAccessException ex) {
+      this.log.warn("Problem retrieving data of the lifetime info from the DU response {}", (Throwable)ex);
+      responseBundle.put(DuServiceParameter.TOT_ACTIVE_OPERATINGTIME_WITH_ASSIST, expectedResponse);
+      responseBundle.put(DuServiceParameter.TOT_PASSIVE_OPERATINGTIME_WITHOUT_ASSIST, expectedResponse);
+    } 
+    return responseBundle;
+  }
+  
+  private ComplexResponse getDuHighPowerPort() {
+    if (this.ecuIdentification.getComponentType().isBDU4xx())
+      return this.communicationManager.getDuCom().readHighPowerPortMode(); 
+    return new ComplexResponse("");
+  }
+}
+
+
+========================================================================================================================
+ITEM 18: com/gigatronik/beds/diagnosticdatapool/impl/reader/EcuServiceParameterReader.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.impl.reader;
+
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.ServiceParameter;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.ecu.api.Ecu;
+import com.gigatronik.beds.service.ecu.data.DtcResponse;
+import com.gigatronik.beds.service.ecu.data.Response;
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.EcuIdentification;
+import java.util.Collections;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public abstract class EcuServiceParameterReader {
+  protected final Logger log = LoggerFactory.getLogger(getClass());
+  
+  protected CommunicationManager communicationManager;
+  
+  protected BikeIdentification bikeIdentification;
+  
+  Ecu ecu;
+  
+  EcuIdentification ecuIdentification;
+  
+  EcuServiceParameterReader(CommunicationManager communicationManager, BikeIdentification bikeIdentification) {
+    this.communicationManager = communicationManager;
+    this.bikeIdentification = bikeIdentification;
+  }
+  
+  public abstract Map<ServiceParameter, ComplexResponse> readServiceParameter(ServiceParameter paramServiceParameter);
+  
+  public abstract DtcResponse readDtcs();
+  
+  protected abstract Map<ServiceParameter, ComplexResponse> mappingParameterToMethod(ServiceParameter paramServiceParameter);
+  
+  DtcResponse getEcuDtcs() {
+    DtcResponse dtcs = null;
+    if (this.ecuIdentification.isApplication()) {
+      String componentName = this.ecuIdentification.getComponentType().toString();
+      if (this.ecuIdentification instanceof com.gigatronik.ebike.common.configuration.BmsIdentification)
+        componentName = componentName + componentName; 
+      this.log.debug("Read error codes from '{}' ...", componentName);
+      dtcs = this.ecu.readErrorMemory();
+    } 
+    return (dtcs == null) ? new DtcResponse(Response.Type.NEGATIVE, null) : dtcs;
+  }
+  
+  Map<ServiceParameter, ComplexResponse> readSoftwareVersion(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, this.ecuIdentification.getSwVersionResponse());
+  }
+  
+  Map<ServiceParameter, ComplexResponse> readHardwareVersion(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, this.ecuIdentification.getHwVersionResponse());
+  }
+  
+  Map<ServiceParameter, ComplexResponse> readSerialNumber(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, this.ecuIdentification.getSerialNumberResponse());
+  }
+  
+  Map<ServiceParameter, ComplexResponse> readComponentType(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, new ComplexResponse(this.ecuIdentification.getComponentType().name()));
+  }
+  
+  Map<ServiceParameter, ComplexResponse> readProductCode(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, this.ecuIdentification.getProductCodeResponse());
+  }
+  
+  Map<ServiceParameter, ComplexResponse> readPartNumber(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, this.ecuIdentification.getPartNumberResponse());
+  }
+  
+  Map<ServiceParameter, ComplexResponse> readManufacturingDate(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, this.ecu.readManufacturingDate());
+  }
+  
+  Map<ServiceParameter, ComplexResponse> readComponent(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, new ComplexResponse(this.ecuIdentification.getComponentType().getDisplayName()));
+  }
+}
+
+
+========================================================================================================================
+ITEM 19: com/gigatronik/beds/diagnosticdatapool/impl/reader/EShiftServiceParameterReader.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.impl.reader;
+
+import com.gigatronik.beds.diagnosticdatapool.api.exception.ServiceNotImplementedException;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.EShiftServiceParameter;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.ServiceParameter;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.ecu.api.Ecu;
+import com.gigatronik.beds.service.ecu.api.Eshift;
+import com.gigatronik.beds.service.ecu.data.DtcResponse;
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.EcuIdentification;
+import com.gigatronik.ebike.common.configuration.EshiftIdentification;
+import com.gigatronik.ebike.common.configuration.NegativeResponse;
+import java.util.Collections;
+import java.util.Map;
+
+public class EShiftServiceParameterReader extends EcuServiceParameterReader {
+  public EShiftServiceParameterReader(CommunicationManager communicationManager, BikeIdentification bikeIdentification) {
+    super(communicationManager, bikeIdentification);
+    this.ecu = (Ecu)communicationManager.getEshiftCom();
+    this.ecuIdentification = (EcuIdentification)bikeIdentification.getEShiftIdentification();
+  }
+  
+  public Map<ServiceParameter, ComplexResponse> readServiceParameter(ServiceParameter serviceParameter) {
+    return handleGearPropertiesReception(serviceParameter);
+  }
+  
+  public DtcResponse readDtcs() {
+    return getEcuDtcs();
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> handleGearPropertiesReception(ServiceParameter serviceParameter) {
+    if (((EshiftIdentification)this.ecuIdentification).getGearPropertiesReceived() == EshiftIdentification.GearPropertiesReceived.TRUE_AVAILABLE)
+      return mappingParameterToMethod(serviceParameter); 
+    return Collections.singletonMap(serviceParameter, new ComplexResponse(NegativeResponse.REQUEST_OUT_OF_RANGE));
+  }
+  
+  protected Map<ServiceParameter, ComplexResponse> mappingParameterToMethod(ServiceParameter serviceParameter) {
+    switch ((EShiftServiceParameter)serviceParameter) {
+      case GEARBOX_TYPE:
+        return readGearBoxType(serviceParameter);
+      case NUMBER_OF_GEARS:
+        return readNumberOfGears(serviceParameter);
+      case HW_VERSION:
+        return readHardwareVersion(serviceParameter);
+      case SW_VERSION:
+        return readSoftwareVersion(serviceParameter);
+      case VENDOR_ID:
+        return readVendorId(serviceParameter);
+      case PRODUCT_ID:
+        return readProductId(serviceParameter);
+      case SERIAL_NUMBER:
+        return readSerialNumber(serviceParameter);
+    } 
+    throw new ServiceNotImplementedException(serviceParameter);
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readProductId(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((EshiftIdentification)this.ecuIdentification).getProductIdResponse());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readVendorId(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((EshiftIdentification)this.ecuIdentification).getVendorIdResponse());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readNumberOfGears(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Eshift)this.ecu).readNumberOfGears());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readGearBoxType(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Eshift)this.ecu).readGearBoxType());
+  }
+}
+
+
+========================================================================================================================
+ITEM 20: com/gigatronik/beds/diagnosticdatapool/impl/reader/HmiServiceParameterReader.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.impl.reader;
+
+import com.gigatronik.beds.diagnosticdatapool.api.exception.ServiceNotImplementedException;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.HmiServiceParameter;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.ServiceParameter;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.ecu.api.Ecu;
+import com.gigatronik.beds.service.ecu.api.Hmi;
+import com.gigatronik.beds.service.ecu.data.DtcResponse;
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.EcuIdentification;
+import com.gigatronik.ebike.common.configuration.HmiIdentification;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.GregorianCalendar;
+import java.util.HashMap;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class HmiServiceParameterReader extends EcuServiceParameterReader {
+  private static final Logger LOGGER = LoggerFactory.getLogger(HmiServiceParameterReader.class);
+  
+  public HmiServiceParameterReader(CommunicationManager communicationManager, BikeIdentification bikeIdentification) {
+    super(communicationManager, bikeIdentification);
+    this.ecu = (Ecu)communicationManager.getHmiCom();
+    this.ecuIdentification = (EcuIdentification)bikeIdentification.getHmiIdentification();
+  }
+  
+  public Map<ServiceParameter, ComplexResponse> readServiceParameter(ServiceParameter serviceParameter) {
+    return mappingParameterToMethod(serviceParameter);
+  }
+  
+  public DtcResponse readDtcs() {
+    return getEcuDtcs();
+  }
+  
+  protected Map<ServiceParameter, ComplexResponse> mappingParameterToMethod(ServiceParameter serviceParameter) {
+    switch ((HmiServiceParameter)serviceParameter) {
+      case MANUFACTURING_DATE:
+        return readManufacturingDate(serviceParameter);
+      case PART_NUMBER:
+        return readPartNumber(serviceParameter);
+      case PRODUCT_CODE:
+        return readProductCode(serviceParameter);
+      case COMPONENT_TYPE:
+        return readComponentType(serviceParameter);
+      case SERIAL_NUMBER:
+        return readSerialNumber(serviceParameter);
+      case HW_VERSION:
+        return readHardwareVersion(serviceParameter);
+      case SW_VERSION:
+        return readSoftwareVersion(serviceParameter);
+      case SW_VERSION_FRONTEND:
+        return readSoftwareVersionFrontend(serviceParameter);
+      case MAP_VERSION_REQUIRED:
+        return readMapVersionRequired(serviceParameter);
+      case COMPONENT:
+        return readComponent(serviceParameter);
+      case BATTERY_STATE:
+        return readBatteryState(serviceParameter);
+      case TRIP_DISTANCE:
+        return readTripDistance(serviceParameter);
+      case PRESENT_TIME:
+        if (this.ecuIdentification.getComponentType().isBUI33x() || this.ecuIdentification.getComponentType().isBUI35x())
+          return readPresentDateTime(); 
+        return readPresentTime(serviceParameter);
+      case PRESENT_DATE:
+        if (this.ecuIdentification.getComponentType().isBUI33x() || this.ecuIdentification.getComponentType().isBUI35x())
+          return readPresentDateTime(); 
+        return readPresentDate(serviceParameter);
+      case CLOCK_FORMAT:
+        return readClockDisplayFormat(serviceParameter);
+      case TRIP_TIME:
+        return readTripTime(serviceParameter);
+      case MAX_SPEED:
+        return readMaxSpeed(serviceParameter);
+      case BATTERY_CHARGE_VALUE:
+        return readBatteryChargeValue(serviceParameter);
+      case UDAM_DATA:
+        return readUdamsData(serviceParameter);
+      case DISTANCE_UNIT:
+        return readDistanceUnit(serviceParameter);
+      case LANGUAGE:
+        return readLanguage(serviceParameter);
+    } 
+    throw new ServiceNotImplementedException(serviceParameter);
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readMapVersionRequired(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((HmiIdentification)this.ecuIdentification).getMapVersionRequiredResponse());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readSoftwareVersionFrontend(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((HmiIdentification)this.ecuIdentification).getFrontendSwVersionResponse());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readBatteryState(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Hmi)this.ecu).readPurionBatteryState());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readTripDistance(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Hmi)this.ecu).readTripDistance());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readPresentTime(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Hmi)this.ecu).readPresentTime());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readPresentDate(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Hmi)this.ecu).readPresentDate());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readPresentDateTime() {
+    ComplexResponse expectedResponse = ((Hmi)this.ecu).readPresentDateTime();
+    Map<ServiceParameter, ComplexResponse> responseMap = new HashMap<>();
+    responseMap.put(HmiServiceParameter.PRESENT_DATE, processPresentDate(expectedResponse));
+    responseMap.put(HmiServiceParameter.PRESENT_TIME, processPresentTime(expectedResponse));
+    return responseMap;
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readClockDisplayFormat(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Hmi)this.ecu).readClockDisplayFormat());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readTripTime(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Hmi)this.ecu).readTripTime());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readMaxSpeed(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Hmi)this.ecu).readMaxSpeed());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readBatteryChargeValue(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Hmi)this.ecu).readBatteryChargeValue());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readUdamsData(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Hmi)this.ecu).readUdams());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readDistanceUnit(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Hmi)this.ecu).readDistanceUnit());
+  }
+  
+  private Map<ServiceParameter, ComplexResponse> readLanguage(ServiceParameter serviceParameter) {
+    return Collections.singletonMap(serviceParameter, ((Hmi)this.ecu).readLanguageSetting());
+  }
+  
+  private ComplexResponse processPresentTime(ComplexResponse value) {
+    if (value.isPositive())
+      try {
+        Calendar c = new GregorianCalendar();
+        c.setTime(value.getDate());
+        return new ComplexResponse(String.format("%02d:%02d", c.get(11), c.get(12)));
+      } catch (ComplexResponse.DataAccessException ex) {
+        LOGGER.error("Error processing kiox present time", (Throwable)ex);
+      }  
+    return value;
+  }
+  
+  private ComplexResponse processPresentDate(ComplexResponse value) {
+    if (value.isPositive())
+      try {
+        Calendar c = new GregorianCalendar();
+        c.setTime(value.getDate());
+        return new ComplexResponse(String.format("%04d-%02d-%02d", c.get(1), c.get(2) + 1, c.get(5)));
+      } catch (ComplexResponse.DataAccessException ex) {
+        LOGGER.error("Error processing kiox present date", (Throwable)ex);
+      }  
+    return value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 21: com/gigatronik/beds/diagnosticdatapool/impl/ServiceParameterDatapoolFactory.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.impl;
+
+import com.gigatronik.beds.common.order.OrderableListener;
+import com.gigatronik.beds.diagnosticdatapool.api.ServiceParameterDatapool;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+
+public class ServiceParameterDatapoolFactory {
+  private final CommunicationManager communicationManager;
+  
+  private final ConfigurationManager configurationManager;
+  
+  public ServiceParameterDatapoolFactory(CommunicationManager communicationManager, ConfigurationManager configurationManager) {
+    this.communicationManager = communicationManager;
+    this.configurationManager = configurationManager;
+  }
+  
+  public ServiceParameterDatapool createServiceParameterDatapool() {
+    ServiceParameterDatapoolImpl datapoolImpl = new ServiceParameterDatapoolImpl(this.communicationManager, this.configurationManager);
+    this.configurationManager.addListener((OrderableListener)datapoolImpl);
+    return datapoolImpl;
+  }
+}
+
+
+========================================================================================================================
+ITEM 22: com/gigatronik/beds/diagnosticdatapool/impl/ServiceParameterDatapoolImpl.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.impl;
+
+import com.gigatronik.beds.diagnosticdatapool.api.ServiceParameterDatapool;
+import com.gigatronik.beds.diagnosticdatapool.api.exception.ServiceNotImplementedException;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.DuServiceParameter;
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.ServiceParameter;
+import com.gigatronik.beds.diagnosticdatapool.impl.reader.AbsServiceParameterReader;
+import com.gigatronik.beds.diagnosticdatapool.impl.reader.BmsServiceParameterReader;
+import com.gigatronik.beds.diagnosticdatapool.impl.reader.EcuServiceParameterReader;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.configuration.api.BikeConfigurationChangesListener;
+import com.gigatronik.beds.service.configuration.api.ContainerConfigurationChangesListener;
+import com.gigatronik.beds.service.configuration.api.HardwareConnectionChangesListener;
+import com.gigatronik.beds.service.configuration.event.BikeConfigurationChangedEvent;
+import com.gigatronik.beds.service.configuration.event.ContainerConfigurationChangedEvent;
+import com.gigatronik.beds.service.configuration.event.HardwareConnectionChangedEvent;
+import com.gigatronik.beds.service.ecu.data.DtcResponse;
+import com.gigatronik.beds.service.flashcontainer.download.PreliminaryContainerDownloaderFactory;
+import com.gigatronik.beds.service.flashcontainer.download.PreliminaryContainerDownloaderListener;
+import com.gigatronik.beds.service.flashcontainer.download.PreliminaryContainerEvent;
+import com.gigatronik.beds.service.flashcontainer.utils.BikeModelTranslationHelper;
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.Constants;
+import com.gigatronik.ebike.common.configuration.NegativeResponse;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ServiceParameterDatapoolImpl implements ServiceParameterDatapool, PreliminaryContainerDownloaderListener, BikeConfigurationChangesListener, ContainerConfigurationChangesListener, HardwareConnectionChangesListener {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ServiceParameterDatapool.class);
+  
+  private Map<ServiceParameter, ComplexResponse> parameterDatapool;
+  
+  private Map<ServiceParameter.Ecu, DtcResponse> dtcDatapool;
+  
+  private List<DatapoolUpdatesListener> listeners;
+  
+  private final ConfigurationManager configurationManager;
+  
+  private final BikeIdentification bikeIdentification;
+  
+  private ServiceParameterReaderProvider serviceParameterReaderProvider;
+  
+  ServiceParameterDatapoolImpl(CommunicationManager communicationManager, ConfigurationManager configurationManager) {
+    this.parameterDatapool = new HashMap<>();
+    this.dtcDatapool = new EnumMap<>(ServiceParameter.Ecu.class);
+    this.listeners = new LinkedList<>();
+    this.configurationManager = configurationManager;
+    this.bikeIdentification = configurationManager.getBikeIdentification();
+    this.serviceParameterReaderProvider = new ServiceParameterReaderProvider(communicationManager, this.bikeIdentification);
+    listenPreliminaryContainerDownloader(PreliminaryContainerDownloaderFactory.getPreliminaryContainerDownloader());
+  }
+  
+  public ComplexResponse getServiceParameter(ServiceParameter serviceParameter) {
+    ComplexResponse expectedResponse = this.parameterDatapool.get(serviceParameter);
+    try {
+      if (expectedResponse == null)
+        expectedResponse = handleServiceParameterRequest(serviceParameter); 
+    } catch (ServiceNotImplementedException e) {
+      LOGGER.error(e.getMessage());
+      expectedResponse = handleServiceParameterNotImplementedError(serviceParameter);
+    } 
+    return expectedResponse;
+  }
+  
+  private ComplexResponse handleServiceParameterNotImplementedError(ServiceParameter serviceParameter) {
+    ComplexResponse expectedResponse = new ComplexResponse(NegativeResponse.REQUEST_OUT_OF_RANGE);
+    this.parameterDatapool.put(serviceParameter, expectedResponse);
+    return expectedResponse;
+  }
+  
+  private ComplexResponse handleServiceParameterRequest(ServiceParameter serviceParameter) {
+    EcuServiceParameterReader ecuServiceParameterReader = this.serviceParameterReaderProvider.getParameterReader(serviceParameter);
+    Map<ServiceParameter, ComplexResponse> responseBundle = ecuServiceParameterReader.readServiceParameter(serviceParameter);
+    ComplexResponse expectedResponse = responseBundle.get(serviceParameter);
+    this.parameterDatapool.putAll(responseBundle);
+    return expectedResponse;
+  }
+  
+  public Map<ServiceParameter, ComplexResponse> getServiceParameterBundle(List<ServiceParameter> serviceParameterList) {
+    Map<ServiceParameter, ComplexResponse> returnMap = new HashMap<>();
+    for (ServiceParameter parameter : serviceParameterList)
+      returnMap.put(parameter, getServiceParameter(parameter)); 
+    return returnMap;
+  }
+  
+  public Map<ServiceParameter, ComplexResponse> getCleanServiceParameterBundle(List<ServiceParameter> serviceParameterList) {
+    Map<ServiceParameter, ComplexResponse> returnMap = new HashMap<>();
+    for (ServiceParameter parameter : serviceParameterList)
+      resetServiceParameterCache(parameter); 
+    for (ServiceParameter parameter : serviceParameterList)
+      returnMap.put(parameter, getServiceParameter(parameter)); 
+    return returnMap;
+  }
+  
+  public DtcResponse getErrorMemoryContent(ServiceParameter.Ecu ecu) {
+    DtcResponse expectedResponse = this.dtcDatapool.get(ecu);
+    if (expectedResponse == null) {
+      EcuServiceParameterReader ecuServiceParameterReader = this.serviceParameterReaderProvider.getParameterReader(ecu);
+      expectedResponse = (ecu == ServiceParameter.Ecu.BMS2) ? ((BmsServiceParameterReader)ecuServiceParameterReader).readDtcsBms2() : ecuServiceParameterReader.readDtcs();
+      this.dtcDatapool.put(ecu, expectedResponse);
+    } 
+    return expectedResponse;
+  }
+  
+  private void resetCache() {
+    resetServiceParameterCache();
+    resetDtcCache();
+  }
+  
+  private void resetServiceParameterCache() {
+    this.parameterDatapool = new HashMap<>();
+  }
+  
+  public void resetServiceParameterCache(ServiceParameter.Ecu ecu) {
+    this.parameterDatapool.keySet().removeIf(parameter -> (parameter.getEcuType() == ecu));
+    if (ecu.equals(ServiceParameter.Ecu.DU))
+      resetServiceParameterCache(ServiceParameter.Ecu.ESHIFT); 
+  }
+  
+  public void resetServiceParameterCache(ServiceParameter serviceParameter) {
+    try {
+      this.parameterDatapool.remove(serviceParameter);
+    } catch (NullPointerException e) {
+      LOGGER.info("The service parameter {} has not been yet retrieved from the ECU", serviceParameter.getText());
+    } 
+  }
+  
+  private void resetDtcCache() {
+    this.dtcDatapool = new EnumMap<>(ServiceParameter.Ecu.class);
+  }
+  
+  public void resetDtcCache(ServiceParameter.Ecu ecu) {
+    this.dtcDatapool.remove(ecu);
+    if (ecu.equals(ServiceParameter.Ecu.DU))
+      resetDtcCache(ServiceParameter.Ecu.ESHIFT); 
+  }
+  
+  public void onHardwareConnectionChanged(HardwareConnectionChangedEvent event) {
+    LOGGER.debug("HardwareConnectionChangedEvent received: '{}'", event);
+    if (event.getAction() == HardwareConnectionChangedEvent.HardwareConnectionStateChange.ECU_CONNECTED && event.getComponent().isDriveUnit()) {
+      updateAbsReaderOnDriveUnitDataChange();
+      if (this.configurationManager.isContainerLoaded()) {
+        extractModelNameFromLoadedContainer();
+        if (shouldServiceTabBeRepainted())
+          notifyDatapoolUpdated(); 
+      } 
+    } 
+    if (event.getAction() == HardwareConnectionChangedEvent.HardwareConnectionStateChange.ECU_DISCONNECTED) {
+      ServiceParameter.Ecu ecu;
+      switch (event.getComponent()) {
+        case BUI21X:
+        case BUI25X:
+        case BUI270:
+        case BUI275:
+        case BUI330:
+        case BUI350:
+        case COBI:
+          resetCache();
+          return;
+        case CLASSIC_DU:
+        case VICTOR_DU:
+          ecu = ServiceParameter.Ecu.DU;
+          updateAbsReaderOnDriveUnitDataChange();
+          break;
+        case CLASSIC_PP:
+        case VICTOR_PP1:
+          ecu = ServiceParameter.Ecu.BMS1;
+          break;
+        case VICTOR_PP2:
+          ecu = ServiceParameter.Ecu.BMS2;
+          break;
+        case BAS100:
+          ecu = ServiceParameter.Ecu.ABS;
+          break;
+        case BCS250:
+          ecu = ServiceParameter.Ecu.BCS;
+          break;
+        case BCT:
+          ecu = ServiceParameter.Ecu.BCT;
+          break;
+        default:
+          LOGGER.warn("The disconnected ECU: {} is not recognized by the Datapool, aborting cleaning operation.", event.getComponent());
+          return;
+      } 
+      resetServiceParameterCache(ecu);
+      resetDtcCache(ecu);
+    } 
+  }
+  
+  private void updateAbsReaderOnDriveUnitDataChange() {
+    AbsServiceParameterReader absReader = (AbsServiceParameterReader)this.serviceParameterReaderProvider.getParameterReader(ServiceParameter.Ecu.ABS);
+    absReader.updateWheelSizeFromDriveUnit();
+  }
+  
+  public void onPreliminaryContainerDownloaded(PreliminaryContainerEvent event) {
+    ComplexResponse applicationIdResponse = this.bikeIdentification.getApplicationIdResponse();
+    if (StringUtils.isNotBlank(applicationIdResponse.toString())) {
+      ComplexResponse modelName = new ComplexResponse(event.getTranslatedBikeModel());
+      if (StringUtils.isNotBlank(modelName.toString()))
+        this.parameterDatapool.put(DuServiceParameter.MODEL_NAME, modelName); 
+    } 
+    notifyDatapoolUpdated();
+  }
+  
+  public void registerListener(DatapoolUpdatesListener listener) {
+    this.listeners.add(listener);
+  }
+  
+  private void notifyDatapoolUpdated() {
+    LOGGER.info("Fire datapool updated event.");
+    for (DatapoolUpdatesListener listener : this.listeners)
+      listener.onDatapoolUpdated(); 
+  }
+  
+  public void onBikeConfigurationChanged(BikeConfigurationChangedEvent event) {
+    LOGGER.debug("BikeConfigurationChangedEvent received: '{}'", event);
+    if (event.getAction() == BikeConfigurationChangedEvent.Action.WRITE_TO_BIKE) {
+      resetServiceParameterCache(ServiceParameter.Ecu.HMI);
+      resetServiceParameterCache(ServiceParameter.Ecu.DU);
+      updateAbsReaderOnDriveUnitDataChange();
+    } 
+  }
+  
+  public void onContainerConfigurationChanged(ContainerConfigurationChangedEvent event) {
+    LOGGER.debug("ContainerConfigurationChangedEvent received: '{}'", event);
+    if (event.getAction() == ContainerConfigurationChangedEvent.Action.LOADED && 
+      extractModelNameFromLoadedContainer() && 
+      shouldServiceTabBeRepainted())
+      notifyDatapoolUpdated(); 
+  }
+  
+  private boolean shouldServiceTabBeRepainted() {
+    ComplexResponse response = this.parameterDatapool.get(DuServiceParameter.APPLICATION_ID);
+    return (response != null && response.isPositive());
+  }
+  
+  private boolean extractModelNameFromLoadedContainer() {
+    ComplexResponse modelNameResponse = this.parameterDatapool.getOrDefault(DuServiceParameter.MODEL_NAME, new ComplexResponse(""));
+    ComplexResponse applicationIdResponse = this.bikeIdentification.getApplicationIdResponse();
+    if (StringUtils.isBlank(modelNameResponse.toString()) && StringUtils.isNotBlank(applicationIdResponse.toString())) {
+      String modelNameRaw = this.configurationManager.getContainerConfiguration().getContainerController().getBoschContainerCommonInterface().getEbikeModel(applicationIdResponse.toString().trim());
+      ComplexResponse modelName = new ComplexResponse(BikeModelTranslationHelper.createTranslatedBikeModel(modelNameRaw));
+      if (StringUtils.isNotBlank(modelName.toString())) {
+        this.parameterDatapool.put(DuServiceParameter.MODEL_NAME, modelName);
+        return true;
+      } 
+    } 
+    return false;
+  }
+}
+
+
+========================================================================================================================
+ITEM 23: com/gigatronik/beds/diagnosticdatapool/impl/ServiceParameterReaderProvider.java
+========================================================================================================================
+package com.gigatronik.beds.diagnosticdatapool.impl;
+
+import com.gigatronik.beds.diagnosticdatapool.api.serviceparameter.ServiceParameter;
+import com.gigatronik.beds.diagnosticdatapool.impl.reader.AbsServiceParameterReader;
+import com.gigatronik.beds.diagnosticdatapool.impl.reader.BcsServiceParameterReader;
+import com.gigatronik.beds.diagnosticdatapool.impl.reader.BctServiceParameterReader;
+import com.gigatronik.beds.diagnosticdatapool.impl.reader.BmsServiceParameterReader;
+import com.gigatronik.beds.diagnosticdatapool.impl.reader.DuServiceParameterReader;
+import com.gigatronik.beds.diagnosticdatapool.impl.reader.EShiftServiceParameterReader;
+import com.gigatronik.beds.diagnosticdatapool.impl.reader.EcuServiceParameterReader;
+import com.gigatronik.beds.diagnosticdatapool.impl.reader.HmiServiceParameterReader;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+
+class ServiceParameterReaderProvider {
+  private CommunicationManager communicationManager;
+  
+  private BikeIdentification bikeIdentification;
+  
+  private EcuServiceParameterReader hmiParameterReader;
+  
+  private EcuServiceParameterReader bduParameterReader;
+  
+  private EcuServiceParameterReader bmsParameterReader;
+  
+  private EcuServiceParameterReader bctParameterReader;
+  
+  private EcuServiceParameterReader absParameterReader;
+  
+  private EcuServiceParameterReader bcsParameterReader;
+  
+  private EcuServiceParameterReader eShiftParameterReader;
+  
+  ServiceParameterReaderProvider(CommunicationManager communicationManager, BikeIdentification bikeIdentification) {
+    this.communicationManager = communicationManager;
+    this.bikeIdentification = bikeIdentification;
+  }
+  
+  EcuServiceParameterReader getParameterReader(ServiceParameter ecuServiceParameter) {
+    ServiceParameter.Ecu ecu = ecuServiceParameter.getEcuType();
+    return getParameterReader(ecu);
+  }
+  
+  EcuServiceParameterReader getParameterReader(ServiceParameter.Ecu ecu) {
+    switch (ecu) {
+      case HMI:
+        if (this.hmiParameterReader == null)
+          this.hmiParameterReader = new HmiServiceParameterReader(this.communicationManager, this.bikeIdentification); 
+        return this.hmiParameterReader;
+      case BMS1:
+      case BMS2:
+        if (this.bmsParameterReader == null)
+          this.bmsParameterReader = new BmsServiceParameterReader(this.communicationManager, this.bikeIdentification); 
+        return this.bmsParameterReader;
+      case DU:
+        if (this.bduParameterReader == null)
+          this.bduParameterReader = new DuServiceParameterReader(this.communicationManager, this.bikeIdentification); 
+        return this.bduParameterReader;
+      case ABS:
+        if (this.absParameterReader == null)
+          this.absParameterReader = new AbsServiceParameterReader(this.communicationManager, this.bikeIdentification); 
+        return this.absParameterReader;
+      case BCS:
+        if (this.bcsParameterReader == null)
+          this.bcsParameterReader = new BcsServiceParameterReader(this.communicationManager, this.bikeIdentification); 
+        return this.bcsParameterReader;
+      case BCT:
+        if (this.bctParameterReader == null)
+          this.bctParameterReader = new BctServiceParameterReader(this.communicationManager, this.bikeIdentification); 
+        return this.bctParameterReader;
+      case ESHIFT:
+        if (this.eShiftParameterReader == null)
+          this.eShiftParameterReader = new EShiftServiceParameterReader(this.communicationManager, this.bikeIdentification); 
+        return this.eShiftParameterReader;
+    } 
+    return null;
+  }
+}
+

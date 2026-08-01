@@ -1,0 +1,3844 @@
+JAR: utils-2.0.76.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\utils-2.0.76.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/dart2/framework/database/DatabaseFactory.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.database;
+
+import com.gigatronik.dart2.framework.database.interfaces.DocDatabaseProvider;
+import com.gigatronik.dart2.framework.plugins.exceptions.DatabaseException;
+
+public class DatabaseFactory {
+  public static DocDatabaseProvider newOODBConnection() throws DatabaseException {
+    return new OrientDbProvider();
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/dart2/framework/database/interfaces/DocDatabase.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.database.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.DatabaseException;
+import java.util.List;
+
+public interface DocDatabase {
+  DocDocument newDocument(String paramString);
+  
+  void createStorage(String paramString);
+  
+  DocDocument getDocumentById(String paramString1, String paramString2);
+  
+  List<DocDocument> query(String paramString, Object... paramVarArgs);
+  
+  List<DocDocument> getAllDocuments(String paramString) throws DatabaseException;
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/dart2/framework/database/interfaces/DocDatabaseProvider.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.database.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.DatabaseException;
+
+public interface DocDatabaseProvider {
+  DocDatabase open(String paramString) throws DatabaseException;
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/dart2/framework/database/interfaces/DocDocument.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.database.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.DatabaseException;
+import java.util.Map;
+
+public interface DocDocument {
+  String getId();
+  
+  Map<String, Object> getProperties();
+  
+  String getRawData();
+  
+  void setRawData(String paramString);
+  
+  void delete() throws DatabaseException;
+  
+  void save() throws DatabaseException;
+  
+  void setProperty(String paramString, Object paramObject);
+  
+  Object getProperty(String paramString);
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/dart2/framework/database/OrientDbDatabase.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.database;
+
+import com.gigatronik.dart2.framework.database.interfaces.DocDatabase;
+import com.gigatronik.dart2.framework.database.interfaces.DocDocument;
+import com.gigatronik.dart2.framework.plugins.exceptions.DatabaseException;
+import com.orientechnologies.orient.core.Orient;
+import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
+import com.orientechnologies.orient.core.db.ODatabaseThreadLocalFactory;
+import com.orientechnologies.orient.core.db.OPartitionedDatabasePoolFactory;
+import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
+import com.orientechnologies.orient.core.record.impl.ODocument;
+import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
+import java.io.File;
+import java.util.LinkedList;
+import java.util.List;
+
+public class OrientDbDatabase implements DocDatabase {
+  private final ODatabaseDocumentTx db;
+  
+  private final OPartitionedDatabasePoolFactory factory;
+  
+  private final File datapath;
+  
+  private static final String USERNAME = "admin";
+  
+  private static final String PASSWORD = "admin";
+  
+  private class OrientThreadFactory extends OPartitionedDatabasePoolFactory implements ODatabaseThreadLocalFactory {
+    private OrientThreadFactory() {}
+    
+    public ODatabaseDocumentInternal getThreadDatabase() {
+      File dbpath = new File(OrientDbDatabase.this.datapath, "ooodb");
+      dbpath.mkdirs();
+      OPartitionedDatabasePoolFactory factory = new OPartitionedDatabasePoolFactory();
+      return (ODatabaseDocumentInternal)factory.get(OrientDbDatabase.this.getConnectionString(), "admin", "admin").acquire();
+    }
+  }
+  
+  public OrientDbDatabase(File dbpath, String dbname) throws DatabaseException {
+    this.datapath = dbpath;
+    this.factory = new OrientThreadFactory();
+    Orient.instance().registerThreadDatabaseFactory((ODatabaseThreadLocalFactory)this.factory);
+    createDbIfNotExists();
+    this.db = this.factory.get(getConnectionString(), "admin", "admin").acquire();
+  }
+  
+  private synchronized void createDbIfNotExists() {
+    String connectionString = getConnectionString();
+    ODatabaseDocumentTx localdb = new ODatabaseDocumentTx(connectionString);
+    if (!localdb.exists())
+      localdb.create(); 
+    localdb.close();
+  }
+  
+  private String getConnectionString() {
+    File dbpath = new File(this.datapath, "ooodb");
+    dbpath.mkdirs();
+    return "plocal:" + dbpath.getAbsolutePath();
+  }
+  
+  public DocDocument newDocument(String storage) {
+    return new OrientDbDocument(this.db, storage);
+  }
+  
+  public DocDocument getDocumentById(String id, String storage) {
+    List<ODocument> docs = this.db.query(new OSQLSynchQuery("SELECT * FROM " + id), new Object[0]);
+    return docs.isEmpty() ? null : new OrientDbDocument(this.db, docs.get(0));
+  }
+  
+  public List<DocDocument> getAllDocuments(String storage) throws DatabaseException {
+    List<DocDocument> result = new LinkedList<>();
+    try {
+      if (this.db.getMetadata().getSchema().existsClass(storage))
+        for (ODocument doc : (Iterable<ODocument>)this.db.browseClass(storage))
+          result.add(new OrientDbDocument(this.db, doc));  
+    } catch (IllegalArgumentException e) {
+      throw new DatabaseException("Error listing documents", e);
+    } 
+    return result;
+  }
+  
+  public List<DocDocument> query(String query, Object... params) {
+    List<DocDocument> result = new LinkedList<>();
+    List<ODocument> queryResults = this.db.query(new OSQLSynchQuery(query), params);
+    for (ODocument doc : queryResults)
+      result.add(new OrientDbDocument(this.db, doc)); 
+    return result;
+  }
+  
+  public void createStorage(String storage) {
+    if (!this.db.getMetadata().getSchema().existsClass(storage))
+      this.db.getMetadata().getSchema().createClass(storage); 
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/dart2/framework/database/OrientDbDocument.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.database;
+
+import com.gigatronik.dart2.framework.database.interfaces.DocDocument;
+import com.gigatronik.dart2.framework.plugins.exceptions.DatabaseException;
+import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
+import com.orientechnologies.orient.core.record.ORecord;
+import com.orientechnologies.orient.core.record.impl.ODocument;
+import java.util.Map;
+
+public class OrientDbDocument implements DocDocument {
+  private final ODocument document;
+  
+  private final ODatabaseDocumentTx db;
+  
+  protected OrientDbDocument(ODatabaseDocumentTx db, String documentClass) {
+    this.db = db;
+    this.document = new ODocument(documentClass);
+  }
+  
+  protected OrientDbDocument(ODatabaseDocumentTx db, ODocument doc) {
+    this.db = db;
+    this.document = doc;
+  }
+  
+  public String getId() {
+    return this.document.getIdentity().toString();
+  }
+  
+  public Map<String, Object> getProperties() {
+    return this.document.toMap();
+  }
+  
+  public String getRawData() {
+    return this.document.toJSON();
+  }
+  
+  public void delete() throws DatabaseException {
+    this.document.delete();
+  }
+  
+  public void setProperty(String key, Object value) {
+    if (value instanceof OrientDbDocument)
+      value = ((OrientDbDocument)value).document; 
+    this.document.field(key, value);
+  }
+  
+  public Object getProperty(String key) {
+    return this.document.field(key);
+  }
+  
+  public void save() throws DatabaseException {
+    this.db.save((ORecord)this.document);
+  }
+  
+  public void setRawData(String rawdata) {
+    ODocument doc = new ODocument();
+    doc.fromJSON(rawdata);
+    this.document.merge(doc, true, true);
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/dart2/framework/database/OrientDbProvider.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.database;
+
+import com.gigatronik.dart2.framework.database.interfaces.DocDatabase;
+import com.gigatronik.dart2.framework.database.interfaces.DocDatabaseProvider;
+import com.gigatronik.dart2.framework.plugins.exceptions.DatabaseException;
+import com.gigatronik.dart2.framework.settings.SettingsFactory;
+import java.io.File;
+
+public class OrientDbProvider implements DocDatabaseProvider {
+  public DocDatabase open(String dbname) throws DatabaseException {
+    return new OrientDbDatabase(new File(SettingsFactory.getInstance().getDataPath()), dbname);
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/dart2/framework/log/LogFactory.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.log;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.gigatronik.dart2.framework.settings.SettingsFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class LogFactory {
+  private static final Logger logger = LoggerFactory.getLogger(LogFactory.class);
+  
+  @Deprecated
+  public static void initLog() {
+    try {
+      System.setProperty("log4j.configurationFile", SettingsFactory.getInstance().getLog4J2ConfigFilePath().toURI().toURL().toString());
+    } catch (ConfigurationNotFoundException|java.net.MalformedURLException e) {
+      logger.warn("Error reading log configuration", (Throwable)e);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/dart2/framework/plugins/PluginManager.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.PluginNotFoundException;
+import com.gigatronik.dart2.framework.plugins.interfaces.DartPlugin;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.ServiceLoader;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public final class PluginManager {
+  private final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private final Map<UUID, DartPlugin> INSTANTIATED_SINGLETON_PLUGINS = new HashMap<>();
+  
+  private static PluginManager instance;
+  
+  public static synchronized PluginManager getInstance() {
+    if (instance == null)
+      instance = new PluginManager(); 
+    return instance;
+  }
+  
+  public List<DartPlugin> getAllPlugins() {
+    return getPlugins(DartPlugin.class);
+  }
+  
+  public <T extends DartPlugin> List<UUID> getPluginUUIDs(Class<T> interfaceType) {
+    List<T> plugins = getPlugins(interfaceType);
+    List<UUID> result = new LinkedList<>();
+    for (T plugin : (Iterable<T>)plugins)
+      result.add(plugin.getUuid()); 
+    return result;
+  }
+  
+  public <T extends DartPlugin> List<T> getPlugins(Class<T> interfaceType) {
+    ServiceLoader<T> loader = ServiceLoader.load(interfaceType);
+    Iterator<T> it = loader.iterator();
+    List<T> result = new LinkedList<>();
+    while (it.hasNext()) {
+      T current = it.next();
+      current = substitudeWithSingletonInstance(current);
+      result.add(current);
+    } 
+    return result;
+  }
+  
+  protected synchronized <T extends DartPlugin> T substitudeWithSingletonInstance(T plugin) {
+    UUID uuid = plugin.getUuid();
+    if (this.INSTANTIATED_SINGLETON_PLUGINS.containsKey(uuid)) {
+      DartPlugin reference = this.INSTANTIATED_SINGLETON_PLUGINS.get(uuid);
+      T tmp = (T)reference;
+      if (tmp != null)
+        return tmp; 
+    } else if (plugin.isSingleton()) {
+      this.INSTANTIATED_SINGLETON_PLUGINS.put(uuid, plugin);
+    } 
+    return plugin;
+  }
+  
+  public <T extends DartPlugin> T getSinglePlugin(Class<T> interfaceType) throws PluginNotFoundException {
+    List<T> providers = getInstance().getPlugins(interfaceType);
+    if (providers.isEmpty())
+      throw new PluginNotFoundException("A plugin implementing the class " + interfaceType.toString() + " was not found"); 
+    T plugin = providers.get(0);
+    if (providers.size() > 1)
+      this.logger.warn(String.format("More than one Plugin implementing " + interfaceType.toString() + " was found. Using the first one (%s [%s]) as provider", plugin.getName(), 
+            plugin.getUuid())); 
+    return substitudeWithSingletonInstance(plugin);
+  }
+  
+  public DartPlugin getPluginByUuid(UUID uuid) {
+    List<DartPlugin> plugins = getAllPlugins();
+    for (DartPlugin plugin : plugins) {
+      if (plugin.getUuid().equals(uuid))
+        return plugin; 
+    } 
+    return null;
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/dart2/framework/settings/ROSettings.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.settings;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URL;
+import java.security.GeneralSecurityException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.PBEParameterSpec;
+import org.apache.commons.codec.binary.Base64;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ROSettings extends Properties implements Settings {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ROSettings.class);
+  
+  private static final String CIPHER = "PBEWithMD5AndDES";
+  
+  private static final byte[] SALT = new byte[] { -34, 51, 16, 18, -34, 51, 16, 18 };
+  
+  private static final long serialVersionUID = 1L;
+  
+  private final URL path;
+  
+  public ROSettings(URL path, boolean required) throws ConfigurationNotFoundException {
+    this.path = path;
+    try {
+      refresh();
+    } catch (IOException e) {
+      if (required)
+        throw new ConfigurationNotFoundException("Configuration file " + path + " not found", e); 
+      LOGGER.info("Cannot load settings", (Throwable)e);
+    } 
+  }
+  
+  public void refresh() throws IOException {
+    load(this.path.openStream());
+  }
+  
+  private String readOrThrow(String key) throws ConfigurationNotFoundException {
+    String sb = getProperty(key);
+    if (sb == null)
+      throw new ConfigurationNotFoundException("Reading '" + key + "' returned null"); 
+    return sb;
+  }
+  
+  public synchronized boolean getBoolean(String key) throws ConfigurationNotFoundException {
+    return Boolean.parseBoolean(readOrThrow(key));
+  }
+  
+  public synchronized int getInteger(String key) throws ConfigurationNotFoundException, NumberFormatException {
+    return Integer.parseInt(readOrThrow(key));
+  }
+  
+  public synchronized int getInteger(String key, int defaultValue) {
+    try {
+      return getInteger(key);
+    } catch (ConfigurationNotFoundException|NumberFormatException ex) {
+      LOGGER.warn("Failed reading value for key {} and and parsing to integer.", key, ex.getMessage());
+      return defaultValue;
+    } 
+  }
+  
+  public synchronized Map<String, String> getSettingsList(String template) {
+    try {
+      return getSettingsList(template, null);
+    } catch (GeneralSecurityException|IOException ex) {
+      LOGGER.error("Internal error while reading properties", (Throwable)ex);
+      return Collections.emptyMap();
+    } 
+  }
+  
+  public Map<String, String> getSettingsList(String template, String encryptionKey) throws GeneralSecurityException, IOException {
+    Map<String, String> result = new HashMap<>();
+    int i = 1;
+    String value = null;
+    while (true) {
+      String propertyKey = String.format(template, i);
+      if (encryptionKey == null) {
+        value = getProperty(propertyKey);
+      } else {
+        value = getEncryptedProperty(propertyKey, encryptionKey);
+      } 
+      if (value != null)
+        result.put(propertyKey, value); 
+      i++;
+      if (value == null)
+        return result; 
+    } 
+  }
+  
+  public synchronized List<Map<String, String>> getListByPrefix(String template) {
+    List<Map<String, String>> result = new LinkedList<>();
+    Map<String, String> map = null;
+    int i = 1;
+    while (true) {
+      String prefix = String.format(template, i);
+      map = getByPrefix(prefix);
+      if (map != null)
+        result.add(map); 
+      i++;
+      if (map == null)
+        return result; 
+    } 
+  }
+  
+  public synchronized Map<String, String> getByPrefix(String prefix) {
+    Map<String, String> result = new HashMap<>();
+    for (String propKey : stringPropertyNames()) {
+      if (propKey.startsWith(prefix))
+        result.put(propKey.replace(prefix, ""), getProperty(propKey)); 
+    } 
+    return result.isEmpty() ? null : result;
+  }
+  
+  public synchronized Set<String> getSections(String sectionBase) {
+    Set<String> sections = new HashSet<>();
+    for (int i = 1; i < Integer.MAX_VALUE; i++) {
+      String formattedSection = String.format(sectionBase, i);
+      String value = getProperty(formattedSection + ".name");
+      if (value != null) {
+        sections.add(formattedSection);
+      } else {
+        LOGGER.info("Last found was Section '{}'", String.format(sectionBase, i - 1) + ".name");
+        break;
+      } 
+    } 
+    return sections;
+  }
+  
+  public synchronized Map<String, String> getSectionProperties(String section) {
+    Map<String, String> sectionProperties = new HashMap<>();
+    Set<String> propertyNames = stringPropertyNames();
+    for (String key : propertyNames) {
+      if (key.startsWith(section))
+        try {
+          String newKey = key.replace(section, "").substring(1);
+          sectionProperties.put(newKey, readOrThrow(key));
+        } catch (ConfigurationNotFoundException e) {
+          LOGGER.debug("failed to read section", (Throwable)e);
+        }  
+    } 
+    return sectionProperties;
+  }
+  
+  public synchronized Map<String, String> getDeviceProperties(String deviceName) {
+    Map<String, String> deviceProperties = new HashMap<>();
+    String baseKey = null;
+    Set<Map.Entry<Object, Object>> entries = entrySet();
+    for (Map.Entry<Object, Object> entry : entries) {
+      if (entry.getValue().equals(deviceName)) {
+        String key = (String)entry.getKey();
+        baseKey = key.replace(".name", "");
+        break;
+      } 
+    } 
+    if (baseKey != null)
+      for (Map.Entry<Object, Object> entry : entries) {
+        if (((String)entry.getKey()).startsWith(baseKey)) {
+          String newKey = ((String)entry.getKey()).replace(baseKey, "").substring(1);
+          deviceProperties.put(newKey, (String)entry.getValue());
+        } 
+      }  
+    return deviceProperties;
+  }
+  
+  private String encrypt(String property, String password) throws GeneralSecurityException, UnsupportedEncodingException {
+    SecretKeyFactory keyFactory = SecretKeyFactory.getInstance("PBEWithMD5AndDES");
+    SecretKey key = keyFactory.generateSecret(new PBEKeySpec(password.toCharArray()));
+    Cipher pbeCipher = Cipher.getInstance("PBEWithMD5AndDES");
+    pbeCipher.init(1, key, new PBEParameterSpec(SALT, 20));
+    return Base64.encodeBase64String(pbeCipher.doFinal(property.getBytes("UTF-8")));
+  }
+  
+  private String decrypt(String property, String password) throws GeneralSecurityException, IOException {
+    SecretKeyFactory keyFactory = SecretKeyFactory.getInstance("PBEWithMD5AndDES");
+    SecretKey key = keyFactory.generateSecret(new PBEKeySpec(password.toCharArray()));
+    Cipher pbeCipher = Cipher.getInstance("PBEWithMD5AndDES");
+    pbeCipher.init(2, key, new PBEParameterSpec(SALT, 20));
+    return new String(pbeCipher.doFinal(Base64.decodeBase64(property)), "UTF-8");
+  }
+  
+  public Object setEncryptedProperty(String key, String value, String encryptionKey) throws UnsupportedEncodingException, GeneralSecurityException {
+    String encrypted = value;
+    if (encrypted != null)
+      encrypted = encrypt(encrypted, encryptionKey); 
+    return setProperty(key, encrypted);
+  }
+  
+  public String getEncryptedProperty(String key, String encryptionKey) throws GeneralSecurityException, IOException {
+    String property = getProperty(key);
+    return (property == null) ? null : decrypt(property, encryptionKey);
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/dart2/framework/settings/RWSettings.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.settings;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class RWSettings extends ROSettings {
+  private static final Logger logger = LoggerFactory.getLogger(RWSettings.class);
+  
+  private static final long serialVersionUID = 1L;
+  
+  private final File PROPERTIES_FILE;
+  
+  private final String DESC;
+  
+  public RWSettings(File path, String description, boolean required) throws ConfigurationNotFoundException, MalformedURLException {
+    super(path.toURI().toURL(), required);
+    this.PROPERTIES_FILE = path;
+    this.DESC = description;
+  }
+  
+  private String getComments() {
+    return String.format("DART2 Framework Settings (%s)", this.DESC);
+  }
+  
+  public synchronized Object setProperty(String key, String value) {
+    Object result = super.setProperty(key, value);
+    try {
+      store(new FileOutputStream(this.PROPERTIES_FILE), getComments());
+    } catch (IOException e) {
+      logger.error("Error saving properties", (Throwable)e);
+    } 
+    return result;
+  }
+  
+  public synchronized Object remove(Object key) {
+    Object result = super.remove(key);
+    try {
+      store(new FileOutputStream(this.PROPERTIES_FILE), getComments());
+    } catch (IOException e) {
+      logger.error("Error saving properties", (Throwable)e);
+    } 
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/dart2/framework/settings/Settings.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.settings;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.security.GeneralSecurityException;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+public interface Settings {
+  void refresh() throws IOException;
+  
+  String getProperty(String paramString1, String paramString2);
+  
+  String getProperty(String paramString);
+  
+  boolean getBoolean(String paramString) throws ConfigurationNotFoundException;
+  
+  int getInteger(String paramString) throws ConfigurationNotFoundException, NumberFormatException;
+  
+  int getInteger(String paramString, int paramInt);
+  
+  Map<String, String> getSettingsList(String paramString);
+  
+  Map<String, String> getSettingsList(String paramString1, String paramString2) throws GeneralSecurityException, IOException;
+  
+  List<Map<String, String>> getListByPrefix(String paramString);
+  
+  Map<String, String> getByPrefix(String paramString);
+  
+  Set<String> getSections(String paramString);
+  
+  Map<String, String> getSectionProperties(String paramString);
+  
+  Map<String, String> getDeviceProperties(String paramString);
+  
+  Object remove(Object paramObject);
+  
+  Object setProperty(String paramString1, String paramString2);
+  
+  Object setEncryptedProperty(String paramString1, String paramString2, String paramString3) throws UnsupportedEncodingException, GeneralSecurityException;
+  
+  String getEncryptedProperty(String paramString1, String paramString2) throws GeneralSecurityException, IOException;
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/dart2/framework/settings/SettingsFactory.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.settings;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public final class SettingsFactory {
+  private final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private static SettingsFactory instance;
+  
+  private RWSettings globalSettingsInstance;
+  
+  private RWSettings userSettingsInstance;
+  
+  private ROSettings internalSettingsInstance;
+  
+  public static synchronized SettingsFactory getInstance() {
+    if (instance == null)
+      instance = new SettingsFactory(); 
+    return instance;
+  }
+  
+  public File getDart2HomePath() {
+    String path = System.getenv("DART2_HOME");
+    if (path == null) {
+      path = System.getProperty("user.dir");
+      this.logger.warn("DART2_HOME environment variable is not defined. Set this to your DART2 install directory. Using WD instead.");
+    } 
+    File result = new File(path);
+    return result;
+  }
+  
+  private File getUserSettingsPath() throws ConfigurationNotFoundException {
+    return new File(getDart2HomePath(), "/conf/");
+  }
+  
+  public synchronized RWSettings getGlobalSettings() throws ConfigurationNotFoundException {
+    if (this.globalSettingsInstance == null) {
+      File f = new File(getUserSettingsPath(), "settings.properties");
+      try {
+        this.globalSettingsInstance = new RWSettings(f, "Global Settings", true);
+      } catch (MalformedURLException e) {
+        throw new ConfigurationNotFoundException(e);
+      } 
+    } 
+    return this.globalSettingsInstance;
+  }
+  
+  public synchronized RWSettings getUserSettings() throws ConfigurationNotFoundException {
+    if (this.userSettingsInstance == null) {
+      String path = System.getProperty("user.home") + "/AppData/Local/Gigatronik/settings.properties";
+      File f = new File(path);
+      if (!f.getParentFile().exists())
+        f.getParentFile().mkdirs(); 
+      try {
+        this.userSettingsInstance = new RWSettings(f, "User Settings", false);
+      } catch (MalformedURLException e) {
+        throw new ConfigurationNotFoundException(e);
+      } 
+    } 
+    return this.userSettingsInstance;
+  }
+  
+  public synchronized ROSettings getInternalSettings() throws ConfigurationNotFoundException {
+    if (this.internalSettingsInstance == null) {
+      URL path = getClass().getClassLoader().getResource("com/gigatronik/dart2/customization/internal.properties");
+      if (path == null)
+        throw new ConfigurationNotFoundException("Internal Settings ressource not found"); 
+      this.internalSettingsInstance = new ROSettings(path, true);
+    } 
+    return this.internalSettingsInstance;
+  }
+  
+  public static String getProductVersion() {
+    return SettingsFactory.class.getPackage().getImplementationVersion();
+  }
+  
+  @Deprecated
+  public File getLog4J2ConfigFilePath() throws ConfigurationNotFoundException {
+    return new File(getUserSettingsPath(), "log4j2.xml");
+  }
+  
+  public String getLockFilePath() throws ConfigurationNotFoundException {
+    return getDart2HomePath() + File.separator + "lock_files";
+  }
+  
+  public String getDataPath() {
+    return getDart2HomePath() + File.separator + "data";
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/dart2/framework/util/ArrayUtil.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util;
+
+import java.util.Arrays;
+
+public abstract class ArrayUtil {
+  public static <T> T[] concatArrays(T[] first, T[] second) {
+    if (first == null)
+      return second; 
+    if (second == null)
+      return first; 
+    T[] result = Arrays.copyOf(first, first.length + second.length);
+    System.arraycopy(second, 0, result, first.length, second.length);
+    return result;
+  }
+  
+  public static byte[] concatByteArrays(byte[] by1, byte[] by2) {
+    if (by1 == null)
+      return by2; 
+    if (by2 == null)
+      return by1; 
+    byte[] by = new byte[by1.length + by2.length];
+    System.arraycopy(by1, 0, by, 0, by1.length);
+    System.arraycopy(by2, 0, by, by1.length, by2.length);
+    return by;
+  }
+  
+  public static byte[] concatByteArrays(byte by1, byte[] by2) {
+    if (by2 == null)
+      return new byte[] { by1 }; 
+    byte[] by = new byte[1 + by2.length];
+    by[0] = by1;
+    System.arraycopy(by2, 0, by, 1, by2.length);
+    return by;
+  }
+  
+  static byte[] concatByteArrays(byte[] by1, byte by2) {
+    if (by1 == null)
+      return new byte[] { by2 }; 
+    byte[] by = new byte[by1.length + 1];
+    System.arraycopy(by1, 0, by, 0, by1.length);
+    by[by1.length] = by2;
+    return by;
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/dart2/framework/util/benchmark/Stopwatch.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.benchmark;
+
+public class Stopwatch {
+  long start;
+  
+  Long stop = null;
+  
+  public synchronized void start() {
+    this.start = System.nanoTime();
+  }
+  
+  public synchronized void stop() {
+    this.stop = System.nanoTime();
+  }
+  
+  private long getStopTime() {
+    return (this.stop == null) ? System.nanoTime() : this.stop;
+  }
+  
+  public synchronized long getMillisecondsElapsed() {
+    return getNanosecondsElapsed() / 1000000L;
+  }
+  
+  public synchronized long getNanosecondsElapsed() {
+    return getStopTime() - this.start;
+  }
+  
+  public synchronized long getSecondsElapsed() {
+    return getMillisecondsElapsed() / 1000L;
+  }
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/dart2/framework/util/ByteArithmetic.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
+public abstract class ByteArithmetic {
+  public static byte getHighByte(short value) {
+    return (byte)(value >> 8 & 0xFF);
+  }
+  
+  public static byte getLowByte(short value) {
+    return (byte)(value & 0xFF);
+  }
+  
+  public static int highNibbleToInt(byte by) {
+    return (by & 0xF0) >> 4 & 0xFF;
+  }
+  
+  public static int lowNibbleToInt(byte by) {
+    return by & 0xF & 0xFF;
+  }
+  
+  public static short bytes2Short(byte high, byte low) {
+    ByteBuffer bb = ByteBuffer.allocate(2);
+    bb.order(ByteOrder.LITTLE_ENDIAN);
+    bb.put(low);
+    bb.put(high);
+    return bb.getShort(0);
+  }
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/dart2/framework/util/ByteArrayConverterUtil.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util;
+
+import fr.devnied.bitlib.BitUtils;
+import java.util.Arrays;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public abstract class ByteArrayConverterUtil {
+  private static final Logger logger = LoggerFactory.getLogger(ByteArrayConverterUtil.class);
+  
+  public static int byteArrayToInteger(byte[] data, int inBytePos, int bitPos, int bitLen) {
+    if (bitPos < 0 || bitPos > 7)
+      throw new IllegalArgumentException("ODX XSD defines a valid range from 0-7 for bitPos"); 
+    if (bitLen < 1)
+      throw new IllegalArgumentException("ODX XSD defines a minimum value of 1 for bitLen"); 
+    int bitIndex = bitPos + inBytePos * 8;
+    int dataBitsLen = bitLen - 1;
+    BitUtils bit = new BitUtils(data);
+    bit.setCurrentBitIndex(bitIndex);
+    boolean isNegative = bit.getNextBoolean();
+    int result = bit.getNextInteger(dataBitsLen);
+    if (isNegative)
+      result |= Integer.MAX_VALUE << dataBitsLen; 
+    return result;
+  }
+  
+  public static long byteArrayToUnsignedInteger(byte[] dump, int bytePos, int bitPos, int bitLen) {
+    long value = 0L;
+    int byteLength = (bitPos + bitLen) / 8;
+    if ((bitPos + bitLen) % 8 > 0)
+      byteLength++; 
+    try {
+      for (int i = 0; i < byteLength; i++)
+        value = (value << 8L) + (long)(dump[bytePos + i] & 0xFF); 
+      if (bitPos != 0 || bitLen < 8)
+        value = value >> bitPos & (long)(255 >> 8 - bitLen); 
+    } catch (ArrayIndexOutOfBoundsException ex) {
+      logger.error("Invalid Array index", (Throwable)ex);
+      value = 0L;
+    } 
+    return value;
+  }
+  
+  public static int byteArrayToInteger(byte[] by) {
+    if (by == null)
+      return 0; 
+    int iSize = 4;
+    int iVal = 0;
+    if (by.length < iSize)
+      iSize = by.length; 
+    for (int i = 0; i < iSize; i++)
+      iVal = (iVal << 8) + (by[i] & 0xFF); 
+    return iVal;
+  }
+  
+  public static String byteArrayToASCII(byte[] by) {
+    if (by == null)
+      return ""; 
+    return new String(by);
+  }
+  
+  public static String byteArrayToHexString(byte[] by) {
+    if (by == null)
+      return ""; 
+    String sVal = "";
+    for (int i = 0; i < by.length; i++)
+      sVal = sVal.concat(String.format("%02X", Integer.valueOf(by[i] & 0xFF))); 
+    return sVal;
+  }
+  
+  public static byte[] hexStringToByteArray(String inHex) {
+    String hex = inHex;
+    if (hex.startsWith("0x"))
+      hex = hex.substring(2); 
+    hex = hex.replaceAll("\\s+", "").trim();
+    int len = hex.length() / 2;
+    byte[] by = new byte[len];
+    for (int n = 0; n < len; n++) {
+      String sByte = hex.substring(2 * n, 2 * n + 2);
+      by[n] = (byte)Integer.parseInt(sByte, 16);
+    } 
+    return by;
+  }
+  
+  public static String longToHexString(long value, int byteLen) {
+    return String.format("0x%0" + (byteLen * 2) + "X", value);
+  }
+  
+  public static byte[] integerToByteArray(int value) {
+    byte[] by = new byte[4];
+    for (int i = 0; i < 4; i++) {
+      int shift = i << 3;
+      by[3 - i] = (byte)((value & 255 << shift) >>> shift);
+    } 
+    return by;
+  }
+  
+  public static byte[] integerToByteArray(int value, int length) {
+    byte[] by = new byte[length];
+    for (int i = 0; i < length; i++) {
+      int shift = i << 3;
+      by[length - 1 - i] = (byte)((value & 255 << shift) >>> shift);
+    } 
+    return by;
+  }
+  
+  public static byte[] longToByteArray(long value, int length) {
+    byte[] by = new byte[length];
+    for (int i = 0; i < length; i++) {
+      int shift = i << 3;
+      by[length - 1 - i] = (byte)(int)((value & (long)(255 << shift)) >>> shift);
+    } 
+    return by;
+  }
+  
+  public static byte[] partOfByteArray(byte[] array, int position, int size) {
+    int mySize = size;
+    if (position >= array.length)
+      return null; 
+    if (position + size > array.length)
+      mySize = array.length - position; 
+    return Arrays.copyOfRange(array, position, position + mySize);
+  }
+}
+
+
+========================================================================================================================
+ITEM 18: com/gigatronik/dart2/framework/util/ExpireCounter.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util;
+
+import com.gigatronik.dart2.framework.settings.Settings;
+import com.gigatronik.dart2.framework.settings.SettingsFactory;
+import java.io.File;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang3.StringUtils;
+
+public class ExpireCounter {
+  private final Settings settings;
+  
+  private final String name;
+  
+  private final int period;
+  
+  private final TimeUnit timeUnit;
+  
+  private static final String PROPERTY_BASE_KEY = "com.gigatronik.dart2.framework.util.expiry";
+  
+  private static final String KEY_LAST_CHECK = "startup";
+  
+  private static final String KEY_RESET = "reset";
+  
+  public class ManipulationException extends Exception {
+    private static final long serialVersionUID = -4305174714120162008L;
+    
+    public ManipulationException(String string) {
+      super(string);
+    }
+    
+    public ManipulationException(String string, Exception e) {
+      super(string, e);
+    }
+  }
+  
+  private final String encKey = "fooBar123";
+  
+  public ExpireCounter(String name, int period, TimeUnit timeUnit, Settings settings) throws IOException {
+    if (StringUtils.isEmpty(name))
+      throw new IllegalArgumentException("Name has to be != null"); 
+    if (settings == null)
+      throw new IllegalArgumentException("Settings has to be != null"); 
+    this.settings = settings;
+    this.name = name;
+    this.period = period;
+    this.timeUnit = timeUnit;
+  }
+  
+  private File getTagFile() throws IOException {
+    MessageDigest messageDigest;
+    File basedir = new File(SettingsFactory.getInstance().getDataPath(), "exp");
+    try {
+      messageDigest = MessageDigest.getInstance("MD5");
+    } catch (NoSuchAlgorithmException e) {
+      throw new IOException(e);
+    } 
+    messageDigest.update(this.name.getBytes());
+    String encryptedString = new String(Hex.encodeHex(messageDigest.digest()));
+    return new File(basedir, encryptedString);
+  }
+  
+  private void createTag() throws IOException {
+    File tagFile = getTagFile();
+    tagFile.mkdirs();
+    tagFile.createNewFile();
+  }
+  
+  private boolean isFirstRun() throws IOException {
+    return !getTagFile().exists();
+  }
+  
+  private void setLastCheckTime(Date time) throws UnsupportedEncodingException, GeneralSecurityException {
+    String key = getPropertyKey("startup");
+    String value = String.valueOf(time.getTime());
+    this.settings.setEncryptedProperty(key, value, "fooBar123");
+  }
+  
+  private String getPropertyKey(String suffix) {
+    return String.format("%s.%s.%s", "com.gigatronik.dart2.framework.util.expiry", this.name, suffix);
+  }
+  
+  public long check() throws ManipulationException, GeneralSecurityException, IOException {
+    if (isFirstRun())
+      install(); 
+    Date lastCheck = getLastAccessTime();
+    Date currentTime = getCurrentTime();
+    if (lastCheck == null || currentTime.before(lastCheck))
+      throw new ManipulationException("System date has been manipulated"); 
+    setLastCheckTime(currentTime);
+    Date lastReset = getResetTime();
+    long diff = getDateDiff(currentTime, lastReset, this.timeUnit);
+    return Math.abs(diff);
+  }
+  
+  public boolean isExpired() throws ManipulationException, GeneralSecurityException, IOException {
+    return (check() > (long)this.period);
+  }
+  
+  public void install() throws IOException, UnsupportedEncodingException, GeneralSecurityException {
+    createTag();
+    setLastCheckTime(getCurrentTime());
+    reset();
+  }
+  
+  public void reset() throws UnsupportedEncodingException, GeneralSecurityException {
+    setResetTime(getCurrentTime());
+  }
+  
+  private Date getResetTime() throws GeneralSecurityException, IOException {
+    return getTimeProperty("reset");
+  }
+  
+  private void setResetTime(Date time) throws UnsupportedEncodingException, GeneralSecurityException {
+    setTimeProperty("reset", time);
+  }
+  
+  private Date getLastAccessTime() throws GeneralSecurityException, IOException {
+    return getTimeProperty("startup");
+  }
+  
+  private void setTimeProperty(String propertyName, Date time) throws UnsupportedEncodingException, GeneralSecurityException {
+    String key = getPropertyKey(propertyName);
+    String value = String.valueOf(time.getTime());
+    this.settings.setEncryptedProperty(key, value, "fooBar123");
+  }
+  
+  private Date getTimeProperty(String propertyName) throws GeneralSecurityException, IOException {
+    String key = getPropertyKey(propertyName);
+    String value = this.settings.getEncryptedProperty(key, "fooBar123");
+    if (!StringUtils.isEmpty(value)) {
+      long lDate = Long.parseLong(value);
+      return new Date(lDate);
+    } 
+    return null;
+  }
+  
+  private static long getDateDiff(Date date1, Date date2, TimeUnit timeUnit) {
+    long diffInMillies = date2.getTime() - date1.getTime();
+    return timeUnit.convert(diffInMillies, TimeUnit.MILLISECONDS);
+  }
+  
+  protected Date getCurrentTime() {
+    return new Date();
+  }
+}
+
+
+========================================================================================================================
+ITEM 19: com/gigatronik/dart2/framework/util/flashcontainer/FlashContainer.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.flashcontainer;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
+
+public class FlashContainer {
+  private final String NAME;
+  
+  private final Date ISSUE_DATE;
+  
+  private final List<FlashFile> flashfiles = new LinkedList<>();
+  
+  private final Map<String, byte[]> startupScreens = new HashMap<>();
+  
+  public static final String EXTENSION = "fc";
+  
+  public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyyMMddHHmmss");
+  
+  public FlashContainer(URL flashContainer) throws IOException, ParseException {
+    this(flashContainer.openStream());
+  }
+  
+  public FlashContainer(InputStream stream) throws IOException, ParseException {
+    ZipInputStream zipStream = new ZipInputStream(stream);
+    MetaInfoEntity metainfo = null;
+    Map<String, byte[]> datafiles = new HashMap<>();
+    ZipEntry entry;
+    while ((entry = zipStream.getNextEntry()) != null) {
+      if (isMetaInfoFile(entry.getName())) {
+        ByteArrayOutputStream rawMetaFile = new ByteArrayOutputStream();
+        IOUtils.copy(zipStream, rawMetaFile);
+        ObjectMapper mapper = new ObjectMapper();
+        metainfo = (MetaInfoEntity)mapper.readValue(rawMetaFile.toByteArray(), MetaInfoEntity.class);
+        continue;
+      } 
+      ByteArrayOutputStream rawBinFile = new ByteArrayOutputStream();
+      IOUtils.copy(zipStream, rawBinFile);
+      datafiles.put(entry.getName(), rawBinFile.toByteArray());
+    } 
+    if (metainfo == null)
+      throw new IOException("No metainfo found"); 
+    this.NAME = metainfo.packageName;
+    this.ISSUE_DATE = DATE_FORMAT.parse(metainfo.issueDate);
+    for (FlashFile file : metainfo.dataList.entries) {
+      String expectedFileName = file.getShortName() + ".bin";
+      byte[] data = datafiles.get(expectedFileName);
+      if (data == null)
+        throw new IOException("Meta specified a flash file that does not exist"); 
+      file.setContents(data);
+      this.flashfiles.add(file);
+    } 
+    for (String startupScreenIdentifier : metainfo.startupScreenLinks.keySet()) {
+      String filename = metainfo.startupScreenLinks.get(startupScreenIdentifier);
+      byte[] data = datafiles.get(filename);
+      if (data == null)
+        throw new IOException("Meta specified a startup screen '" + filename + "' that does not exist"); 
+      this.startupScreens.put(startupScreenIdentifier, data);
+    } 
+  }
+  
+  public String getPackageName() {
+    return this.NAME;
+  }
+  
+  public Date getIssueDate() {
+    return this.ISSUE_DATE;
+  }
+  
+  public List<FlashFile> getFlashFiles() {
+    return Collections.unmodifiableList(this.flashfiles);
+  }
+  
+  public byte[] getStartScreenByIdentifier(String oemIdentifier) {
+    return this.startupScreens.get((oemIdentifier == null) ? "default" : oemIdentifier);
+  }
+  
+  public FlashFile getFlashFileByShortName(String shortname) {
+    for (FlashFile file : this.flashfiles) {
+      if (shortname.equalsIgnoreCase(file.getShortName()))
+        return file; 
+    } 
+    return null;
+  }
+  
+  private boolean isMetaInfoFile(String name) {
+    String extension = FilenameUtils.getExtension(name);
+    return "json".equalsIgnoreCase(extension);
+  }
+}
+
+
+========================================================================================================================
+ITEM 20: com/gigatronik/dart2/framework/util/flashcontainer/FlashFile.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.flashcontainer;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.gigatronik.dart2.framework.util.Version;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+
+public class FlashFile {
+  private byte[] data;
+  
+  private Version version;
+  
+  @JsonProperty("description")
+  private String description;
+  
+  @JsonProperty("shortname")
+  private String shortname;
+  
+  @JsonProperty("file")
+  private String filename;
+  
+  @JsonProperty("author")
+  private String author;
+  
+  @JsonProperty("dateOfCreation")
+  private String dateOfCreation;
+  
+  @JsonProperty("parameter")
+  private ParameterSet parameters;
+  
+  void setContents(byte[] data) {
+    this.data = data;
+  }
+  
+  public InputStream openStream() {
+    return new ByteArrayInputStream(this.data);
+  }
+  
+  @JsonSetter("version")
+  void setVersion(String ver) throws IOException {
+    this.version = Version.parse(ver);
+  }
+  
+  public String getShortName() {
+    return this.shortname;
+  }
+  
+  public ParameterSet getParameterSet() {
+    return this.parameters;
+  }
+  
+  public Version getVersion() {
+    return this.version;
+  }
+  
+  public String getDescription() {
+    return this.description;
+  }
+  
+  public String getFilename() {
+    return this.filename;
+  }
+  
+  public String getAuthor() {
+    return this.author;
+  }
+  
+  public String getDateOfCreation() {
+    return this.dateOfCreation;
+  }
+}
+
+
+========================================================================================================================
+ITEM 21: com/gigatronik/dart2/framework/util/flashcontainer/FlashFileList.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.flashcontainer;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class FlashFileList {
+  @JsonProperty("data")
+  public FlashFile[] entries;
+  
+  public FlashFile[] getEntries() {
+    return this.entries;
+  }
+  
+  public void setEntries(FlashFile[] entries) {
+    this.entries = entries;
+  }
+}
+
+
+========================================================================================================================
+ITEM 22: com/gigatronik/dart2/framework/util/flashcontainer/MetaInfoEntity.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.flashcontainer;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Map;
+
+public class MetaInfoEntity {
+  @JsonProperty("packageName")
+  public String packageName;
+  
+  @JsonProperty("type")
+  public String type;
+  
+  @JsonProperty("issueDate")
+  public String issueDate;
+  
+  @JsonProperty("dataList")
+  public FlashFileList dataList;
+  
+  @JsonProperty("startup-screens")
+  public Map<String, String> startupScreenLinks;
+}
+
+
+========================================================================================================================
+ITEM 23: com/gigatronik/dart2/framework/util/flashcontainer/ParameterSet.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.flashcontainer;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.databind.JsonNode;
+
+public class ParameterSet {
+  @JsonProperty("format")
+  String format;
+  
+  @JsonSetter("data")
+  protected void setData(Object data) {}
+  
+  public boolean isStructure() {
+    return false;
+  }
+  
+  public boolean isBlob() {
+    return false;
+  }
+  
+  public String asBlob() {
+    return null;
+  }
+  
+  public JsonNode asStructure() {
+    return null;
+  }
+}
+
+
+========================================================================================================================
+ITEM 24: com/gigatronik/dart2/framework/util/i18n/UTF8Control.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.i18n;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.net.URLConnection;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+import java.util.PropertyResourceBundle;
+import java.util.ResourceBundle;
+
+class UTF8Control extends ResourceBundle.Control {
+  private static final String PROPERTIES_FILE_ENDING = "properties";
+  
+  public ResourceBundle newBundle(String baseName, Locale locale, String format, ClassLoader loader, boolean reload) throws IllegalAccessException, InstantiationException, IOException {
+    String bundleName = toBundleName(baseName, locale);
+    String resourceName = toResourceName(bundleName, "properties");
+    ResourceBundle bundle = null;
+    InputStream stream = null;
+    if (reload) {
+      URL url = loader.getResource(resourceName);
+      if (url != null) {
+        URLConnection connection = url.openConnection();
+        if (connection != null) {
+          connection.setUseCaches(false);
+          stream = connection.getInputStream();
+        } 
+      } 
+    } else {
+      stream = loader.getResourceAsStream(resourceName);
+    } 
+    if (stream != null)
+      try {
+        bundle = new PropertyResourceBundle(new InputStreamReader(stream, StandardCharsets.UTF_8));
+      } finally {
+        stream.close();
+      }  
+    return bundle;
+  }
+}
+
+
+========================================================================================================================
+ITEM 25: com/gigatronik/dart2/framework/util/i18n/Utf8ResourceBundle.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.i18n;
+
+import java.util.Enumeration;
+import java.util.Locale;
+import java.util.ResourceBundle;
+
+public class Utf8ResourceBundle extends ResourceBundle {
+  public Utf8ResourceBundle(String bundleName, Locale locale) {
+    ResourceBundle myParent = ResourceBundle.getBundle(bundleName, locale, new UTF8Control());
+    setParent(myParent);
+  }
+  
+  public Utf8ResourceBundle(String bundleName, Locale locale, ClassLoader loader) {
+    ResourceBundle myParent = ResourceBundle.getBundle(bundleName, locale, loader, new UTF8Control());
+    setParent(myParent);
+  }
+  
+  protected Object handleGetObject(String key) {
+    return this.parent.getObject(key);
+  }
+  
+  public Enumeration<String> getKeys() {
+    return this.parent.getKeys();
+  }
+}
+
+
+========================================================================================================================
+ITEM 26: com/gigatronik/dart2/framework/util/instance/GlobalSingleton.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.instance;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.gigatronik.dart2.framework.settings.SettingsFactory;
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class GlobalSingleton {
+  private final Logger logger = LoggerFactory.getLogger(GlobalSingleton.class);
+  
+  private final File file;
+  
+  private FileChannel channel;
+  
+  private FileLock lock;
+  
+  private String lockFilesDirectoryPath;
+  
+  public GlobalSingleton(String lockId) {
+    try {
+      this.lockFilesDirectoryPath = SettingsFactory.getInstance().getLockFilePath();
+    } catch (ConfigurationNotFoundException e) {
+      this.logger.warn("Lock configuration not found, using default path", (Throwable)e);
+      this.lockFilesDirectoryPath = ".";
+    } 
+    new File(this.lockFilesDirectoryPath).mkdirs();
+    this.file = new File(this.lockFilesDirectoryPath, lockId + ".lock");
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+          public void run() {
+            GlobalSingleton.this.closeLock();
+            GlobalSingleton.this.deleteLockFile();
+          }
+        });
+  }
+  
+  public void lock() throws OverlappingFileLockException {
+    try {
+      this.channel = new RandomAccessFile(this.file, "rw").getChannel();
+      this.lock = this.channel.tryLock();
+      if (this.lock == null)
+        throw new OverlappingFileLockException(); 
+    } catch (OverlappingFileLockException e) {
+      closeLock();
+      throw e;
+    } catch (IOException e) {
+      this.logger.error("Error while accuireing lock", (Throwable)e);
+    } 
+  }
+  
+  public void unlock() {
+    try {
+      if (this.lock != null)
+        this.lock.release(); 
+    } catch (IOException e) {
+      this.logger.error("Error while releasing lock", (Throwable)e);
+    } finally {
+      closeLock();
+      deleteLockFile();
+    } 
+  }
+  
+  private void closeLock() {
+    try {
+      this.lock.release();
+      this.channel.close();
+    } catch (Exception e) {
+      this.logger.error("Error closing ressources", (Throwable)e);
+    } 
+  }
+  
+  private void deleteLockFile() {
+    try {
+      this.file.delete();
+    } catch (Exception e) {
+      this.logger.error("Error deleting ressources", (Throwable)e);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 27: com/gigatronik/dart2/framework/util/internationalization/AutoConvertingMeasureProxy.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.internationalization;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import javax.measure.Measure;
+import javax.measure.quantity.Quantity;
+import javax.measure.unit.Unit;
+
+public class AutoConvertingMeasureProxy implements InvocationHandler {
+  private final Object obj;
+  
+  private final UnitSystemProvider provider;
+  
+  private AutoConvertingMeasureProxy(Object obj2, UnitSystemProvider provider) {
+    this.obj = obj2;
+    this.provider = provider;
+  }
+  
+  public static Object newInstance(Object obj, UnitSystemProvider provider) {
+    return Proxy.newProxyInstance(obj.getClass().getClassLoader(), obj.getClass().getInterfaces(), new AutoConvertingMeasureProxy(obj, provider));
+  }
+  
+  public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    if (method.getReturnType() == Measure.class) {
+      Measure<?, ?> original = (Measure<?, ?>)method.invoke(this.obj, args);
+      return convertUnit((Measure)original, this.provider);
+    } 
+    return method.invoke(this.obj, args);
+  }
+  
+  public static <V, Q extends Quantity> Measure<V, Q> convertUnit(Measure<V, Q> original, UnitSystemProvider provider) {
+    if (original != null) {
+      Unit<Q> targetUnit = (Unit<Q>)getTargetUnit(provider.getUnitSystem(), original.getUnit(), provider);
+      return original.to(targetUnit);
+    } 
+    return null;
+  }
+  
+  public static Unit<? extends Quantity> getTargetUnit(UnitLocale.UnitSystem unitSystem, Unit<? extends Quantity> originalUnit, UnitSystemProvider provider) {
+    Unit<?> result = null;
+    switch (unitSystem) {
+      case IMPERIAL:
+        result = provider.getImperialMapping().get(originalUnit);
+        break;
+      default:
+        result = provider.getMetricMapping().get(originalUnit);
+        break;
+    } 
+    if (result == null)
+      result = originalUnit; 
+    return (Unit)result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 28: com/gigatronik/dart2/framework/util/internationalization/UnitLocale.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.internationalization;
+
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import javax.measure.unit.Unit;
+
+public class UnitLocale implements UnitSystemProvider {
+  public enum UnitSystem {
+    IMPERIAL, METRIC;
+  }
+  
+  public static UnitSystem getDefault() {
+    return getFrom(Locale.getDefault());
+  }
+  
+  private static UnitSystem getFrom(Locale locale) {
+    String countryCode = locale.getCountry();
+    if ("US".equals(countryCode))
+      return UnitSystem.IMPERIAL; 
+    if ("LR".equals(countryCode))
+      return UnitSystem.IMPERIAL; 
+    if ("MM".equals(countryCode))
+      return UnitSystem.IMPERIAL; 
+    return UnitSystem.METRIC;
+  }
+  
+  public UnitSystem getUnitSystem() {
+    return getDefault();
+  }
+  
+  public Map<Unit<?>, Unit<?>> getImperialMapping() {
+    return new HashMap<>();
+  }
+  
+  public Map<Unit<?>, Unit<?>> getMetricMapping() {
+    return new HashMap<>();
+  }
+}
+
+
+========================================================================================================================
+ITEM 29: com/gigatronik/dart2/framework/util/internationalization/UnitSystemProvider.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.internationalization;
+
+import java.util.Map;
+import javax.measure.quantity.Quantity;
+import javax.measure.unit.Unit;
+
+public interface UnitSystemProvider {
+  UnitLocale.UnitSystem getUnitSystem();
+  
+  Map<Unit<? extends Quantity>, Unit<? extends Quantity>> getImperialMapping();
+  
+  Map<Unit<? extends Quantity>, Unit<? extends Quantity>> getMetricMapping();
+}
+
+
+========================================================================================================================
+ITEM 30: com/gigatronik/dart2/framework/util/json/modules/measure/MeasureDeserializer.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.modules.measure;
+
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.io.IOException;
+import javax.measure.Measure;
+import javax.measure.quantity.Quantity;
+import javax.measure.unit.Unit;
+
+class MeasureDeserializer extends JsonDeserializer<Measure<?, ?>> {
+  public Measure<?, ? extends Quantity> deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException {
+    JsonNode node = (JsonNode)jp.getCodec().readTree(jp);
+    String value = node.get("value").asText();
+    String unit = node.get("unit").asText();
+    if (value.contains("."))
+      return Measure.valueOf(Float.parseFloat(value), Unit.valueOf(unit)); 
+    return Measure.valueOf(Integer.parseInt(value), Unit.valueOf(unit));
+  }
+}
+
+
+========================================================================================================================
+ITEM 31: com/gigatronik/dart2/framework/util/json/modules/measure/MeasureJacksonModule.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.modules.measure;
+
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import javax.measure.Measure;
+import javax.measure.unit.Unit;
+
+public class MeasureJacksonModule extends SimpleModule {
+  private static final long serialVersionUID = -2769081995250501045L;
+  
+  public MeasureJacksonModule() {
+    setMixInAnnotation(Unit.class, UnitMixin.class);
+    setMixInAnnotation(Measure.class, MeasureMixin.class);
+  }
+}
+
+
+========================================================================================================================
+ITEM 32: com/gigatronik/dart2/framework/util/json/modules/measure/MeasureMixin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.modules.measure;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import javax.measure.Measure;
+import javax.measure.unit.Unit;
+
+@JsonDeserialize(using = MeasureDeserializer.class)
+abstract class MeasureMixin {
+  @JsonCreator
+  public static <Q extends javax.measure.quantity.Quantity> Measure<Integer, Q> valueOf(@JsonProperty("value") float floatValue, @JsonProperty("unit") Unit<Q> unit) {
+    return null;
+  }
+}
+
+
+========================================================================================================================
+ITEM 33: com/gigatronik/dart2/framework/util/json/modules/measure/UnitMixin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.modules.measure;
+
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+
+@JsonSerialize(using = ToStringSerializer.class)
+abstract class UnitMixin {}
+
+
+========================================================================================================================
+ITEM 34: com/gigatronik/dart2/framework/util/json/transform/generated/CastTransformation.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "CastTransformation", namespace = "")
+public class CastTransformation extends SingleIOTransformation {
+  @XmlAttribute(name = "type", required = true)
+  protected String type;
+  
+  public String getType() {
+    return this.type;
+  }
+  
+  public void setType(String value) {
+    this.type = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 35: com/gigatronik/dart2/framework/util/json/transform/generated/Filter.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "Filter", namespace = "", propOrder = {"matchers", "transformations"})
+public class Filter {
+  @XmlElement(name = "Matchers", required = true)
+  protected Matchers matchers;
+  
+  @XmlElement(name = "Transformations", required = true)
+  protected Transformations transformations;
+  
+  @XmlAttribute(name = "type", required = true)
+  protected String type;
+  
+  public Matchers getMatchers() {
+    return this.matchers;
+  }
+  
+  public void setMatchers(Matchers value) {
+    this.matchers = value;
+  }
+  
+  public Transformations getTransformations() {
+    return this.transformations;
+  }
+  
+  public void setTransformations(Transformations value) {
+    this.transformations = value;
+  }
+  
+  public String getType() {
+    return this.type;
+  }
+  
+  public void setType(String value) {
+    this.type = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 36: com/gigatronik/dart2/framework/util/json/transform/generated/Filters.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "Filters", namespace = "", propOrder = {"filter"})
+public class Filters {
+  @XmlElement(name = "Filter", required = true)
+  protected List<Filter> filter;
+  
+  public List<Filter> getFilter() {
+    if (this.filter == null)
+      this.filter = new ArrayList<>(); 
+    return this.filter;
+  }
+}
+
+
+========================================================================================================================
+ITEM 37: com/gigatronik/dart2/framework/util/json/transform/generated/FormatTransformation.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "FormatTransformation", namespace = "")
+public class FormatTransformation extends Transformation {
+  @XmlAttribute(name = "formatstring", required = true)
+  protected String formatstring;
+  
+  public String getFormatstring() {
+    return this.formatstring;
+  }
+  
+  public void setFormatstring(String value) {
+    this.formatstring = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 38: com/gigatronik/dart2/framework/util/json/transform/generated/Input.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlSchemaType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "")
+@XmlRootElement(name = "Input", namespace = "")
+public class Input {
+  @XmlAttribute(name = "selector", required = true)
+  @XmlSchemaType(name = "anySimpleType")
+  protected String selector;
+  
+  @XmlAttribute(name = "unwrap")
+  protected Integer unwrap;
+  
+  public String getSelector() {
+    return this.selector;
+  }
+  
+  public void setSelector(String value) {
+    this.selector = value;
+  }
+  
+  public Integer getUnwrap() {
+    return this.unwrap;
+  }
+  
+  public void setUnwrap(Integer value) {
+    this.unwrap = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 39: com/gigatronik/dart2/framework/util/json/transform/generated/Matchers.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "Matchers", namespace = "", propOrder = {"regexMatcher"})
+public class Matchers {
+  @XmlElement(name = "RegexMatcher")
+  protected RegexMatcher regexMatcher;
+  
+  public RegexMatcher getRegexMatcher() {
+    return this.regexMatcher;
+  }
+  
+  public void setRegexMatcher(RegexMatcher value) {
+    this.regexMatcher = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 40: com/gigatronik/dart2/framework/util/json/transform/generated/ObjectFactory.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.annotation.XmlElementDecl;
+import javax.xml.bind.annotation.XmlIDREF;
+import javax.xml.bind.annotation.XmlRegistry;
+import javax.xml.namespace.QName;
+
+@XmlRegistry
+public class ObjectFactory {
+  private static final QName _CastTransformation_QNAME = new QName("", "CastTransformation");
+  
+  private static final QName _Content_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "content");
+  
+  private static final QName _ConfigurationRef_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "configurationRef");
+  
+  private static final QName _FormatTransformation_QNAME = new QName("", "FormatTransformation");
+  
+  private static final QName _Configuration_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "configuration");
+  
+  private static final QName _ParamSet_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "paramSet");
+  
+  private static final QName _Container_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "container");
+  
+  private static final QName _Matchers_QNAME = new QName("", "Matchers");
+  
+  private static final QName _Clearances_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "clearances");
+  
+  private static final QName _Bundle_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "bundle");
+  
+  private static final QName _Firmware_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "firmware");
+  
+  private static final QName _Compatibility_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "compatibility");
+  
+  private static final QName _Filters_QNAME = new QName("", "Filters");
+  
+  private static final QName _Clearance_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "clearance");
+  
+  private static final QName _Filter_QNAME = new QName("", "Filter");
+  
+  private static final QName _Bootscreen_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "bootscreen");
+  
+  private static final QName _Meta_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "meta");
+  
+  private static final QName _Transformations_QNAME = new QName("", "Transformations");
+  
+  private static final QName _RegexMatcher_QNAME = new QName("", "RegexMatcher");
+  
+  private static final QName _Parameterset_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "parameterset");
+  
+  private static final QName _Bundles_QNAME = new QName("http://www.gigatronik.com/GT-DART/FlashContainerV1", "bundles");
+  
+  private static final QName _RelocateTransformation_QNAME = new QName("", "RelocateTransformation");
+  
+  public TCompatibility createTCompatibility() {
+    return new TCompatibility();
+  }
+  
+  public TBundles createTBundles() {
+    return new TBundles();
+  }
+  
+  public TBundle createTBundle() {
+    return new TBundle();
+  }
+  
+  public TParamSet createTParamSet() {
+    return new TParamSet();
+  }
+  
+  public TBootscreen createTBootscreen() {
+    return new TBootscreen();
+  }
+  
+  public CastTransformation createCastTransformation() {
+    return new CastTransformation();
+  }
+  
+  public TFirmware createTFirmware() {
+    return new TFirmware();
+  }
+  
+  public RegexMatcher createRegexMatcher() {
+    return new RegexMatcher();
+  }
+  
+  public ServiceMapping createServiceMapping() {
+    return new ServiceMapping();
+  }
+  
+  public TContent createTContent() {
+    return new TContent();
+  }
+  
+  public Filters createFilters() {
+    return new Filters();
+  }
+  
+  public TMeta createTMeta() {
+    return new TMeta();
+  }
+  
+  public TClearances createTClearances() {
+    return new TClearances();
+  }
+  
+  public Filter createFilter() {
+    return new Filter();
+  }
+  
+  public TRootElement createTRootElement() {
+    return new TRootElement();
+  }
+  
+  public Transformations createTransformations() {
+    return new Transformations();
+  }
+  
+  public Transformation createTransformation() {
+    return new Transformation();
+  }
+  
+  public TClearance createTClearance() {
+    return new TClearance();
+  }
+  
+  public RelocateTransformation createRelocateTransformation() {
+    return new RelocateTransformation();
+  }
+  
+  public Output createOutput() {
+    return new Output();
+  }
+  
+  public FormatTransformation createFormatTransformation() {
+    return new FormatTransformation();
+  }
+  
+  public Matchers createMatchers() {
+    return new Matchers();
+  }
+  
+  public Input createInput() {
+    return new Input();
+  }
+  
+  public SingleIOTransformation createSingleIOTransformation() {
+    return new SingleIOTransformation();
+  }
+  
+  public TConfiguration createTConfiguration() {
+    return new TConfiguration();
+  }
+  
+  @XmlElementDecl(namespace = "", name = "CastTransformation")
+  public JAXBElement<CastTransformation> createCastTransformation(CastTransformation value) {
+    return new JAXBElement(_CastTransformation_QNAME, CastTransformation.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "content")
+  public JAXBElement<TContent> createContent(TContent value) {
+    return new JAXBElement(_Content_QNAME, TContent.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "configurationRef")
+  @XmlIDREF
+  public JAXBElement<Object> createConfigurationRef(Object value) {
+    return new JAXBElement(_ConfigurationRef_QNAME, Object.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "", name = "FormatTransformation")
+  public JAXBElement<FormatTransformation> createFormatTransformation(FormatTransformation value) {
+    return new JAXBElement(_FormatTransformation_QNAME, FormatTransformation.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "configuration")
+  public JAXBElement<TConfiguration> createConfiguration(TConfiguration value) {
+    return new JAXBElement(_Configuration_QNAME, TConfiguration.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "paramSet")
+  public JAXBElement<TParamSet> createParamSet(TParamSet value) {
+    return new JAXBElement(_ParamSet_QNAME, TParamSet.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "container")
+  public JAXBElement<TRootElement> createContainer(TRootElement value) {
+    return new JAXBElement(_Container_QNAME, TRootElement.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "", name = "Matchers")
+  public JAXBElement<Matchers> createMatchers(Matchers value) {
+    return new JAXBElement(_Matchers_QNAME, Matchers.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "clearances")
+  public JAXBElement<TClearances> createClearances(TClearances value) {
+    return new JAXBElement(_Clearances_QNAME, TClearances.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "bundle")
+  public JAXBElement<TBundle> createBundle(TBundle value) {
+    return new JAXBElement(_Bundle_QNAME, TBundle.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "firmware")
+  public JAXBElement<TFirmware> createFirmware(TFirmware value) {
+    return new JAXBElement(_Firmware_QNAME, TFirmware.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "compatibility")
+  public JAXBElement<TCompatibility> createCompatibility(TCompatibility value) {
+    return new JAXBElement(_Compatibility_QNAME, TCompatibility.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "", name = "Filters")
+  public JAXBElement<Filters> createFilters(Filters value) {
+    return new JAXBElement(_Filters_QNAME, Filters.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "clearance")
+  public JAXBElement<TClearance> createClearance(TClearance value) {
+    return new JAXBElement(_Clearance_QNAME, TClearance.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "", name = "Filter")
+  public JAXBElement<Filter> createFilter(Filter value) {
+    return new JAXBElement(_Filter_QNAME, Filter.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "bootscreen")
+  public JAXBElement<TBootscreen> createBootscreen(TBootscreen value) {
+    return new JAXBElement(_Bootscreen_QNAME, TBootscreen.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "meta")
+  public JAXBElement<TMeta> createMeta(TMeta value) {
+    return new JAXBElement(_Meta_QNAME, TMeta.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "", name = "Transformations")
+  public JAXBElement<Transformations> createTransformations(Transformations value) {
+    return new JAXBElement(_Transformations_QNAME, Transformations.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "", name = "RegexMatcher")
+  public JAXBElement<RegexMatcher> createRegexMatcher(RegexMatcher value) {
+    return new JAXBElement(_RegexMatcher_QNAME, RegexMatcher.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "parameterset")
+  @XmlIDREF
+  public JAXBElement<Object> createParameterset(Object value) {
+    return new JAXBElement(_Parameterset_QNAME, Object.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "bundles")
+  public JAXBElement<TBundles> createBundles(TBundles value) {
+    return new JAXBElement(_Bundles_QNAME, TBundles.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "", name = "RelocateTransformation")
+  public JAXBElement<RelocateTransformation> createRelocateTransformation(RelocateTransformation value) {
+    return new JAXBElement(_RelocateTransformation_QNAME, RelocateTransformation.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "bundle", scope = TClearance.class)
+  @XmlIDREF
+  public JAXBElement<Object> createTClearanceBundle(Object value) {
+    return new JAXBElement(_Bundle_QNAME, Object.class, TClearance.class, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "configuration", scope = TClearance.class)
+  @XmlIDREF
+  public JAXBElement<Object> createTClearanceConfiguration(Object value) {
+    return new JAXBElement(_Configuration_QNAME, Object.class, TClearance.class, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", name = "paramSet", scope = TClearance.class)
+  @XmlIDREF
+  public JAXBElement<Object> createTClearanceParamSet(Object value) {
+    return new JAXBElement(_ParamSet_QNAME, Object.class, TClearance.class, value);
+  }
+}
+
+
+========================================================================================================================
+ITEM 41: com/gigatronik/dart2/framework/util/json/transform/generated/Output.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlSchemaType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "")
+@XmlRootElement(name = "Output", namespace = "")
+public class Output {
+  @XmlAttribute(name = "key", required = true)
+  @XmlSchemaType(name = "anySimpleType")
+  protected String key;
+  
+  @XmlAttribute(name = "selector", required = true)
+  @XmlSchemaType(name = "anySimpleType")
+  protected String selector;
+  
+  public String getKey() {
+    return this.key;
+  }
+  
+  public void setKey(String value) {
+    this.key = value;
+  }
+  
+  public String getSelector() {
+    return this.selector;
+  }
+  
+  public void setSelector(String value) {
+    this.selector = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 42: com/gigatronik/dart2/framework/util/json/transform/generated/package-info.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlNsForm;
+import javax.xml.bind.annotation.XmlSchema;
+
+
+
+========================================================================================================================
+ITEM 43: com/gigatronik/dart2/framework/util/json/transform/generated/RegexMatcher.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "RegexMatcher", namespace = "")
+public class RegexMatcher {
+  @XmlAttribute(name = "pattern", required = true)
+  protected String pattern;
+  
+  @XmlAttribute(name = "target", required = true)
+  protected String target;
+  
+  public String getPattern() {
+    return this.pattern;
+  }
+  
+  public void setPattern(String value) {
+    this.pattern = value;
+  }
+  
+  public String getTarget() {
+    return this.target;
+  }
+  
+  public void setTarget(String value) {
+    this.target = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 44: com/gigatronik/dart2/framework/util/json/transform/generated/RelocateTransformation.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "RelocateTransformation", namespace = "")
+public class RelocateTransformation extends SingleIOTransformation {}
+
+
+========================================================================================================================
+ITEM 45: com/gigatronik/dart2/framework/util/json/transform/generated/ServiceMapping.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "", propOrder = {"filters"})
+@XmlRootElement(name = "ServiceMapping", namespace = "")
+public class ServiceMapping {
+  @XmlElement(name = "Filters", namespace = "", required = true)
+  protected Filters filters;
+  
+  public Filters getFilters() {
+    return this.filters;
+  }
+  
+  public void setFilters(Filters value) {
+    this.filters = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 46: com/gigatronik/dart2/framework/util/json/transform/generated/SingleIOTransformation.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlSeeAlso;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "SingleIOTransformation", namespace = "")
+@XmlSeeAlso({CastTransformation.class, RelocateTransformation.class})
+public class SingleIOTransformation extends Transformation {}
+
+
+========================================================================================================================
+ITEM 47: com/gigatronik/dart2/framework/util/json/transform/generated/TBootscreen.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tBootscreen")
+public class TBootscreen extends TFile {}
+
+
+========================================================================================================================
+ITEM 48: com/gigatronik/dart2/framework/util/json/transform/generated/TBundle.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlID;
+import javax.xml.bind.annotation.XmlIDREF;
+import javax.xml.bind.annotation.XmlSchemaType;
+import javax.xml.bind.annotation.XmlType;
+import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tBundle", propOrder = {"duFirmware", "hmiFirmware", "bmsFirmware", "duParamset"})
+public class TBundle {
+  @XmlElement(required = true)
+  @XmlIDREF
+  protected Object duFirmware;
+  
+  @XmlElement(required = true)
+  @XmlIDREF
+  protected Object hmiFirmware;
+  
+  @XmlElement(required = true)
+  @XmlIDREF
+  protected Object bmsFirmware;
+  
+  @XmlIDREF
+  protected Object duParamset;
+  
+  @XmlAttribute(name = "id", required = true)
+  @XmlJavaTypeAdapter(CollapsedStringAdapter.class)
+  @XmlID
+  @XmlSchemaType(name = "ID")
+  protected String id;
+  
+  public Object getDuFirmware() {
+    return this.duFirmware;
+  }
+  
+  public void setDuFirmware(Object value) {
+    this.duFirmware = value;
+  }
+  
+  public Object getHmiFirmware() {
+    return this.hmiFirmware;
+  }
+  
+  public void setHmiFirmware(Object value) {
+    this.hmiFirmware = value;
+  }
+  
+  public Object getBmsFirmware() {
+    return this.bmsFirmware;
+  }
+  
+  public void setBmsFirmware(Object value) {
+    this.bmsFirmware = value;
+  }
+  
+  public Object getDuParamset() {
+    return this.duParamset;
+  }
+  
+  public void setDuParamset(Object value) {
+    this.duParamset = value;
+  }
+  
+  public String getId() {
+    return this.id;
+  }
+  
+  public void setId(String value) {
+    this.id = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 49: com/gigatronik/dart2/framework/util/json/transform/generated/TBundles.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tBundles", propOrder = {"bundle"})
+public class TBundles {
+  @XmlElement(required = true)
+  protected List<TBundle> bundle;
+  
+  public List<TBundle> getBundle() {
+    if (this.bundle == null)
+      this.bundle = new ArrayList<>(); 
+    return this.bundle;
+  }
+}
+
+
+========================================================================================================================
+ITEM 50: com/gigatronik/dart2/framework/util/json/transform/generated/TClearance.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElementRef;
+import javax.xml.bind.annotation.XmlElementRefs;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tClearance", propOrder = {"bundleOrConfigurationOrParamSet"})
+public class TClearance {
+  @XmlElementRefs({@XmlElementRef(name = "bundle", namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", type = JAXBElement.class), @XmlElementRef(name = "paramSet", namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", type = JAXBElement.class), @XmlElementRef(name = "configuration", namespace = "http://www.gigatronik.com/GT-DART/FlashContainerV1", type = JAXBElement.class)})
+  protected List<JAXBElement<Object>> bundleOrConfigurationOrParamSet;
+  
+  @XmlAttribute(name = "factoryId")
+  protected String factoryId;
+  
+  @XmlAttribute(name = "bikeType")
+  protected String bikeType;
+  
+  public List<JAXBElement<Object>> getBundleOrConfigurationOrParamSet() {
+    if (this.bundleOrConfigurationOrParamSet == null)
+      this.bundleOrConfigurationOrParamSet = new ArrayList<>(); 
+    return this.bundleOrConfigurationOrParamSet;
+  }
+  
+  public String getFactoryId() {
+    return this.factoryId;
+  }
+  
+  public void setFactoryId(String value) {
+    this.factoryId = value;
+  }
+  
+  public String getBikeType() {
+    return this.bikeType;
+  }
+  
+  public void setBikeType(String value) {
+    this.bikeType = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 51: com/gigatronik/dart2/framework/util/json/transform/generated/TClearances.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tClearances", propOrder = {"clearance"})
+public class TClearances {
+  @XmlElement(required = true)
+  protected List<TClearance> clearance;
+  
+  public List<TClearance> getClearance() {
+    if (this.clearance == null)
+      this.clearance = new ArrayList<>(); 
+    return this.clearance;
+  }
+}
+
+
+========================================================================================================================
+ITEM 52: com/gigatronik/dart2/framework/util/json/transform/generated/TCompatibility.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tCompatibility", propOrder = {"hwVersion"})
+public class TCompatibility {
+  @XmlElement(required = true)
+  protected List<String> hwVersion;
+  
+  public List<String> getHwVersion() {
+    if (this.hwVersion == null)
+      this.hwVersion = new ArrayList<>(); 
+    return this.hwVersion;
+  }
+}
+
+
+========================================================================================================================
+ITEM 53: com/gigatronik/dart2/framework/util/json/transform/generated/TConfiguration.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tConfiguration")
+public class TConfiguration extends TFile {}
+
+
+========================================================================================================================
+ITEM 54: com/gigatronik/dart2/framework/util/json/transform/generated/TContent.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElements;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tContent", propOrder = {"firmwareOrBootscreenOrParamSet"})
+public class TContent {
+  @XmlElements({@XmlElement(name = "paramSet", type = TParamSet.class), @XmlElement(name = "configuration", type = TConfiguration.class), @XmlElement(name = "bootscreen", type = TBootscreen.class), @XmlElement(name = "firmware", type = TFirmware.class)})
+  protected List<TFile> firmwareOrBootscreenOrParamSet;
+  
+  public List<TFile> getFirmwareOrBootscreenOrParamSet() {
+    if (this.firmwareOrBootscreenOrParamSet == null)
+      this.firmwareOrBootscreenOrParamSet = new ArrayList<>(); 
+    return this.firmwareOrBootscreenOrParamSet;
+  }
+}
+
+
+========================================================================================================================
+ITEM 55: com/gigatronik/dart2/framework/util/json/transform/generated/TFile.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlID;
+import javax.xml.bind.annotation.XmlSchemaType;
+import javax.xml.bind.annotation.XmlSeeAlso;
+import javax.xml.bind.annotation.XmlType;
+import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import javax.xml.datatype.XMLGregorianCalendar;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tFile", propOrder = {"version", "description", "path", "author", "issueDate"})
+@XmlSeeAlso({TConfiguration.class, TParamSet.class, TBootscreen.class, TFirmware.class})
+public abstract class TFile {
+  @XmlElement(required = true)
+  protected String version;
+  
+  @XmlElement(required = true)
+  protected String description;
+  
+  @XmlElement(required = true)
+  protected String path;
+  
+  @XmlElement(required = true)
+  protected String author;
+  
+  @XmlElement(required = true)
+  @XmlSchemaType(name = "dateTime")
+  protected XMLGregorianCalendar issueDate;
+  
+  @XmlAttribute(name = "id", required = true)
+  @XmlJavaTypeAdapter(CollapsedStringAdapter.class)
+  @XmlID
+  @XmlSchemaType(name = "ID")
+  protected String id;
+  
+  @XmlAttribute(name = "signature")
+  protected String signature;
+  
+  @XmlAttribute(name = "signatureSalt")
+  protected String signatureSalt;
+  
+  public String getVersion() {
+    return this.version;
+  }
+  
+  public void setVersion(String value) {
+    this.version = value;
+  }
+  
+  public String getDescription() {
+    return this.description;
+  }
+  
+  public void setDescription(String value) {
+    this.description = value;
+  }
+  
+  public String getPath() {
+    return this.path;
+  }
+  
+  public void setPath(String value) {
+    this.path = value;
+  }
+  
+  public String getAuthor() {
+    return this.author;
+  }
+  
+  public void setAuthor(String value) {
+    this.author = value;
+  }
+  
+  public XMLGregorianCalendar getIssueDate() {
+    return this.issueDate;
+  }
+  
+  public void setIssueDate(XMLGregorianCalendar value) {
+    this.issueDate = value;
+  }
+  
+  public String getId() {
+    return this.id;
+  }
+  
+  public void setId(String value) {
+    this.id = value;
+  }
+  
+  public String getSignature() {
+    return this.signature;
+  }
+  
+  public void setSignature(String value) {
+    this.signature = value;
+  }
+  
+  public String getSignatureSalt() {
+    return this.signatureSalt;
+  }
+  
+  public void setSignatureSalt(String value) {
+    this.signatureSalt = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 56: com/gigatronik/dart2/framework/util/json/transform/generated/TFirmware.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tFirmware", propOrder = {"compatibility"})
+public class TFirmware extends TFile {
+  @XmlElement(required = true)
+  protected TCompatibility compatibility;
+  
+  public TCompatibility getCompatibility() {
+    return this.compatibility;
+  }
+  
+  public void setCompatibility(TCompatibility value) {
+    this.compatibility = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 57: com/gigatronik/dart2/framework/util/json/transform/generated/TMeta.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlSchemaType;
+import javax.xml.bind.annotation.XmlType;
+import javax.xml.datatype.XMLGregorianCalendar;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tMeta", propOrder = {"id", "packageName", "issueDate"})
+public class TMeta {
+  @XmlElement(required = true)
+  protected String id;
+  
+  @XmlElement(required = true)
+  protected String packageName;
+  
+  @XmlElement(required = true)
+  @XmlSchemaType(name = "dateTime")
+  protected XMLGregorianCalendar issueDate;
+  
+  public String getId() {
+    return this.id;
+  }
+  
+  public void setId(String value) {
+    this.id = value;
+  }
+  
+  public String getPackageName() {
+    return this.packageName;
+  }
+  
+  public void setPackageName(String value) {
+    this.packageName = value;
+  }
+  
+  public XMLGregorianCalendar getIssueDate() {
+    return this.issueDate;
+  }
+  
+  public void setIssueDate(XMLGregorianCalendar value) {
+    this.issueDate = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 58: com/gigatronik/dart2/framework/util/json/transform/generated/TParamSet.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tParamSet")
+public class TParamSet extends TFile {}
+
+
+========================================================================================================================
+ITEM 59: com/gigatronik/dart2/framework/util/json/transform/generated/Transformation.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlSeeAlso;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "Transformation", namespace = "", propOrder = {"input", "output"})
+@XmlSeeAlso({FormatTransformation.class, SingleIOTransformation.class})
+public class Transformation {
+  @XmlElement(name = "Input", required = true)
+  protected List<Input> input;
+  
+  @XmlElement(name = "Output", required = true)
+  protected Output output;
+  
+  public List<Input> getInput() {
+    if (this.input == null)
+      this.input = new ArrayList<>(); 
+    return this.input;
+  }
+  
+  public Output getOutput() {
+    return this.output;
+  }
+  
+  public void setOutput(Output value) {
+    this.output = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 60: com/gigatronik/dart2/framework/util/json/transform/generated/Transformations.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElements;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "Transformations", namespace = "", propOrder = {"relocateTransformationOrCastTransformationOrFormatTransformation"})
+public class Transformations {
+  @XmlElements({@XmlElement(name = "FormatTransformation", type = FormatTransformation.class), @XmlElement(name = "RelocateTransformation", type = RelocateTransformation.class), @XmlElement(name = "CastTransformation", type = CastTransformation.class)})
+  protected List<Transformation> relocateTransformationOrCastTransformationOrFormatTransformation;
+  
+  public List<Transformation> getRelocateTransformationOrCastTransformationOrFormatTransformation() {
+    if (this.relocateTransformationOrCastTransformationOrFormatTransformation == null)
+      this.relocateTransformationOrCastTransformationOrFormatTransformation = new ArrayList<>(); 
+    return this.relocateTransformationOrCastTransformationOrFormatTransformation;
+  }
+}
+
+
+========================================================================================================================
+ITEM 61: com/gigatronik/dart2/framework/util/json/transform/generated/TRootElement.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tRootElement", propOrder = {"meta", "content", "bundles", "clearances"})
+public class TRootElement {
+  @XmlElement(required = true)
+  protected TMeta meta;
+  
+  @XmlElement(required = true)
+  protected TContent content;
+  
+  @XmlElement(required = true)
+  protected TBundles bundles;
+  
+  @XmlElement(required = true)
+  protected TClearances clearances;
+  
+  @XmlAttribute(name = "signature")
+  protected String signature;
+  
+  @XmlAttribute(name = "signatureSalt")
+  protected String signatureSalt;
+  
+  public TMeta getMeta() {
+    return this.meta;
+  }
+  
+  public void setMeta(TMeta value) {
+    this.meta = value;
+  }
+  
+  public TContent getContent() {
+    return this.content;
+  }
+  
+  public void setContent(TContent value) {
+    this.content = value;
+  }
+  
+  public TBundles getBundles() {
+    return this.bundles;
+  }
+  
+  public void setBundles(TBundles value) {
+    this.bundles = value;
+  }
+  
+  public TClearances getClearances() {
+    return this.clearances;
+  }
+  
+  public void setClearances(TClearances value) {
+    this.clearances = value;
+  }
+  
+  public String getSignature() {
+    return this.signature;
+  }
+  
+  public void setSignature(String value) {
+    this.signature = value;
+  }
+  
+  public String getSignatureSalt() {
+    return this.signatureSalt;
+  }
+  
+  public void setSignatureSalt(String value) {
+    this.signatureSalt = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 62: com/gigatronik/dart2/framework/util/json/transform/JsonCastTransformation.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform;
+
+import com.gigatronik.dart2.framework.util.json.transform.generated.CastTransformation;
+import com.jayway.jsonpath.DocumentContext;
+
+public class JsonCastTransformation extends JsonTransformation {
+  final String targetType;
+  
+  public JsonCastTransformation(CastTransformation oTransformation) {
+    super(oTransformation);
+    this.targetType = oTransformation.getType();
+  }
+  
+  public DocumentContext transform(DocumentContext input, DocumentContext output) {
+    Object value = readInput(input, this.INPUT.getSelector(), this.INPUT.getUnwrap());
+    if (this.targetType.equalsIgnoreCase("integer")) {
+      output.put(this.OUTPUT.getSelector(), this.OUTPUT.getKey(), Integer.decode(value.toString()), new com.jayway.jsonpath.Predicate[0]);
+    } else if (this.targetType.equalsIgnoreCase("float")) {
+      output.put(this.OUTPUT.getSelector(), this.OUTPUT.getKey(), Float.valueOf(Float.parseFloat(value.toString())), new com.jayway.jsonpath.Predicate[0]);
+    } else {
+      output.put(this.OUTPUT.getSelector(), this.OUTPUT.getKey(), String.valueOf(value), new com.jayway.jsonpath.Predicate[0]);
+    } 
+    return output;
+  }
+}
+
+
+========================================================================================================================
+ITEM 63: com/gigatronik/dart2/framework/util/json/transform/JsonFilter.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform;
+
+import com.gigatronik.dart2.framework.util.json.transform.generated.CastTransformation;
+import com.gigatronik.dart2.framework.util.json.transform.generated.Filter;
+import com.gigatronik.dart2.framework.util.json.transform.generated.FormatTransformation;
+import com.gigatronik.dart2.framework.util.json.transform.generated.RelocateTransformation;
+import com.gigatronik.dart2.framework.util.json.transform.generated.Transformation;
+import com.jayway.jsonpath.DocumentContext;
+import com.jayway.jsonpath.JsonPath;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.regex.Pattern;
+
+class JsonFilter {
+  private final Pattern pattern;
+  
+  private final String target;
+  
+  private final FilterType type;
+  
+  private enum FilterType {
+    modify, create;
+  }
+  
+  private final List<JsonTransformation> TRANSFORMATIONS = new LinkedList<>();
+  
+  public JsonFilter(Filter filter) {
+    String spattern = filter.getMatchers().getRegexMatcher().getPattern();
+    this.target = filter.getMatchers().getRegexMatcher().getTarget();
+    this.type = FilterType.valueOf(filter.getType());
+    this.pattern = Pattern.compile(spattern);
+    for (Transformation oTransformation : filter.getTransformations().getRelocateTransformationOrCastTransformationOrFormatTransformation()) {
+      if (oTransformation instanceof RelocateTransformation) {
+        this.TRANSFORMATIONS.add(new JsonRelocateTransformation((RelocateTransformation)oTransformation));
+        continue;
+      } 
+      if (oTransformation instanceof FormatTransformation) {
+        this.TRANSFORMATIONS.add(new JsonFormatTransformation((FormatTransformation)oTransformation));
+        continue;
+      } 
+      if (oTransformation instanceof CastTransformation)
+        this.TRANSFORMATIONS.add(new JsonCastTransformation((CastTransformation)oTransformation)); 
+    } 
+  }
+  
+  private boolean matches(DocumentContext parsedDoc) {
+    String fieldContent = (String)parsedDoc.read(this.target, String.class, new com.jayway.jsonpath.Predicate[0]);
+    return this.pattern.matcher(fieldContent).matches();
+  }
+  
+  public DocumentContext apply(DocumentContext input) {
+    DocumentContext output;
+    if (this.type == FilterType.modify) {
+      output = input;
+    } else {
+      output = JsonPath.parse("{}");
+    } 
+    if (matches(input))
+      for (JsonTransformation jsonTransformation : this.TRANSFORMATIONS)
+        output = jsonTransformation.transform(input, output);  
+    return output;
+  }
+}
+
+
+========================================================================================================================
+ITEM 64: com/gigatronik/dart2/framework/util/json/transform/JsonFormatTransformation.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform;
+
+import com.gigatronik.dart2.framework.util.json.transform.generated.FormatTransformation;
+import com.gigatronik.dart2.framework.util.json.transform.generated.Input;
+import com.jayway.jsonpath.DocumentContext;
+import java.util.LinkedList;
+import java.util.List;
+
+public class JsonFormatTransformation extends JsonTransformation {
+  final String formatstring;
+  
+  public JsonFormatTransformation(FormatTransformation oTransformation) {
+    super(oTransformation);
+    this.formatstring = oTransformation.getFormatstring();
+  }
+  
+  public DocumentContext transform(DocumentContext input, DocumentContext output) {
+    List<Object> values = new LinkedList();
+    for (Input currentinput : this.INPUTS)
+      values.add(readInput(input, currentinput.getSelector(), currentinput.getUnwrap())); 
+    String result = String.format(this.formatstring, values.toArray());
+    output.put(this.OUTPUT.getSelector(), this.OUTPUT.getKey(), result, new com.jayway.jsonpath.Predicate[0]);
+    return output;
+  }
+}
+
+
+========================================================================================================================
+ITEM 65: com/gigatronik/dart2/framework/util/json/transform/JsonRelocateTransformation.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform;
+
+import com.gigatronik.dart2.framework.util.json.transform.generated.RelocateTransformation;
+import com.jayway.jsonpath.DocumentContext;
+import java.util.List;
+
+public class JsonRelocateTransformation extends JsonTransformation {
+  public JsonRelocateTransformation(RelocateTransformation oTransformation) {
+    super(oTransformation);
+  }
+  
+  public DocumentContext transform(DocumentContext input, DocumentContext output) {
+    Object value = readInput(input, this.INPUT.getSelector(), this.INPUT.getUnwrap());
+    if (value instanceof List) {
+      List<?> list = (List)value;
+      if (list.size() == 1)
+        value = list.get(0); 
+    } 
+    output.put(this.OUTPUT.getSelector(), this.OUTPUT.getKey(), value, new com.jayway.jsonpath.Predicate[0]);
+    return output;
+  }
+}
+
+
+========================================================================================================================
+ITEM 66: com/gigatronik/dart2/framework/util/json/transform/JsonTransformation.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform;
+
+import com.gigatronik.dart2.framework.util.json.transform.generated.Input;
+import com.gigatronik.dart2.framework.util.json.transform.generated.Output;
+import com.gigatronik.dart2.framework.util.json.transform.generated.Transformation;
+import com.jayway.jsonpath.DocumentContext;
+import java.util.List;
+
+abstract class JsonTransformation {
+  protected final Output OUTPUT;
+  
+  protected final List<Input> INPUTS;
+  
+  protected final Input INPUT;
+  
+  public abstract DocumentContext transform(DocumentContext paramDocumentContext1, DocumentContext paramDocumentContext2);
+  
+  protected JsonTransformation(Transformation t) {
+    this.OUTPUT = t.getOutput();
+    this.INPUTS = t.getInput();
+    this.INPUT = t.getInput().get(0);
+  }
+  
+  protected Object readInput(DocumentContext doc, String path, Integer unwrapIndex) {
+    Object result = doc.read(path, new com.jayway.jsonpath.Predicate[0]);
+    if (unwrapIndex != null && result instanceof List)
+      result = ((List)result).get(unwrapIndex.intValue()); 
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 67: com/gigatronik/dart2/framework/util/json/transform/JsonTransformator.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util.json.transform;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gigatronik.dart2.framework.util.json.transform.generated.Filter;
+import com.gigatronik.dart2.framework.util.json.transform.generated.ServiceMapping;
+import com.jayway.jsonpath.DocumentContext;
+import com.jayway.jsonpath.JsonPath;
+import java.io.InputStream;
+import java.util.LinkedList;
+import java.util.List;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Unmarshaller;
+
+public class JsonTransformator {
+  private final List<JsonFilter> FILTERS = new LinkedList<>();
+  
+  public JsonTransformator(InputStream xmlSettings) {
+    parseSettings(xmlSettings);
+  }
+  
+  private void parseSettings(InputStream settings) {
+    try {
+      JAXBContext jc = JAXBContext.newInstance(new Class<?>[] { ServiceMapping.class });
+      Unmarshaller unmarshaller = jc.createUnmarshaller();
+      ServiceMapping mapping = (ServiceMapping)unmarshaller.unmarshal(settings);
+      loadConfiguration(mapping);
+    } catch (JAXBException e) {
+      throw new IllegalArgumentException("Error loading settings", e);
+    } 
+  }
+  
+  private void loadConfiguration(ServiceMapping mapping) {
+    for (Filter filter : mapping.getFilters().getFilter())
+      this.FILTERS.add(new JsonFilter(filter)); 
+  }
+  
+  public String transform(String json) throws JsonProcessingException {
+    DocumentContext parsedDoc = JsonPath.parse(json);
+    for (JsonFilter jsonFilter : this.FILTERS)
+      parsedDoc = jsonFilter.apply(parsedDoc); 
+    ObjectMapper mapper = new ObjectMapper();
+    return mapper.writeValueAsString(parsedDoc.json());
+  }
+}
+
+
+========================================================================================================================
+ITEM 68: com/gigatronik/dart2/framework/util/ProgressAwareInputStream.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util;
+
+import java.io.IOException;
+import java.io.InputStream;
+
+public class ProgressAwareInputStream extends InputStream {
+  private InputStream wrappedInputStream;
+  
+  private long size;
+  
+  private Object tag;
+  
+  private long counter;
+  
+  private long lastPercent;
+  
+  private OnProgressListener listener;
+  
+  private final int NOTIFIY_STEPSIZE;
+  
+  public ProgressAwareInputStream(InputStream in, long size, int notifyStepSize, Object tag) {
+    this.wrappedInputStream = in;
+    this.size = size;
+    this.tag = tag;
+    this.NOTIFIY_STEPSIZE = notifyStepSize;
+  }
+  
+  public void setOnProgressListener(OnProgressListener listener) {
+    this.listener = listener;
+  }
+  
+  public Object getTag() {
+    return this.tag;
+  }
+  
+  public int read() throws IOException {
+    this.counter++;
+    check();
+    return this.wrappedInputStream.read();
+  }
+  
+  public int read(byte[] b) throws IOException {
+    int retVal = this.wrappedInputStream.read(b);
+    this.counter += (long)retVal;
+    check();
+    return retVal;
+  }
+  
+  public int read(byte[] b, int offset, int length) throws IOException {
+    int retVal = this.wrappedInputStream.read(b, offset, length);
+    this.counter += (long)retVal;
+    check();
+    return retVal;
+  }
+  
+  private void check() {
+    int percent = (int)(this.counter * 100L / this.size);
+    if ((long)percent - this.lastPercent >= (long)this.NOTIFIY_STEPSIZE) {
+      this.lastPercent = (long)percent;
+      if (this.listener != null)
+        this.listener.onProgress(percent, this.tag); 
+    } 
+  }
+  
+  public void close() throws IOException {
+    this.wrappedInputStream.close();
+  }
+  
+  public int available() throws IOException {
+    return this.wrappedInputStream.available();
+  }
+  
+  public void mark(int readlimit) {
+    this.wrappedInputStream.mark(readlimit);
+  }
+  
+  public synchronized void reset() throws IOException {
+    this.wrappedInputStream.reset();
+  }
+  
+  public boolean markSupported() {
+    return this.wrappedInputStream.markSupported();
+  }
+  
+  public long skip(long n) throws IOException {
+    return this.wrappedInputStream.skip(n);
+  }
+  
+  public static interface OnProgressListener {
+    void onProgress(int param1Int, Object param1Object);
+  }
+}
+
+
+========================================================================================================================
+ITEM 69: com/gigatronik/dart2/framework/util/ProxyManager.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.gigatronik.dart2.framework.settings.Settings;
+import com.gigatronik.dart2.framework.settings.SettingsFactory;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.Authenticator;
+import java.net.InetSocketAddress;
+import java.net.PasswordAuthentication;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.SocketAddress;
+import java.net.URI;
+import java.security.GeneralSecurityException;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ProxyManager extends ProxySelector {
+  static final Logger logger = LoggerFactory.getLogger(ProxyManager.class);
+  
+  public enum ProxyMode {
+    DISABLE, CUSTOM, SYSTEM;
+  }
+  
+  protected static final ProxySelector DEFAULT_PROXY_SELECTOR = ProxySelector.getDefault();
+  
+  protected static final String PROP_PROXY_MODE = "com.gigatronik.dart2.framework.proxy.mode";
+  
+  protected static final String PROP_PROXY_HOST = "com.gigatronik.dart2.framework.proxy.http.host";
+  
+  protected static final String PROP_PROXY_PORT = "com.gigatronik.dart2.framework.proxy.http.port";
+  
+  protected static final String PROP_PROXY_USER = "com.gigatronik.dart2.framework.proxy.user";
+  
+  protected static final String PROP_PROXY_PASSWORD = "com.gigatronik.dart2.framework.proxy.password";
+  
+  protected static final String PROP_PROXY_IGNORED = "com.gigatronik.dart2.framework.proxy.ignorelist";
+  
+  private static ProxyManager instance;
+  
+  private ProxyMode mode = ProxyMode.DISABLE;
+  
+  private final Settings settings;
+  
+  private Integer port;
+  
+  private String host;
+  
+  private String password;
+  
+  private String username;
+  
+  private List<String> ignoredHosts = new LinkedList<>();
+  
+  private static final String PASSWORD_ENCRYPTION_KEY = "234546zu7jztnhfgw342";
+  
+  protected ProxyManager(Settings settings) {
+    this.settings = settings;
+    String sMode = settings.getProperty("com.gigatronik.dart2.framework.proxy.mode", ProxyMode.DISABLE.name());
+    if (sMode != null)
+      this.mode = ProxyMode.valueOf(sMode); 
+    this.host = settings.getProperty("com.gigatronik.dart2.framework.proxy.http.host", null);
+    this.username = settings.getProperty("com.gigatronik.dart2.framework.proxy.user", null);
+    try {
+      this.password = settings.getEncryptedProperty("com.gigatronik.dart2.framework.proxy.password", "234546zu7jztnhfgw342");
+    } catch (GeneralSecurityException|IOException e) {
+      logger.error("Error decrypting proxy password", (Throwable)e);
+    } 
+    String sPort = settings.getProperty("com.gigatronik.dart2.framework.proxy.http.port", null);
+    this.port = StringUtils.isEmpty(sPort) ? null : Integer.decode(sPort);
+    String hosts = settings.getProperty("com.gigatronik.dart2.framework.proxy.ignorelist", null);
+    if (hosts != null)
+      this.ignoredHosts.addAll(Arrays.asList(hosts.split(","))); 
+    Authenticator.setDefault(new Authenticator() {
+          public PasswordAuthentication getPasswordAuthentication() {
+            return new PasswordAuthentication(ProxyManager.this.username, ProxyManager.this.password.toCharArray());
+          }
+        });
+    logSettings();
+  }
+  
+  public static ProxyManager getInstance() {
+    if (instance == null)
+      try {
+        instance = new ProxyManager(SettingsFactory.getInstance().getUserSettings());
+      } catch (ConfigurationNotFoundException e) {
+        logger.error("Unable to create proxy manager", (Throwable)e);
+      }  
+    return instance;
+  }
+  
+  public void logSettings() {
+    String dottedPassword = (this.password != null) ? this.password.replaceAll(".", "*") : null;
+    logger.info(String.format("Proxy is set to %s:%d (Mode %s) Username: %s Password: %s", this.host, this.port, this.mode, this.username, dottedPassword));
+  }
+  
+  public void setMode(ProxyMode mode) {
+    this.mode = mode;
+    this.settings.setProperty("com.gigatronik.dart2.framework.proxy.mode", mode.name());
+  }
+  
+  public void setIgnoredHosts(List<String> ignored) {
+    this.ignoredHosts = ignored;
+    this.settings.setProperty("com.gigatronik.dart2.framework.proxy.ignorelist", StringUtils.join(this.ignoredHosts, ","));
+  }
+  
+  public ProxyMode getMode() {
+    return this.mode;
+  }
+  
+  public String getHost() {
+    return this.host;
+  }
+  
+  public Integer getPort() {
+    return this.port;
+  }
+  
+  public String getUsername() {
+    return this.username;
+  }
+  
+  public String getPassword() {
+    return this.password;
+  }
+  
+  public void setUsername(String username) {
+    this.username = username;
+    this.settings.setProperty("com.gigatronik.dart2.framework.proxy.user", username);
+  }
+  
+  public void setPassword(String password) {
+    this.password = password;
+    try {
+      this.settings.setEncryptedProperty("com.gigatronik.dart2.framework.proxy.password", password, "234546zu7jztnhfgw342");
+    } catch (UnsupportedEncodingException|GeneralSecurityException e) {
+      logger.error("Error writing encrypted proxy password", (Throwable)e);
+    } 
+  }
+  
+  public void setHost(String host) {
+    this.host = host;
+    this.settings.setProperty("com.gigatronik.dart2.framework.proxy.http.host", host);
+  }
+  
+  public void setPort(Integer port) {
+    if (port == null) {
+      this.settings.setProperty("com.gigatronik.dart2.framework.proxy.http.port", "");
+    } else {
+      if (port > 65535 || port < 1)
+        throw new IllegalArgumentException("Port number '" + port + "' is out of range"); 
+      this.settings.setProperty("com.gigatronik.dart2.framework.proxy.http.port", "" + port);
+    } 
+    this.port = port;
+  }
+  
+  public List<Proxy> select(URI uri) {
+    List<Proxy> result = new LinkedList<>();
+    boolean isHttpConnection = (StringUtils.equalsIgnoreCase(uri.getScheme(), "http") || StringUtils.equalsIgnoreCase(uri.getScheme(), "https"));
+    if (hostIsIgnored(uri.getHost()) || !isHttpConnection) {
+      result.add(Proxy.NO_PROXY);
+    } else {
+      switch (this.mode) {
+        case CUSTOM:
+          if (getHost() != null && getPort() != null) {
+            result.add(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(getHost(), getPort())));
+            break;
+          } 
+          logger.info("Can not select Custom proxy without specified host and port, using direct connection instead.");
+        case DISABLE:
+          result.add(Proxy.NO_PROXY);
+          break;
+        case SYSTEM:
+          result.addAll(DEFAULT_PROXY_SELECTOR.select(uri));
+          break;
+        default:
+          logger.error("Unknow proxy mode '{}'", this.mode);
+          break;
+      } 
+    } 
+    return result;
+  }
+  
+  private boolean hostIsIgnored(String host) {
+    if ("localhost".equalsIgnoreCase(host) || "127.0.0.1".equalsIgnoreCase(host))
+      return true; 
+    for (String ignoredHost : this.ignoredHosts) {
+      if (ignoredHost.equalsIgnoreCase(host))
+        return true; 
+    } 
+    return false;
+  }
+  
+  public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {}
+  
+  public List<String> getIgnoredHosts() {
+    return this.ignoredHosts;
+  }
+  
+  public URI getProxyForURL(URI uri) {
+    URI result = null;
+    if (isProxyActive()) {
+      List<Proxy> proxies = select(uri);
+      if (proxies == null || proxies.isEmpty()) {
+        logger.debug("Proxy is enabled but no proxy was available for {}.", uri);
+      } else {
+        Proxy proxy = proxies.get(0);
+        if (proxy.type() != Proxy.Type.DIRECT) {
+          String sUri;
+          InetSocketAddress proxyAddress = (InetSocketAddress)proxy.address();
+          if (isAuthenticationActive()) {
+            sUri = String.format("http://%s:%s@%s:%s", getUsername(), getPassword(), proxyAddress.getHostName(), proxyAddress.getPort());
+          } else {
+            sUri = String.format("http://%s:%s", proxyAddress.getHostName(), proxyAddress.getPort());
+          } 
+          result = URI.create(sUri);
+        } 
+      } 
+    } 
+    return result;
+  }
+  
+  public URI getHttpProxy() {
+    return getProxyForURL(URI.create("http://example.com"));
+  }
+  
+  public URI getHttpsProxy() {
+    return getProxyForURL(URI.create("https://example.com"));
+  }
+  
+  public boolean isProxyActive() {
+    return (getMode() == ProxyMode.CUSTOM || getMode() == ProxyMode.SYSTEM);
+  }
+  
+  public boolean isAuthenticationActive() {
+    return (getMode() == ProxyMode.CUSTOM && StringUtils.isNotEmpty(getUsername()));
+  }
+}
+
+
+========================================================================================================================
+ITEM 70: com/gigatronik/dart2/framework/util/SystemErrorCode.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util;
+
+public enum SystemErrorCode {
+  EPERM(1, "Operation not permitted"),
+  ENOENT(2, "No such file or directory"),
+  ESRCH(3, "No such process"),
+  EINTR(4, "Interrupted system call"),
+  EIO(5, "I/O error"),
+  ENXIO(6, "No such device or address"),
+  E2BIG(7, "Argument list too long"),
+  ENOEXEC(8, "Exec format error"),
+  EBADF(9, "Bad file number"),
+  ECHILD(10, "No child processes"),
+  EAGAIN(11, "Try again"),
+  ENOMEM(12, "Out of memory"),
+  EACCES(13, "Permission denied"),
+  EFAULT(14, "Bad address"),
+  ENOTBLK(15, "Block device required"),
+  EBUSY(16, "Device or resource busy"),
+  EEXIST(17, "File exists"),
+  EXDEV(18, "Cross-device link"),
+  ENODEV(19, "No such device"),
+  ENOTDIR(20, "Not a directory"),
+  EISDIR(21, "Is a directory"),
+  EINVAL(22, "Invalid argument"),
+  ENFILE(23, "File table overflow"),
+  EMFILE(24, "Too many open files"),
+  ENOTTY(25, "Not a typewriter"),
+  ETXTBSY(26, "Text file busy"),
+  EFBIG(27, "File too large"),
+  ENOSPC(28, "No space left on device"),
+  ESPIPE(29, "Illegal seek"),
+  EROFS(30, "Read-only file system");
+  
+  private int errorCode;
+  
+  private String description;
+  
+  SystemErrorCode(int errorCode, String description) {
+    this.errorCode = errorCode;
+    this.description = description;
+  }
+  
+  public int getErrorCode() {
+    return this.errorCode;
+  }
+  
+  public String getDescription() {
+    return this.description;
+  }
+}
+
+
+========================================================================================================================
+ITEM 71: com/gigatronik/dart2/framework/util/Version.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.util;
+
+import java.io.IOException;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class Version implements Comparable<Version> {
+  private static final int MAJOR_INDEX = 0;
+  
+  private static final int MINOR_INDEX = 1;
+  
+  private static final int BUILD_INDEX = 2;
+  
+  private static final int INTERNAL_INDEX = 3;
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(Version.class);
+  
+  private final Integer[] versionElements;
+  
+  public Version(Integer... versionElements) {
+    if (versionElements.length < 3)
+      throw new IllegalArgumentException("A version has to consist of at least 3 elements"); 
+    this.versionElements = versionElements;
+  }
+  
+  public Version() {
+    this(new Integer[] { 0, 0, 0 });
+  }
+  
+  public void setMajor(Integer major) {
+    setVersionElement(0, major);
+  }
+  
+  public void setMinor(Integer minor) {
+    setVersionElement(1, minor);
+  }
+  
+  public void setBuild(Integer build) {
+    setVersionElement(2, build);
+  }
+  
+  public void setInternal(Integer internal) {
+    setVersionElement(3, internal);
+  }
+  
+  public Integer getMAJOR() {
+    return getVersionElement(0);
+  }
+  
+  public Integer getMINOR() {
+    return getVersionElement(1);
+  }
+  
+  public Integer getBUILD() {
+    return getVersionElement(2);
+  }
+  
+  public Integer getINTERNAL() {
+    return getVersionElement(3);
+  }
+  
+  public void setVersionElement(int index, Integer element) {
+    if (index < this.versionElements.length) {
+      this.versionElements[index] = element;
+    } else {
+      LOGGER.debug("Setter for version in position {} with value {} is out of bounds", Integer.valueOf(index), element);
+    } 
+  }
+  
+  public Integer getVersionElement(int index) {
+    if (index > this.versionElements.length - 1) {
+      LOGGER.debug("Getter for version in position {} is out of bounds", Integer.valueOf(index));
+      return null;
+    } 
+    return this.versionElements[index];
+  }
+  
+  public int getElementCount() {
+    return this.versionElements.length;
+  }
+  
+  public static Version parse(String version) throws IOException {
+    if (StringUtils.isBlank(version))
+      return null; 
+    String[] versionInfo = version.trim().split("\\.");
+    Integer[] versionElements = new Integer[versionInfo.length];
+    for (int i = 0; i < versionInfo.length; i++)
+      versionElements[i] = Integer.parseInt(versionInfo[i]); 
+    return new Version(versionElements);
+  }
+  
+  public String toString() {
+    return StringUtils.join(this.versionElements, ".");
+  }
+  
+  public int hashCode() {
+    HashCodeBuilder builder = new HashCodeBuilder();
+    builder.append((Object[])this.versionElements);
+    return builder.hashCode();
+  }
+  
+  public boolean equals(Object obj) {
+    if (obj instanceof Version)
+      return (compareTo((Version)obj) == 0); 
+    return false;
+  }
+  
+  public int compareTo(Version o) {
+    if (o == null)
+      return -1; 
+    int max = Math.min(o.getElementCount(), getElementCount());
+    for (int i = 0; i < max; i++) {
+      int other = o.getVersionElement(i);
+      int our = getVersionElement(i);
+      if (other > our)
+        return -1; 
+      if (other < our)
+        return 1; 
+    } 
+    return 0;
+  }
+}
+

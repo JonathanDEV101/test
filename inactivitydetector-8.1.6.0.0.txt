@@ -1,0 +1,166 @@
+JAR: inactivitydetector-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\inactivitydetector-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/dart2/bosch/inactivitydetector/api/InactivityDetector.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.inactivitydetector.api;
+
+public interface InactivityDetector {
+  void subscribe(InactivityListener paramInactivityListener);
+  
+  void unsubscribe(InactivityListener paramInactivityListener);
+  
+  void start();
+  
+  void stop();
+  
+  int getDetectionThresholdSetting();
+  
+  public static interface InactivityListener {
+    void onInactivity();
+    
+    void onInactivitySetBack();
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/dart2/bosch/inactivitydetector/impl/InactivityDetectorFactory.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.inactivitydetector.impl;
+
+import com.gigatronik.dart2.bosch.inactivitydetector.api.InactivityDetector;
+
+public class InactivityDetectorFactory {
+  private final int settingsRectSideLenght;
+  
+  public InactivityDetectorFactory(int settingsRectSideLenght) {
+    this.settingsRectSideLenght = settingsRectSideLenght;
+  }
+  
+  public InactivityDetector createInactivityDetectorInstance() {
+    return new InactivityDetectorImpl(this.settingsRectSideLenght);
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/dart2/bosch/inactivitydetector/impl/InactivityDetectorImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.inactivitydetector.impl;
+
+import com.gigatronik.dart2.bosch.inactivitydetector.api.InactivityDetector;
+import java.awt.AWTEvent;
+import java.awt.Rectangle;
+import java.awt.Toolkit;
+import java.awt.event.AWTEventListener;
+import java.awt.event.ActionEvent;
+import java.awt.event.MouseEvent;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import javax.swing.Timer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class InactivityDetectorImpl implements InactivityDetector, AWTEventListener {
+  private static final int INACTIVITY_THRESHOLD_IN_MINUTES = 65;
+  
+  private static final long USER_EVENTS = 56L;
+  
+  private boolean inactive = false;
+  
+  private Rectangle currentBorder = null;
+  
+  private final int rectSideLenght;
+  
+  private final Timer inactivityTimer;
+  
+  private final List<InactivityDetector.InactivityListener> listeners = Collections.synchronizedList(new LinkedList<>());
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(InactivityDetectorImpl.class);
+  
+  public InactivityDetectorImpl(int settingsRectSideLenght) {
+    this.inactivityTimer = new Timer((int)TimeUnit.MINUTES.toMillis(65L), this::onTimerTimeOut);
+    this.inactivityTimer.setCoalesce(false);
+    this.inactivityTimer.setRepeats(true);
+    Timer.setLogTimers(false);
+    this.rectSideLenght = settingsRectSideLenght;
+  }
+  
+  public void subscribe(InactivityDetector.InactivityListener listener) {
+    this.listeners.add(listener);
+    LOGGER.info("{} has been added as a listener of Inactivity Detector", listener);
+  }
+  
+  public void unsubscribe(InactivityDetector.InactivityListener listener) {
+    this.listeners.remove(listener);
+    LOGGER.info("{} has been removed as a listener of Inactivity Detector", listener);
+  }
+  
+  private void onTimerTimeOut(ActionEvent e) {
+    if (!this.inactive) {
+      LOGGER.info("Inactivity Timer timed out. Setting tool to inactive ...");
+      this.inactive = true;
+      fireOnInactivityEvent();
+    } 
+  }
+  
+  private void fireOnInactivityEvent() {
+    this.listeners.forEach(listener -> listener.onInactivity());
+  }
+  
+  private void fireOnInactivitySetBackEvent() {
+    this.listeners.forEach(listener -> listener.onInactivitySetBack());
+  }
+  
+  public void start() {
+    this.inactivityTimer.restart();
+    Toolkit.getDefaultToolkit().addAWTEventListener(this, 56L);
+  }
+  
+  public void stop() {
+    this.inactivityTimer.stop();
+    Toolkit.getDefaultToolkit().removeAWTEventListener(this);
+  }
+  
+  public int getDetectionThresholdSetting() {
+    return 65;
+  }
+  
+  public void eventDispatched(AWTEvent event) {
+    if (!isFakeAction(event)) {
+      if (this.inactivityTimer.isRunning())
+        this.inactivityTimer.restart(); 
+      if (this.inactive) {
+        LOGGER.info("Activity detected during inactivity state. Setting tool to active ...");
+        this.inactive = false;
+        fireOnInactivitySetBackEvent();
+      } 
+    } 
+  }
+  
+  private boolean isFakeAction(AWTEvent event) {
+    if (event instanceof MouseEvent) {
+      MouseEvent mouseEvent = (MouseEvent)event;
+      int actualX = mouseEvent.getXOnScreen();
+      int actualY = mouseEvent.getYOnScreen();
+      if (this.currentBorder == null) {
+        this.currentBorder = buildRect(actualX, actualY);
+        return true;
+      } 
+      if (this.currentBorder.contains(actualX, actualY))
+        return true; 
+      this.currentBorder = buildRect(actualX, actualY);
+      return false;
+    } 
+    return false;
+  }
+  
+  private Rectangle buildRect(int actualX, int actualY) {
+    return new Rectangle(actualX - this.rectSideLenght / 2, actualY - this.rectSideLenght / 2, this.rectSideLenght, this.rectSideLenght);
+  }
+}
+

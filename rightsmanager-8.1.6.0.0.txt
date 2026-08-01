@@ -1,0 +1,384 @@
+JAR: rightsmanager-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\rightsmanager-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/rightsmanager/api/BoschDongleConnectionListener.java
+========================================================================================================================
+package com.gigatronik.beds.service.rightsmanager.api;
+
+public interface BoschDongleConnectionListener {
+  void onBoschDongleConnected();
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/service/rightsmanager/api/InvalidModeException.java
+========================================================================================================================
+package com.gigatronik.beds.service.rightsmanager.api;
+
+public class InvalidModeException extends RuntimeException {
+  public InvalidModeException(String message) {
+    super(message);
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/service/rightsmanager/api/Mode.java
+========================================================================================================================
+package com.gigatronik.beds.service.rightsmanager.api;
+
+public enum Mode {
+  NONE, OEM_WORKER, OEM_ADMIN;
+  
+  public static Mode getDefaultModeFor(UserLevel level) {
+    switch (level) {
+      case IBD:
+        return NONE;
+      case OEM:
+        return OEM_WORKER;
+    } 
+    return NONE;
+  }
+  
+  public boolean isValidForLevel(UserLevel level) {
+    switch (this) {
+      case OEM_ADMIN:
+      case OEM_WORKER:
+        return (level == UserLevel.OEM);
+      case NONE:
+        return (level == UserLevel.IBD || level == UserLevel.UNKNOWN);
+    } 
+    return false;
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/service/rightsmanager/api/RightsChangedEvent.java
+========================================================================================================================
+package com.gigatronik.beds.service.rightsmanager.api;
+
+public class RightsChangedEvent {
+  private final RightsManager source;
+  
+  private final Mode mode;
+  
+  private final UserLevel userLevel;
+  
+  public RightsChangedEvent(RightsManager source, Mode newMode, UserLevel newLevel) {
+    this.source = source;
+    this.mode = newMode;
+    this.userLevel = newLevel;
+  }
+  
+  public RightsManager getSource() {
+    return this.source;
+  }
+  
+  public Mode getMode() {
+    return this.mode;
+  }
+  
+  public UserLevel getUserLevel() {
+    return this.userLevel;
+  }
+  
+  public String toString() {
+    return "" + this.userLevel + ", " + this.userLevel;
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/service/rightsmanager/api/RightsChangedEventListener.java
+========================================================================================================================
+package com.gigatronik.beds.service.rightsmanager.api;
+
+public interface RightsChangedEventListener {
+  void onRightsChanged(RightsChangedEvent paramRightsChangedEvent);
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/service/rightsmanager/api/RightsManager.java
+========================================================================================================================
+package com.gigatronik.beds.service.rightsmanager.api;
+
+import com.gigatronik.beds.service.donglemanager.api.DongleStateChangedEventListener;
+import com.gigatronik.ebike.common.configuration.Constants;
+
+public interface RightsManager extends DongleStateChangedEventListener {
+  boolean isModeActive(Mode paramMode);
+  
+  Mode getMode();
+  
+  void setMode(Mode paramMode);
+  
+  boolean isUserInLevel(UserLevel paramUserLevel);
+  
+  UserLevel getUserLevel();
+  
+  void setRawUserLevel(String paramString);
+  
+  void setUserLevel(UserLevel paramUserLevel);
+  
+  boolean isOemAdmin();
+  
+  void waitForRightsInitialized();
+  
+  void fireChangedEvent();
+  
+  void addListener(RightsChangedEventListener paramRightsChangedEventListener);
+  
+  void removeListener(RightsChangedEventListener paramRightsChangedEventListener);
+  
+  Constants.AccessLevel getAccessLevel();
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/service/rightsmanager/api/UserLevel.java
+========================================================================================================================
+package com.gigatronik.beds.service.rightsmanager.api;
+
+public enum UserLevel {
+  UNKNOWN, IBD, OEM;
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/beds/service/rightsmanager/impl/BoschDongleConnectionDetector.java
+========================================================================================================================
+package com.gigatronik.beds.service.rightsmanager.impl;
+
+import com.gigatronik.beds.service.rightsmanager.api.BoschDongleConnectionListener;
+import java.util.ArrayList;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class BoschDongleConnectionDetector {
+  private static final Logger LOGGER = LoggerFactory.getLogger(BoschDongleConnectionDetector.class);
+  
+  private List<BoschDongleConnectionListener> listeners = new ArrayList<>();
+  
+  public void onDongleConnection(String rawUserLevel) {
+    if (rawUserLevel.contains("BOSCH")) {
+      LOGGER.warn("Bosch dongle connection detected!");
+      fireEvent();
+    } 
+  }
+  
+  private void fireEvent() {
+    this.listeners.forEach(BoschDongleConnectionListener::onBoschDongleConnected);
+  }
+  
+  public void registerForEvents(BoschDongleConnectionListener listener) {
+    this.listeners.add(listener);
+  }
+  
+  public void unregisterForEvents(BoschDongleConnectionListener listener) {
+    this.listeners.remove(listener);
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/beds/service/rightsmanager/impl/RightsChangedEventPublisher.java
+========================================================================================================================
+package com.gigatronik.beds.service.rightsmanager.impl;
+
+import com.gigatronik.beds.service.rightsmanager.api.RightsChangedEvent;
+import com.gigatronik.beds.service.rightsmanager.api.RightsChangedEventListener;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+
+public class RightsChangedEventPublisher {
+  private final List<RightsChangedEventListener> listeners = new ArrayList<>();
+  
+  private final Executor executor = Executors.newSingleThreadExecutor(new BasicThreadFactory.Builder().namingPattern("RightsChangedEventExecutor-%d").build());
+  
+  protected synchronized void addListener(RightsChangedEventListener listener) {
+    if (!this.listeners.contains(listener))
+      this.listeners.add(listener); 
+  }
+  
+  protected synchronized void removeListener(RightsChangedEventListener listener) {
+    this.listeners.remove(listener);
+  }
+  
+  protected synchronized void publishEvent(RightsChangedEvent event) {
+    this.listeners.forEach(listener -> this.executor.execute(() -> listener.onRightsChanged(event)));
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/beds/service/rightsmanager/impl/RightsManagerImpl.java
+========================================================================================================================
+package com.gigatronik.beds.service.rightsmanager.impl;
+
+import com.gigatronik.beds.service.donglemanager.api.DongleManager;
+import com.gigatronik.beds.service.donglemanager.api.DongleStateChangedEvent;
+import com.gigatronik.beds.service.rightsmanager.api.InvalidModeException;
+import com.gigatronik.beds.service.rightsmanager.api.Mode;
+import com.gigatronik.beds.service.rightsmanager.api.RightsChangedEvent;
+import com.gigatronik.beds.service.rightsmanager.api.RightsChangedEventListener;
+import com.gigatronik.beds.service.rightsmanager.api.RightsManager;
+import com.gigatronik.beds.service.rightsmanager.api.UserLevel;
+import com.gigatronik.bosch.plugin.tokenproxy.TokenPluginProxy;
+import com.gigatronik.dart2.bosch.startproject.api.ApplicationController;
+import com.gigatronik.ebike.common.configuration.Constants;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class RightsManagerImpl implements RightsManager {
+  private static final Logger LOGGER = LoggerFactory.getLogger(RightsManagerImpl.class);
+  
+  private final AtomicReference<UserLevel> currentUserGroup = new AtomicReference<>(UserLevel.UNKNOWN);
+  
+  private final AtomicReference<Mode> currentMode = new AtomicReference<>(Mode.NONE);
+  
+  private final AtomicBoolean rightsInitialized = new AtomicBoolean(false);
+  
+  private final RightsChangedEventPublisher publisher = new RightsChangedEventPublisher();
+  
+  private final ApplicationController applicationController;
+  
+  private final DongleManager dongleMonitor;
+  
+  private final BoschDongleConnectionDetector boschDongleConnectionDetector;
+  
+  private UserLevel lastValidUserLevel = UserLevel.UNKNOWN;
+  
+  private boolean firstInitialization = true;
+  
+  public RightsManagerImpl(ApplicationController applicationController, DongleManager dongleMonitor, BoschDongleConnectionDetector detector) {
+    this.applicationController = applicationController;
+    this.dongleMonitor = dongleMonitor;
+    this.boschDongleConnectionDetector = detector;
+    dongleMonitor.addDongleStateListener(this);
+  }
+  
+  public boolean isUserInLevel(UserLevel level) {
+    return (this.currentUserGroup.get() == level);
+  }
+  
+  public UserLevel getUserLevel() {
+    return this.currentUserGroup.get();
+  }
+  
+  public void onDongleStateChanged(DongleStateChangedEvent event) {
+    LOGGER.debug("Received dongle state changed event '{}'", event);
+    if (event.isDongleConnected()) {
+      String userLevel = event.isDongleInitialized() ? (String)TokenPluginProxy.getInstance().getTokenProperties().get("User level") : "UNKNOWN";
+      LOGGER.info("Dongle connected. User level from dongle is '{}'", userLevel);
+      setRawUserLevel(userLevel);
+      this.boschDongleConnectionDetector.onDongleConnection(userLevel);
+      this.rightsInitialized.set(true);
+    } else {
+      LOGGER.info("Dongle disconnected");
+      setUserLevel(UserLevel.UNKNOWN);
+      this.rightsInitialized.set(false);
+    } 
+    if (this.rightsInitialized.get())
+      synchronized (this) {
+        notifyAll();
+      }  
+  }
+  
+  public void setUserLevel(UserLevel level) {
+    LOGGER.info("Set UserLevel '{}'", level);
+    UserLevel previousUL = this.currentUserGroup.get();
+    this.currentUserGroup.set((level == null) ? UserLevel.UNKNOWN : level);
+    if (!this.currentMode.get().isValidForLevel(this.currentUserGroup.get()))
+      this.currentMode.set(Mode.getDefaultModeFor(this.currentUserGroup.get())); 
+    if (previousUL != this.currentUserGroup.get()) {
+      LOGGER.info("UserLevel changed. New userlevel is '{}' which was mapped to '{}'", level, this.currentUserGroup);
+      if (level != UserLevel.UNKNOWN && !this.firstInitialization && this.lastValidUserLevel != level)
+        this.applicationController.prepareUserLevelChange(); 
+      fireChangedEvent();
+    } 
+    if (level != UserLevel.UNKNOWN) {
+      this.lastValidUserLevel = level;
+      this.firstInitialization = false;
+    } 
+  }
+  
+  public void setRawUserLevel(String rawUserLevel) {
+    if (StringUtils.equals(rawUserLevel, "IBD")) {
+      setUserLevel(UserLevel.IBD);
+    } else if (StringUtils.equals(rawUserLevel, "OEM")) {
+      setUserLevel(UserLevel.OEM);
+    } else {
+      setUserLevel(UserLevel.UNKNOWN);
+    } 
+  }
+  
+  public void fireChangedEvent() {
+    LOGGER.debug("Fire dongle rights change event ...");
+    this.publisher.publishEvent(new RightsChangedEvent(this, this.currentMode.get(), this.currentUserGroup.get()));
+    LOGGER.debug("... dongle rights change event fired");
+  }
+  
+  public boolean isModeActive(Mode expectedMode) {
+    Mode actualMode = this.currentMode.get();
+    boolean isModeValidForCurrentUserLevel = actualMode.isValidForLevel(this.currentUserGroup.get());
+    boolean modeEqualsCurrent = (actualMode == expectedMode);
+    return (modeEqualsCurrent && isModeValidForCurrentUserLevel);
+  }
+  
+  public void setMode(Mode mode) {
+    if (!mode.isValidForLevel(this.currentUserGroup.get()))
+      throw new InvalidModeException("Mode " + mode + " cannot be applied for userlevel " + this.currentUserGroup); 
+    this.currentMode.set(mode);
+    fireChangedEvent();
+  }
+  
+  public Mode getMode() {
+    return this.currentMode.get();
+  }
+  
+  public boolean isOemAdmin() {
+    return (isModeActive(Mode.OEM_ADMIN) && isUserInLevel(UserLevel.OEM));
+  }
+  
+  public synchronized void waitForRightsInitialized() {
+    while (this.dongleMonitor.getCurrentState() && !this.rightsInitialized.get() && !Thread.currentThread().isInterrupted()) {
+      try {
+        wait();
+      } catch (InterruptedException e) {
+        LOGGER.error("wait for rights initialized interrupted", (Throwable)e);
+        Thread.currentThread().interrupt();
+      } 
+    } 
+  }
+  
+  public synchronized void addListener(RightsChangedEventListener listener) {
+    this.publisher.addListener(listener);
+  }
+  
+  public synchronized void removeListener(RightsChangedEventListener listener) {
+    this.publisher.removeListener(listener);
+  }
+  
+  public Constants.AccessLevel getAccessLevel() {
+    if (this.currentUserGroup.get() == UserLevel.IBD)
+      return Constants.AccessLevel.IBD; 
+    if (this.currentUserGroup.get() == UserLevel.OEM)
+      return Constants.AccessLevel.OEM; 
+    return Constants.AccessLevel.LEVEL_0;
+  }
+  
+  public String getOrderingName() {
+    return "RightsManager";
+  }
+}
+

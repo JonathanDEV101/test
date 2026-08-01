@@ -1,0 +1,1847 @@
+JAR: data.mining-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\data.mining-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/datamining/DataMining.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining;
+
+import com.gigatronik.beds.common.bct.BctState;
+import com.gigatronik.beds.common.order.OrderableListener;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.configuration.api.HardwareConnectionChangesListener;
+import com.gigatronik.beds.service.configuration.event.HardwareConnectionChangedEvent;
+import com.gigatronik.beds.service.datamining.snapshots.AbstractDataMiningSnapshot;
+import com.gigatronik.beds.service.datamining.snapshots.bct.Bct1DataMiningSnapshot;
+import com.gigatronik.beds.service.datamining.snapshots.bct.Bct2DataMiningSnapshot;
+import com.gigatronik.beds.service.datamining.snapshots.bct.Bct3DataMiningSnapshot;
+import com.gigatronik.beds.service.datamining.snapshots.connect.AbsDataMiningSnapshot;
+import com.gigatronik.beds.service.datamining.snapshots.connect.Bms1DataMiningSnapshot;
+import com.gigatronik.beds.service.datamining.snapshots.connect.Bms2DataMiningSnapshot;
+import com.gigatronik.beds.service.datamining.snapshots.connect.DuDataMiningSnapshot;
+import com.gigatronik.beds.service.datamining.snapshots.connect.SystemInformationSnapshot;
+import com.gigatronik.beds.service.datamining.snapshots.flashupdate.FlashUpdateSnapshot;
+import com.gigatronik.beds.service.ecuconnectionstate.api.BctEventHandler;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.BctOperationStateChangeEvent;
+import com.gigatronik.beds.service.ecuflash.impl.FlashResult;
+import com.gigatronik.beds.service.flashcontainer.cff2.Cff2_DesiredReply;
+import com.gigatronik.beds.service.flashcontainer.cff2.Cff2_EBikeData;
+import com.gigatronik.beds.service.flashcontainer.cff2.Cff2_EBikeDataGroup;
+import com.gigatronik.beds.service.flashcontainer.cff2.Cff2_EBikeDatum;
+import com.gigatronik.beds.service.flashcontainer.cff2.Cff2_Ebike;
+import com.gigatronik.beds.service.flashcontainer.download.UtilUpdateRequestCff2;
+import com.gigatronik.beds.service.rightsmanager.api.RightsManager;
+import com.gigatronik.beds.settings.SettingsProxy;
+import com.gigatronik.bosch.plugin.unitoken.crypto.CryptoInfo;
+import com.gigatronik.bosch.plugin.unitoken.crypto.SignatureHelper;
+import com.gigatronik.bosch.utils.UnMarshalJAXB;
+import com.gigatronik.dart2.bosch.applicationprocess.ApplicationProcessManager;
+import com.gigatronik.dart2.bosch.updateserver.UPDATE_SERVER_URL;
+import com.gigatronik.dart2.bosch.updateserver.UpdateServerConnection;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.EcuIdentification;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class DataMining implements BctEventHandler.BctOperationStateListener, HardwareConnectionChangesListener {
+  private static final Logger LOGGER = LoggerFactory.getLogger(DataMining.class);
+  
+  private static final long INITIAL_DELAY = 30000L;
+  
+  private static final long PERIOD = 30000L;
+  
+  private static final String LOG_PATH = System.getenv("DART2_HOME") + "/logs/datamining/";
+  
+  private static final String LOGGING_PROPERTY_NAME = "DataMining_logging";
+  
+  private final String TOOL_APPLICATION_VERSION;
+  
+  private static final int CYCLIC_BCT_DATA_READER_PERIOD = 60000;
+  
+  private final ApplicationProcessManager appProcess;
+  
+  private final BikeIdentification bikeIdentification;
+  
+  private final CommunicationManager communicationManager;
+  
+  private final ConfigurationManager configurationManager;
+  
+  private final RightsManager rightsManager;
+  
+  private final UnMarshalJAXB marshallHelper = new UnMarshalJAXB();
+  
+  private boolean running = false;
+  
+  private Timer timer;
+  
+  private TimerTask timerTask;
+  
+  private final UpdateServerConnection updateServerConnection;
+  
+  private final Set<AbstractDataMiningSnapshot> snapshotCache = new HashSet<>();
+  
+  private DuDataMiningSnapshot duDataSnapshot;
+  
+  private Bms1DataMiningSnapshot bms1DataSnapshot;
+  
+  private Bms2DataMiningSnapshot bms2DataSnapshot;
+  
+  private AbsDataMiningSnapshot absDataSnapshot;
+  
+  private Bct1DataMiningSnapshot bct1DataSnapshot;
+  
+  private Bct2DataMiningSnapshot bct2DataSnapshot;
+  
+  private Bct3DataMiningSnapshot bct3DataSnapshot;
+  
+  private SystemInformationSnapshot systemInformationSnapshot;
+  
+  private FlashUpdateSnapshot flashUpdateDataSnapshot;
+  
+  private String dataMiningXml;
+  
+  private final Executor executor = Executors.newSingleThreadExecutor(new BasicThreadFactory.Builder().namingPattern("DataMiningThread-%d").build());
+  
+  private final Set<String> notAcceptedBduMYs = new HashSet<>();
+  
+  private boolean wasFlashing;
+  
+  private boolean duModelYearAccepted;
+  
+  private HardwareConnectionChangedEvent.HardwareSystem connectedSystemType;
+  
+  private TimerTask readBctDataTimerTask;
+  
+  private Timer readBctDataTimer;
+  
+  private enum MY {
+    UNDEFINED("undefined"),
+    SMALLER("< MY17"),
+    MY17("MY17"),
+    MY18("MY18"),
+    MY19("MY19"),
+    MY20("MY20");
+    
+    private final String ecuResponse;
+    
+    MY(String param1String1) {
+      this.ecuResponse = param1String1;
+    }
+    
+    String getOdxResponse() {
+      return this.ecuResponse;
+    }
+  }
+  
+  public DataMining(ConfigurationManager paramConfigurationManager, CommunicationManager paramCommunicationManager, RightsManager paramRightsManager, BctEventHandler paramBctEventHandler, UpdateServerConnection paramUpdateServerConnection, String paramString) {
+    this.bikeIdentification = paramConfigurationManager.getBikeIdentification();
+    this.communicationManager = paramCommunicationManager;
+    this.configurationManager = paramConfigurationManager;
+    this.rightsManager = paramRightsManager;
+    this.updateServerConnection = paramUpdateServerConnection;
+    this.TOOL_APPLICATION_VERSION = paramString;
+    this.appProcess = ApplicationProcessManager.getInstance();
+    initSnapshots();
+    initNotAcceptedMYs();
+    paramConfigurationManager.addListener((OrderableListener)this);
+    paramBctEventHandler.subscribeBctOperationStateChanges(this);
+  }
+  
+  private void initNotAcceptedMYs() {
+    this.notAcceptedBduMYs.add(MY.UNDEFINED.getOdxResponse());
+    this.notAcceptedBduMYs.add(MY.SMALLER.getOdxResponse());
+    this.notAcceptedBduMYs.add(MY.MY17.getOdxResponse());
+    this.notAcceptedBduMYs.add(MY.MY18.getOdxResponse());
+  }
+  
+  private void initSnapshots() {
+    this.duDataSnapshot = new DuDataMiningSnapshot(this.communicationManager, this.configurationManager);
+    this.bms1DataSnapshot = new Bms1DataMiningSnapshot(this.communicationManager, this.configurationManager);
+    this.bms2DataSnapshot = new Bms2DataMiningSnapshot(this.communicationManager, this.configurationManager);
+    this.absDataSnapshot = new AbsDataMiningSnapshot(this.communicationManager, this.configurationManager);
+    this.systemInformationSnapshot = new SystemInformationSnapshot();
+    this.flashUpdateDataSnapshot = new FlashUpdateSnapshot(this.communicationManager, this.configurationManager);
+    this.bct1DataSnapshot = new Bct1DataMiningSnapshot(this.communicationManager, this.configurationManager);
+    this.bct2DataSnapshot = new Bct2DataMiningSnapshot(this.communicationManager, this.configurationManager);
+    this.bct3DataSnapshot = new Bct3DataMiningSnapshot(this.communicationManager, this.configurationManager);
+  }
+  
+  private void startRetrySendProcess() {
+    if (this.timer == null) {
+      this.running = true;
+      this.timer = new Timer("DataMiningTimer");
+      this.timerTask = new DataMiningTimerTask(this);
+      this.timer.scheduleAtFixedRate(this.timerTask, 30000L, 30000L);
+      LOGGER.debug("DataMiningTimer startet");
+    } 
+  }
+  
+  public void stopSendFileProcess() {
+    this.running = false;
+    if (this.timer != null) {
+      this.timerTask.cancel();
+      this.timerTask = null;
+      this.timer.cancel();
+      this.timer = null;
+      LOGGER.debug("DataMiningTimer stopped");
+    } 
+  }
+  
+  private synchronized void readBikeSnapshotData() {
+    this.duDataSnapshot.readData();
+    this.bms1DataSnapshot.readData();
+    this.bms2DataSnapshot.readData();
+    this.absDataSnapshot.readData();
+  }
+  
+  private File createDataFile() {
+    LOGGER.debug("Creating DataMining Data Container...");
+    Cff2_Ebike cff2_Ebike = UtilUpdateRequestCff2.createRequestCff2Ebike(this.TOOL_APPLICATION_VERSION, Cff2_DesiredReply.FULL, this.bikeIdentification.getApplicationId(), this.bikeIdentification.getDuIdentification(), (EcuIdentification)this.bikeIdentification.getBms1Identification(), this.bikeIdentification.getHmiIdentification(), this.bikeIdentification.getAbsIdentification());
+    cff2_Ebike.setRequest(null);
+    Cff2_EBikeData cff2_EBikeData = new Cff2_EBikeData();
+    for (AbstractDataMiningSnapshot abstractDataMiningSnapshot : this.snapshotCache) {
+      Map<String, Object> map1 = abstractDataMiningSnapshot.getData();
+      if (map1 != null && !map1.isEmpty()) {
+        Cff2_EBikeDataGroup cff2_EBikeDataGroup = new Cff2_EBikeDataGroup();
+        List list = (List)map1.entrySet().stream().map(this::createBikeDatum).collect(Collectors.toList());
+        cff2_EBikeDataGroup.getEbikeDatum().addAll(list);
+        cff2_EBikeData.setId(UUID.randomUUID().toString());
+        cff2_EBikeData.setVersion(1);
+        cff2_EBikeData.getEbikeDataGroup().add(cff2_EBikeDataGroup);
+      } 
+    } 
+    cff2_Ebike.setEbikeData(Arrays.asList(cff2_EBikeData));
+    LOGGER.info("Create bike structure for Request CFF2");
+    String str = this.marshallHelper.marshallToString(cff2_Ebike);
+    Map map = new SignatureHelper().createRsaSignature(CryptoInfo.getCheckString(str), CryptoInfo.getPkcs8());
+    UtilUpdateRequestCff2.addSaltValue(cff2_Ebike, map);
+    this.dataMiningXml = this.marshallHelper.marshallToString(cff2_Ebike, this.marshallHelper.getSchema(cff2_Ebike.getClass().getClassLoader().getResourceAsStream("schemas/Container_File_Format_v2_Schema.xsd")));
+    return UtilUpdateRequestCff2.createTempRequestCff2(this.dataMiningXml);
+  }
+  
+  private Cff2_EBikeDatum createBikeDatum(Map.Entry<String, Object> paramEntry) {
+    Cff2_EBikeDatum cff2_EBikeDatum = new Cff2_EBikeDatum();
+    cff2_EBikeDatum.setKey(paramEntry.getKey());
+    cff2_EBikeDatum.setVersion(1);
+    cff2_EBikeDatum.setValue((paramEntry.getValue() == null) ? "" : (StringUtils.isBlank(paramEntry.getValue().toString()) ? paramEntry.getValue().toString() : paramEntry.getValue().toString().trim()));
+    return cff2_EBikeDatum;
+  }
+  
+  private synchronized boolean sendFile() {
+    if (!this.appProcess.isFlashingActive()) {
+      File file = createDataFile();
+      LOGGER.info("Sending DataMining Container...");
+      return this.updateServerConnection.sendFile(UPDATE_SERVER_URL.get(UPDATE_SERVER_URL.ABS_DATA_MINING).toString(), file);
+    } 
+    LOGGER.debug("DataMining data not sent. Current flash process in progress");
+    return false;
+  }
+  
+  public synchronized boolean sendData(boolean paramBoolean) {
+    LOGGER.debug("Send DataMining triggered to send all cached data with retry={}", Boolean.valueOf(paramBoolean));
+    if (!isDataToSend()) {
+      LOGGER.debug("No DataMining data to send");
+      stopSendFileProcess();
+      return false;
+    } 
+    LOGGER.debug("Try to send DataMining data to server...");
+    if (this.updateServerConnection.isServerAvailable() && sendFile()) {
+      LOGGER.info("DataMining Container succesfully sent.");
+      if (isDataMiningLoggingEnabled())
+        writeDataMiningFile(); 
+      cleanUp();
+      stopSendFileProcess();
+      return true;
+    } 
+    LOGGER.error("DataMining Container could not be sent.");
+    if (paramBoolean) {
+      LOGGER.debug("Countinous retry of sending DataMining container each {}ms will be triggered...", Long.valueOf(30000L));
+      startRetrySendProcess();
+    } 
+    return false;
+  }
+  
+  public boolean isRunning() {
+    return this.running;
+  }
+  
+  private boolean isBikeDataMiningAllowed() {
+    return (isDataMiningAllowed() && this.duModelYearAccepted);
+  }
+  
+  private boolean isFlashUpdateDataMiningAllowed() {
+    return (isDataMiningAllowed() && (this.connectedSystemType == HardwareConnectionChangedEvent.HardwareSystem.BCT_SYSTEM || this.duModelYearAccepted));
+  }
+  
+  private boolean isDataMiningAllowed() {
+    return false;
+  }
+  
+  private boolean isBduMyAccepted() {
+    if (this.notAcceptedBduMYs.isEmpty())
+      return true; 
+    if (this.configurationManager.getBikeIdentification().isDuConnected())
+      try {
+        String str = this.communicationManager.getDuCom().readModelYear().getString();
+        return !this.notAcceptedBduMYs.contains(str);
+      } catch (ComplexResponse.DataAccessException e) {
+        LOGGER.error("Parsing model year response failed", (Throwable)e);
+      }  
+    return false;
+  }
+  
+  private void clearAllSnapshotData() {
+    this.snapshotCache.forEach(AbstractDataMiningSnapshot::clearData);
+    this.snapshotCache.clear();
+  }
+  
+  private void cleanUp() {
+    clearAllSnapshotData();
+  }
+  
+  private boolean isDataToSend() {
+    boolean bool = false;
+    for (AbstractDataMiningSnapshot abstractDataMiningSnapshot : this.snapshotCache) {
+      if (abstractDataMiningSnapshot.hasData()) {
+        bool = true;
+        break;
+      } 
+    } 
+    return bool;
+  }
+  
+  private void onBikeConnect() {
+    LOGGER.debug("Connect of bike system detected");
+    this.duModelYearAccepted = isBduMyAccepted();
+    if (isBikeDataMiningAllowed()) {
+      this.appProcess.setProcessState(ApplicationProcessManager.ApplicationProcess.DATA_MINING, true);
+      readBikeSnapshotData();
+      addBikeSnapshotsToCache();
+      this.appProcess.setProcessState(ApplicationProcessManager.ApplicationProcess.DATA_MINING, false);
+      sendData(true);
+    } 
+  }
+  
+  private void onBikeDisconnect() {
+    LOGGER.debug("Disconnect of bike system detected");
+  }
+  
+  private void onBctConnect() {
+    LOGGER.debug("Connect of bct system detected");
+    startReadingCyclicBctData();
+  }
+  
+  private void onBctDisconnect() {
+    LOGGER.debug("Disconnect of bct system detected");
+    stopReadingCyclicBctData();
+    addBct2AndBct3SnapshotsToCache();
+  }
+  
+  private void onSystemDisconnect() {
+    if (!this.wasFlashing) {
+      addFlashUpdateSnapshotToCache();
+      addSystemInfoSnapshotsToCache();
+      sendData(true);
+    } 
+  }
+  
+  private void onSystemConnect() {
+    stopSendFileProcess();
+    clearAllSnapshotData();
+    this.flashUpdateDataSnapshot.setPreviousSwVersion();
+    this.systemInformationSnapshot.readData();
+  }
+  
+  private void onHardwareSystemConnect(HardwareConnectionChangedEvent paramHardwareConnectionChangedEvent) {
+    ApplicationProcessManager.getInstance().waitForApplicationProcessFinishedWithTimeout(ApplicationProcessManager.ApplicationProcess.READ_SERVICE_PARAMS);
+    onHardwareSystemConnectAction(paramHardwareConnectionChangedEvent);
+  }
+  
+  private void onHardwareSystemConnectAction(HardwareConnectionChangedEvent paramHardwareConnectionChangedEvent) {
+    this.connectedSystemType = paramHardwareConnectionChangedEvent.getSystemType();
+    onSystemConnect();
+    if (paramHardwareConnectionChangedEvent.getSystemType() == HardwareConnectionChangedEvent.HardwareSystem.BIKE_SYSTEM) {
+      onBikeConnect();
+    } else if (paramHardwareConnectionChangedEvent.getSystemType() == HardwareConnectionChangedEvent.HardwareSystem.BCT_SYSTEM) {
+      onBctConnect();
+    } 
+  }
+  
+  private void onHardwareSystemDisconnect(HardwareConnectionChangedEvent paramHardwareConnectionChangedEvent) {
+    if (paramHardwareConnectionChangedEvent.getSystemType() == HardwareConnectionChangedEvent.HardwareSystem.BIKE_SYSTEM) {
+      onBikeDisconnect();
+    } else if (paramHardwareConnectionChangedEvent.getSystemType() == HardwareConnectionChangedEvent.HardwareSystem.BCT_SYSTEM) {
+      onBctDisconnect();
+    } 
+    onSystemDisconnect();
+  }
+  
+  public void onHardwareConnectionChanged(HardwareConnectionChangedEvent paramHardwareConnectionChangedEvent) {
+    LOGGER.debug("HardwareConnectionChangedEvent received: '{}'", paramHardwareConnectionChangedEvent);
+    if (isDataMiningAllowed())
+      this.executor.execute(() -> onHardwareConnectionChangedDelegated(paramHardwareConnectionChangedEvent)); 
+  }
+  
+  private void onHardwareConnectionChangedDelegated(HardwareConnectionChangedEvent paramHardwareConnectionChangedEvent) {
+    switch (paramHardwareConnectionChangedEvent.getAction()) {
+      case SYSTEM_CONNECTED:
+      case SYSTEM_RECONNECTED:
+        onHardwareSystemConnect(paramHardwareConnectionChangedEvent);
+        this.wasFlashing = false;
+        break;
+      case SYSTEM_DISCONNECTED:
+        onHardwareSystemDisconnect(paramHardwareConnectionChangedEvent);
+        break;
+    } 
+  }
+  
+  public static boolean isDataMiningEnabled() {
+    boolean bool = false;
+    try {
+      bool = SettingsProxy.getInstance().getInternalSettings().getBoolean("DataMining.enabled");
+    } catch (ConfigurationNotFoundException e) {
+      LOGGER.error("Configuration could not be found: ", (Throwable)e);
+    } 
+    return bool;
+  }
+  
+  private boolean isDataMiningLoggingEnabled() {
+    return false;
+  }
+  
+  private void writeDataMiningFile() {
+    try {
+      FileUtils.writeStringToFile(new File(LOG_PATH + "data_mining_log_" + LOG_PATH + ".log"), this.dataMiningXml, StandardCharsets.ISO_8859_1);
+    } catch (IOException e) {
+      LOGGER.error("Failed to copy data mining file into log location {}", LOG_PATH, e);
+    } 
+  }
+  
+  public void onApplicationClosed() {
+    if (isDataMiningAllowed()) {
+      addFlashUpdateSnapshotToCache();
+      addBct2AndBct3SnapshotsToCache();
+      addSystemInfoSnapshotsToCache();
+      sendData(false);
+    } 
+  }
+  
+  public void onFlashUpdateFinished(FlashResult paramFlashResult) {
+    if (isDataMiningAllowed()) {
+      this.wasFlashing = true;
+      if (isFlashUpdateDataMiningAllowed()) {
+        this.flashUpdateDataSnapshot.setFlashStatistics(paramFlashResult.getStatistics());
+        this.flashUpdateDataSnapshot.readData();
+      } 
+      handleBctFlashUpdateFinished();
+    } 
+  }
+  
+  private void handleBctFlashUpdateFinished() {
+    if (this.readBctDataTimer != null && this.readBctDataTimerTask != null) {
+      LOGGER.debug("special handling after BCT update - Stop reading cyclic bct data");
+      stopReadingCyclicBctData();
+    } 
+  }
+  
+  private void addFlashUpdateSnapshotToCache() {
+    LOGGER.debug("Add bike update data snapshot to cache");
+    this.snapshotCache.add(this.flashUpdateDataSnapshot);
+  }
+  
+  public void onBctMeasurementStart() {
+    if (isDataMiningAllowed()) {
+      LOGGER.debug("Bct measurement start detected");
+      stopReadingCyclicBctData();
+    } 
+  }
+  
+  private void onBctMeasurementFinished() {
+    LOGGER.debug("Bct measurement finished detected");
+    this.bct1DataSnapshot.readData();
+    LOGGER.debug("Add bct1 data snapshot to cache");
+    this.snapshotCache.add(this.bct1DataSnapshot);
+    sendData(true);
+    startReadingCyclicBctData();
+  }
+  
+  public void onBctOperationStateChanged(BctOperationStateChangeEvent paramBctOperationStateChangeEvent) {
+    LOGGER.debug("Received BctOperationStateChangeEvent: '{}'", paramBctOperationStateChangeEvent);
+    if (isDataMiningAllowed()) {
+      BctState bctState = paramBctOperationStateChangeEvent.getOperatingState();
+      switch (bctState) {
+        case TEST_FINISHED:
+          onBctMeasurementFinished();
+          break;
+        case IDLE:
+        case IDLE_BATTERY_SET:
+        case DISCHARGE_FINISHED:
+          startReadingCyclicBctData();
+          break;
+      } 
+    } 
+  }
+  
+  private void startReadingCyclicBctData() {
+    if (this.readBctDataTimer == null) {
+      this.readBctDataTimer = new Timer("CyclicBctDataMiningReader");
+      this.readBctDataTimerTask = new TimerTask() {
+          public void run() {
+            if (!DataMining.this.appProcess.isFlashingActive()) {
+              DataMining.this.bct2DataSnapshot.readData();
+              DataMining.this.bct3DataSnapshot.readData();
+            } else {
+              DataMining.LOGGER.debug("BCT data mining skipped, 'cause flashing is active");
+            } 
+          }
+        };
+      this.readBctDataTimer.schedule(this.readBctDataTimerTask, 1000L, 60000L);
+    } 
+  }
+  
+  private void stopReadingCyclicBctData() {
+    if (this.readBctDataTimerTask != null) {
+      this.readBctDataTimerTask.cancel();
+      this.readBctDataTimerTask = null;
+    } 
+    if (this.readBctDataTimer != null) {
+      this.readBctDataTimer.cancel();
+      this.readBctDataTimer = null;
+    } 
+  }
+  
+  private void addBikeSnapshotsToCache() {
+    LOGGER.debug("Add bike data snapshots to cache");
+    this.snapshotCache.add(this.duDataSnapshot);
+    this.snapshotCache.add(this.bms1DataSnapshot);
+    this.snapshotCache.add(this.bms2DataSnapshot);
+    this.snapshotCache.add(this.absDataSnapshot);
+  }
+  
+  private void addBct2AndBct3SnapshotsToCache() {
+    LOGGER.debug("Add bct2 and bct3 data snapshots to cache");
+    this.snapshotCache.add(this.bct2DataSnapshot);
+    this.snapshotCache.add(this.bct3DataSnapshot);
+  }
+  
+  private void addSystemInfoSnapshotsToCache() {
+    LOGGER.debug("Add os system info data snapshots to cache");
+    this.snapshotCache.add(this.systemInformationSnapshot);
+  }
+  
+  public String getOrderingName() {
+    return "DataMining";
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/service/datamining/DataMiningKey.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining;
+
+public enum DataMiningKey {
+  READ_DATE("read-date"),
+  BIKE_DATA_TYPE("ebike-data-type"),
+  HMI_COMPONENT_TYPE("hmi-component-type"),
+  HMI_SW_VERSION_PREVIOUS("hmi-sw-version-previous"),
+  HMI_SW_VERSION("hmi-sw-version"),
+  HMI_HW_VERSION("hmi-hw-version"),
+  HMI_FLASH_UPDATE_COUNTER("hmi-flash-update-counter"),
+  HMI_FLASH_UPDATE_PROGRESS_LIST("hmi-flash-update-progress-list"),
+  HMI_FLASH_UPDATE_ERRORCODE_LIST("hmi-flash-update-error-code-list"),
+  DU_DATA_BLOCK_COUNT("bdu-data-block-count"),
+  DU_STAT_DATA_BLOCK("bdu-stat-data-block"),
+  DU_COMPONENT_TYPE("bdu-component-type"),
+  DU_SW_VERSION_PREVIOUS("bdu-sw-version-previous"),
+  DU_SW_VERSION("bdu-sw-version"),
+  DU_HW_VERSION("bdu-hw-version"),
+  DU_FLASH_UPDATE_COUNTER("bdu-flash-update-counter"),
+  DU_FLASH_UPDATE_PROGRESS_LIST("bdu-flash-update-progress-list"),
+  DU_FLASH_UPDATE_ERRORCODE_LIST("bdu-flash-update-error-code-list"),
+  BMS1_DATA_BLOCK_COUNT("bms1-data-block-count"),
+  BMS1_STAT_DATA_BLOCK("bms1-stat-data-block"),
+  BMS1_COMPONENT_TYPE("bms1-component-type"),
+  BMS1_SW_VERSION_PREVIOUS("bms1-sw-version-previous"),
+  BMS1_SW_VERSION("bms1-sw-version"),
+  BMS1_HW_VERSION("bms1-hw-version"),
+  BMS1_FLASH_UPDATE_COUNTER("bms1-flash-update-counter"),
+  BMS1_FLASH_UPDATE_PROGRESS_LIST("bms1-flash-update-progress-list"),
+  BMS1_FLASH_UPDATE_ERRORCODE_LIST("bms1-flash-update-error-code-list"),
+  BMS2_DATA_BLOCK_COUNT("bms2-data-block-count"),
+  BMS2_STAT_DATA_BLOCK("bms2-stat-data-block"),
+  BMS2_COMPONENT_TYPE("bms2-component-type"),
+  BMS2_SW_VERSION_PREVIOUS("bms2-sw-version-previous"),
+  BMS2_SW_VERSION("bms2-sw-version"),
+  BMS2_HW_VERSION("bms2-hw-version"),
+  BMS2_FLASH_UPDATE_COUNTER("bms2-flash-update-counter"),
+  BMS2_FLASH_UPDATE_PROGRESS_LIST("bms2-flash-update-progress-list"),
+  BMS2_FLASH_UPDATE_ERRORCODE_LIST("bms2-flash-update-error-code-list"),
+  ABS_SERIALNUMBER_HU("bas-serial-number"),
+  ABS_KIT_NUMBER("bas-kit-number"),
+  ABS_COMPONENT("component"),
+  ABS_SW_VERSION("bas-sw-version"),
+  ABS_HW_VERSION("bas-hw-version"),
+  ABS_DECELERATION("bas-deceleration"),
+  ABS_ACCUMULATOR("bas-accumulator"),
+  ABS_CHANGE_MUE("bas-change-ue"),
+  ABS_BRAKE_PRESSURE("bas-brake-pressure"),
+  ABS_PRESSURE("bas-abs-pressure"),
+  ABS_SPEED("bas-speed"),
+  ABS_PHASE_CALLIPER("bas-phase-calliper"),
+  ABS_INFO_TABLE("bas-info-table"),
+  ABS_RLC_DETECTION("bas-rlc-detection"),
+  ABS_VEHICLE_DECELERATION("bas-vehicle-deceleration"),
+  ABS_EVENT_COUNTER_SPEED2("bas-ec-speed2"),
+  ABS_EVENT_COUNTER_DECELERATION2("bas-ec-deceleration2"),
+  ABS_PRESSURES_AT_OUTLET_VALUE("bas-pressures-outlet-valve"),
+  ABS_DURATION_IN_CONTROL("bas-duration-in-control"),
+  ABS_TOTAL_OPERATING_TIME("bas-total-operating-time"),
+  ABS_TOTAL_DISTANCE_DRIVEN("bas-total-distance-driven"),
+  ABS_TOTAL_NUMBEROF_ABSANDRLM_BRAKEEVENTS("bas-total-num-of-abs-and-brake-events"),
+  ABS_SILA_OFF_OCCURED("bas-sila-off-occured"),
+  ABS_VARIANT_CODE("bas-abs-variant-code"),
+  ABS_ERRORCODES("bas-errors"),
+  ABS_BDU_PRODUCTLINE("bdu-product-line"),
+  ABS_BDU_BIKETYPE("bdu-bike-type"),
+  ABS_BDU_WHEELSIZE("bdu-wheel-size"),
+  ABS_BDU_ERRORCODES("bdu-errors"),
+  ABS_COMPONENT_TYPE("bas-component-type"),
+  ABS_SW_VERSION_PREVIOUS("bas-sw-version-previous"),
+  ABS_FLASH_UPDATE_COUNTER("bas-flash-update-counter"),
+  ABS_FLASH_UPDATE_PROGRESS_LIST("bas-flash-update-progress-list"),
+  ABS_FLASH_UPDATE_ERRORCODE_LIST("bas-flash-update-error-code-list"),
+  BCS_COMPONENT_TYPE("bcs-component-type"),
+  BCS_SW_VERSION_PREVIOUS("bcs-sw-version-previous"),
+  BCS_SW_VERSION("bcs-sw-version"),
+  BCS_HW_VERSION("bcs-hw-version"),
+  BCS_FLASH_UPDATE_COUNTER("bcs-flash-update-counter"),
+  BCS_FLASH_UPDATE_PROGRESS_LIST("bcs-flash-update-progress-list"),
+  BCS_FLASH_UPDATE_ERRORCODE_LIST("bcs-flash-update-error-code-list"),
+  BCT_COMPONENT_TYPE("bct-component-type"),
+  BCT_SW_VERSION_PREVIOUS("bct-sw-version-previous"),
+  BCT_SW_VERSION("bct-sw-version"),
+  BCT_HW_VERSION("bct-hw-version"),
+  BCT_FLASH_UPDATE_COUNTER("bct-flash-update-counter"),
+  BCT_FLASH_UPDATE_PROGRESS_LIST("bct-flash-update-progress-list"),
+  BCT_FLASH_UPDATE_ERRORCODE_LIST("bct-flash-update-error-code-list"),
+  BCT1_SW_VERSION("bct1-sw-version"),
+  BCT1_HW_VERSION("bct1-hw-version"),
+  BCT1_NOMINAL_ENERGY("bct1-nominal-energy"),
+  BCT1_MEASURED_ENERGY("bct1-measured-energy"),
+  BCT1_BMS_PART_NUMBER("bct1-bms-part-number"),
+  BCT1_BMS_CHARGE_CYCLES("bct1-bms-charge-cycles"),
+  BCT1_BMS_CELL_TYPE("bct1-bms-cell-type"),
+  BCT1_BMS_AGE("bct1-bms-age"),
+  BCT2_TOTAL_OPERATION_TIME("bct2-total-operation-time"),
+  BCT2_NUMBER_OF_DISCHARGES("bct2-discharges"),
+  BCT2_NUMBER_OF_MEASUREMENTS("bct2-measurements"),
+  BCT2_NUMBER_OF_DISCHARGES_CANCELED("bct2-discharges-canceled"),
+  BCT2_NUMBER_OF_DISCHARGES_FAILED("bct2-discharges-error"),
+  BCT2_NUMBER_OF_MEASUREMENTS_CANCELED("bct2-measurements-canceled"),
+  BCT2_NUMBER_OF_MEASUREMENTS_FAILED("bct2-measurements-error"),
+  BCT2_SERIAL_NUMBER("bct2-serial-number"),
+  BCT3_SERIAL_NUMBER("bct3-serial-number"),
+  BCT3_MAX_EXTERNAL_CURRENT_LIFETIME("bct3-max-bms-current-olt-ext-adc"),
+  BCT3_MIN_EXTERNAL_CURRENT_LIFETIME("bct3-min-bms-current-olt-ext-adc"),
+  BCT3_MAX_EXTERNAL_VOLTAGE_LIFETIME("bct3-max-bms-voltage-olt-ext-adc"),
+  BCT3_MAX_FAN_VOLTAGE_LIFETIME("bct3-fan-voltage-olt-int-adc"),
+  BCT3_MAX_INTERNAL_CURRENT_LIFETIME("bct3-max-bms-current-olt-int-adc"),
+  BCT3_MIN_INTERNAL_CURRENT_LIFETIME("bct3-min-bms-current-olt-int-adc"),
+  BCT3_MAX_TEMP_LIFETIME_SENSOR1("bct3-max_temp-sensor1"),
+  BCT3_MIN_TEMP_LIFETIME_SENSOR1("bct3-min-temp-sensor1"),
+  BCT3_MAX_TEMP_LIFETIME_SENSOR2("bct3-max-temp-sensor2"),
+  BCT3_MIN_TEMP_LIFETIME_SENSOR2("bct3-min-temp-sensor2"),
+  SYSTEM_OS_NAME("os-name"),
+  SYSTEM_OS_BUILD_NUMBER("os-build-number"),
+  SYSTEM_OS_SYSTEM_TYPE("os-system-type"),
+  SYSTEM_OS_PROCESSOR("os-processor"),
+  SYSTEM_OS_PLATFORM("os-platform"),
+  SYSTEM_OS_RAM("os-ram");
+  
+  private final String cffKey;
+  
+  DataMiningKey(String cffKey) {
+    this.cffKey = cffKey;
+  }
+  
+  public String getCffKey() {
+    return this.cffKey;
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/service/datamining/DataMiningTimerTask.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining;
+
+import java.util.TimerTask;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class DataMiningTimerTask extends TimerTask {
+  private static final Logger LOGGER = LoggerFactory.getLogger(DataMiningTimerTask.class);
+  
+  private final DataMining dataMining;
+  
+  public DataMiningTimerTask(DataMining dataMining) {
+    this.dataMining = dataMining;
+  }
+  
+  public void run() {
+    if (this.dataMining.isRunning()) {
+      LOGGER.warn("Retry sending Data Mining data...");
+      this.dataMining.sendData(false);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/service/datamining/snapshots/AbstractDataMiningSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.ecu.data.Dtc;
+import com.gigatronik.beds.service.ecu.data.DtcResponse;
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public abstract class AbstractDataMiningSnapshot {
+  protected static final Logger LOGGER = LoggerFactory.getLogger(AbstractDataMiningSnapshot.class);
+  
+  protected CommunicationManager communicationManager;
+  
+  protected BikeIdentification bikeIdentification;
+  
+  protected Map<String, Object> data;
+  
+  public AbstractDataMiningSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    this.communicationManager = commManager;
+    this.bikeIdentification = confManager.getBikeIdentification();
+  }
+  
+  public AbstractDataMiningSnapshot() {
+    this.communicationManager = null;
+    this.bikeIdentification = null;
+  }
+  
+  public Map<String, Object> getData() {
+    return this.data;
+  }
+  
+  public void clearData() {
+    this.data = null;
+  }
+  
+  protected String parseErrorResponse(DtcResponse response) {
+    List<String> result = new ArrayList<>();
+    if (response.isPositive())
+      response.getDtcs().forEach(current -> 
+          result.add(current.getHexCode())); 
+    return (String)result.stream().collect(Collectors.joining(","));
+  }
+  
+  public boolean hasData() {
+    return (this.data != null && !this.data.isEmpty());
+  }
+  
+  public abstract void readData();
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/service/datamining/snapshots/bct/Bct1DataMiningSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.bct;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.datamining.snapshots.AbstractDataMiningSnapshot;
+import com.gigatronik.beds.service.ecu.api.Bct;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import java.io.IOException;
+import java.util.Date;
+import java.util.TreeMap;
+import java.util.concurrent.TimeUnit;
+
+public class Bct1DataMiningSnapshot extends AbstractDataMiningSnapshot {
+  private static final Version MIN_SW_VERSION_CELL_TYPE = new Version(new Integer[] { 1, 1, 0, 0 });
+  
+  private static final String DATA_TYPE = "bct1-v2";
+  
+  private final Bct bct;
+  
+  public Bct1DataMiningSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+    this.bct = commManager.getBctCom();
+  }
+  
+  public void readData() {
+    if (this.bikeIdentification.isBctConnected()) {
+      this.data = new TreeMap<>();
+      LOGGER.debug("Reading Bct1-DataMining Data...");
+      this.data.put(DataMiningKey.BIKE_DATA_TYPE.getCffKey(), "bct1-v2");
+      ComplexResponse swVersion = this.bct.readSoftwareVersionInSourceCode();
+      this.data.put(DataMiningKey.BCT1_SW_VERSION.getCffKey(), swVersion.isPositive() ? swVersion.toString() : "");
+      this.data.put(DataMiningKey.BCT1_HW_VERSION.getCffKey(), this.bikeIdentification.getBctIdentification().getHwVersion());
+      ComplexResponse hwVersion = this.bct.readBatteryNominalCapacity();
+      this.data.put(DataMiningKey.BCT1_NOMINAL_ENERGY.getCffKey(), hwVersion.isPositive() ? hwVersion.toString() : "");
+      ComplexResponse measuredEnergy = this.bct.readMeasuredBatteryEnergy();
+      this.data.put(DataMiningKey.BCT1_MEASURED_ENERGY.getCffKey(), measuredEnergy.isPositive() ? measuredEnergy.toString() : "");
+      ComplexResponse partNumber = this.bct.readBatteryPartNumber();
+      this.data.put(DataMiningKey.BCT1_BMS_PART_NUMBER.getCffKey(), partNumber.isPositive() ? partNumber.toString() : "");
+      ComplexResponse batteryNumOfCharge = this.bct.readBatteryNumberOfChargeCycles();
+      this.data.put(DataMiningKey.BCT1_BMS_CHARGE_CYCLES.getCffKey(), batteryNumOfCharge.isPositive() ? batteryNumOfCharge.toString() : "");
+      ComplexResponse manufactureDate = this.bct.readBatteryManufactureDate();
+      this.data.put(DataMiningKey.BCT1_BMS_AGE.getCffKey(), getBmsAge(manufactureDate));
+      if (hasServiceCellType()) {
+        ComplexResponse cellType = this.bct.readBatteryCellType();
+        this.data.put(DataMiningKey.BCT1_BMS_CELL_TYPE.getCffKey(), cellType);
+      } 
+      LOGGER.debug("Bct1-DataMining Data successfully read");
+    } 
+  }
+  
+  private String getBmsAge(ComplexResponse response) {
+    try {
+      Date measurementDate = new Date();
+      Date manufactureDate = response.getDate();
+      return String.valueOf(getDifferenceDays(manufactureDate, measurementDate));
+    } catch (ComplexResponse.DataAccessException ex) {
+      LOGGER.error("Error reading battery manufacture date", (Throwable)ex);
+      return "";
+    } 
+  }
+  
+  private long getDifferenceDays(Date d1, Date d2) {
+    long diff = d2.getTime() - d1.getTime();
+    return TimeUnit.DAYS.convert(diff, TimeUnit.MILLISECONDS);
+  }
+  
+  private boolean hasServiceCellType() {
+    boolean result = false;
+    try {
+      Version swVersion = Version.parse(this.bikeIdentification.getBctIdentification().getSwVersion());
+      return (swVersion != null) ? ((swVersion.compareTo(MIN_SW_VERSION_CELL_TYPE) >= 0)) : false;
+    } catch (IOException ex) {
+      LOGGER.error("Failed to parse sw version of bct", (Throwable)ex);
+      return result;
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/service/datamining/snapshots/bct/Bct2DataMiningSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.bct;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.datamining.snapshots.AbstractDataMiningSnapshot;
+import com.gigatronik.beds.service.ecu.api.Bct;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import java.io.IOException;
+import java.util.TreeMap;
+
+public class Bct2DataMiningSnapshot extends AbstractDataMiningSnapshot {
+  private static final String DATA_TYPE = "bct2-v3";
+  
+  private static final Version MIN_SW_VERSION_BCT2 = new Version(new Integer[] { 1, 0, 0, 0 });
+  
+  private final Bct bct;
+  
+  public Bct2DataMiningSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+    this.bct = commManager.getBctCom();
+  }
+  
+  public void readData() {
+    if (this.bikeIdentification.isBctConnected() && hasService()) {
+      this.data = new TreeMap<>();
+      LOGGER.debug("Reading Bct2-DataMining Data...");
+      this.data.put(DataMiningKey.BIKE_DATA_TYPE.getCffKey(), "bct2-v3");
+      ComplexResponse totalOperatingTime = this.bct.readTotalOperationTime();
+      this.data.put(DataMiningKey.BCT2_TOTAL_OPERATION_TIME.getCffKey(), totalOperatingTime.isPositive() ? totalOperatingTime.toString() : "");
+      ComplexResponse numOfDischarges = this.bct.readNumberOfDischarges();
+      this.data.put(DataMiningKey.BCT2_NUMBER_OF_DISCHARGES.getCffKey(), numOfDischarges.isPositive() ? numOfDischarges.toString() : "");
+      ComplexResponse numOfMeasurements = this.bct.readNumberOfMeasurements();
+      this.data.put(DataMiningKey.BCT2_NUMBER_OF_MEASUREMENTS.getCffKey(), numOfMeasurements.isPositive() ? numOfMeasurements.toString() : "");
+      ComplexResponse numOfDischargesCanceled = this.bct.readNumberOfDischargesCanceled();
+      this.data.put(DataMiningKey.BCT2_NUMBER_OF_DISCHARGES_CANCELED.getCffKey(), numOfDischargesCanceled.isPositive() ? numOfDischargesCanceled.toString() : "");
+      ComplexResponse numOfDischargesFailed = this.bct.readNumberOfDischargesFailed();
+      this.data.put(DataMiningKey.BCT2_NUMBER_OF_DISCHARGES_FAILED.getCffKey(), numOfDischargesFailed.isPositive() ? numOfDischargesFailed.toString() : "");
+      ComplexResponse numOfMeasurementsCanceled = this.bct.readNumberOfMeasurementsCanceled();
+      this.data.put(DataMiningKey.BCT2_NUMBER_OF_MEASUREMENTS_CANCELED.getCffKey(), numOfMeasurementsCanceled.isPositive() ? numOfMeasurementsCanceled.toString() : "");
+      ComplexResponse numOfMeasurementsFailed = this.bct.readNumberOfMeasurementsFailed();
+      this.data.put(DataMiningKey.BCT2_NUMBER_OF_MEASUREMENTS_FAILED.getCffKey(), numOfMeasurementsFailed.isPositive() ? numOfMeasurementsFailed.toString() : "");
+      ComplexResponse serialNumber = this.bikeIdentification.getBctIdentification().getSerialNumberResponse();
+      this.data.put(DataMiningKey.BCT2_SERIAL_NUMBER.getCffKey(), serialNumber.isPositive() ? serialNumber.toString() : "");
+      LOGGER.debug("Bct2-DataMining Data successfully read");
+    } 
+  }
+  
+  private boolean hasService() {
+    boolean result = false;
+    try {
+      Version swVersion = Version.parse(this.bikeIdentification.getBctIdentification().getSwVersion());
+      return (swVersion != null) ? ((swVersion.compareTo(MIN_SW_VERSION_BCT2) > 0)) : false;
+    } catch (IOException ex) {
+      LOGGER.error("Failed to parse sw version of bct", (Throwable)ex);
+      return result;
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/service/datamining/snapshots/bct/Bct3DataMiningSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.bct;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.datamining.snapshots.AbstractDataMiningSnapshot;
+import com.gigatronik.beds.service.ecu.api.Bct;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import java.io.IOException;
+import java.util.TreeMap;
+
+public class Bct3DataMiningSnapshot extends AbstractDataMiningSnapshot {
+  private static final String DATA_TYPE = "bct3-v2";
+  
+  private static final Version MIN_SW_VERSION_BCT3 = new Version(new Integer[] { 1, 0, 0, 0 });
+  
+  private final Bct bct;
+  
+  public Bct3DataMiningSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+    this.bct = commManager.getBctCom();
+  }
+  
+  public void readData() {
+    if (this.bikeIdentification.isBctConnected() && hasService()) {
+      this.data = new TreeMap<>();
+      LOGGER.debug("Reading Bct3-DataMining Data...");
+      this.data.put(DataMiningKey.BIKE_DATA_TYPE.getCffKey(), "bct3-v2");
+      this.data.put(DataMiningKey.BCT3_SERIAL_NUMBER.getCffKey(), this.bikeIdentification.getBctIdentification().getSerialNumber());
+      ComplexResponse maxExternalCurrentLifetime = this.bct.readMaxExternalCurrentLifetime();
+      this.data.put(DataMiningKey.BCT3_MAX_EXTERNAL_CURRENT_LIFETIME.getCffKey(), maxExternalCurrentLifetime.isPositive() ? maxExternalCurrentLifetime.toString() : "");
+      ComplexResponse minExternalCurrentLifetime = this.bct.readMinExternalCurrentLifetime();
+      this.data.put(DataMiningKey.BCT3_MIN_EXTERNAL_CURRENT_LIFETIME.getCffKey(), minExternalCurrentLifetime.isPositive() ? minExternalCurrentLifetime.toString() : "");
+      ComplexResponse maxExternalVoltageLifetime = this.bct.readMaxExternalVoltageLifetime();
+      this.data.put(DataMiningKey.BCT3_MAX_EXTERNAL_VOLTAGE_LIFETIME.getCffKey(), maxExternalVoltageLifetime.isPositive() ? maxExternalVoltageLifetime.toString() : "");
+      ComplexResponse maxFanVoltageLifetime = this.bct.readMaxFanVoltageLifetime();
+      this.data.put(DataMiningKey.BCT3_MAX_FAN_VOLTAGE_LIFETIME.getCffKey(), maxFanVoltageLifetime.isPositive() ? maxFanVoltageLifetime.toString() : "");
+      ComplexResponse maxInternalCurrentLifetime = this.bct.readMaxInternalCurrentLifetime();
+      this.data.put(DataMiningKey.BCT3_MAX_INTERNAL_CURRENT_LIFETIME.getCffKey(), maxInternalCurrentLifetime.isPositive() ? maxInternalCurrentLifetime.toString() : "");
+      ComplexResponse minInternalCurrentLifetime = this.bct.readMinInternalCurrentLifetime();
+      this.data.put(DataMiningKey.BCT3_MIN_INTERNAL_CURRENT_LIFETIME.getCffKey(), minInternalCurrentLifetime.isPositive() ? minInternalCurrentLifetime.toString() : "");
+      ComplexResponse maxTempLifeTimeSensor1 = this.bct.readMaxTempLifeTimeSensor1();
+      this.data.put(DataMiningKey.BCT3_MAX_TEMP_LIFETIME_SENSOR1.getCffKey(), maxTempLifeTimeSensor1.isPositive() ? maxTempLifeTimeSensor1.toString() : "");
+      ComplexResponse minTempLifeTimeSensor1 = this.bct.readMinTempLifeTimeSensor1();
+      this.data.put(DataMiningKey.BCT3_MIN_TEMP_LIFETIME_SENSOR1.getCffKey(), minTempLifeTimeSensor1.isPositive() ? minTempLifeTimeSensor1.toString() : "");
+      ComplexResponse maxTempLifeTimeSensor2 = this.bct.readMaxTempLifeTimeSensor2();
+      this.data.put(DataMiningKey.BCT3_MAX_TEMP_LIFETIME_SENSOR2.getCffKey(), maxTempLifeTimeSensor2.isPositive() ? maxTempLifeTimeSensor2.toString() : "");
+      ComplexResponse minTempLifeTimeSensor2 = this.bct.readMinTempLifeTimeSensor2();
+      this.data.put(DataMiningKey.BCT3_MIN_TEMP_LIFETIME_SENSOR2.getCffKey(), minTempLifeTimeSensor2.isPositive() ? minTempLifeTimeSensor2.toString() : "");
+      LOGGER.debug("Bct3-DataMining Data successfully read");
+    } 
+  }
+  
+  private boolean hasService() {
+    boolean result = false;
+    try {
+      Version swVersion = Version.parse(this.bikeIdentification.getBctIdentification().getSwVersion());
+      return (swVersion != null) ? ((swVersion.compareTo(MIN_SW_VERSION_BCT3) > 0)) : false;
+    } catch (IOException ex) {
+      LOGGER.error("Failed to parse sw version of bct", (Throwable)ex);
+      return result;
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/beds/service/datamining/snapshots/connect/AbsDataMiningSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.connect;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.datamining.snapshots.AbstractDataMiningSnapshot;
+import com.gigatronik.beds.service.ecu.abs.AbsSettings;
+import com.gigatronik.beds.service.ecu.api.Abs;
+import com.gigatronik.beds.service.ecu.api.Du;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.EcuIdentification;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Map;
+import java.util.TreeMap;
+
+public class AbsDataMiningSnapshot extends AbstractDataMiningSnapshot {
+  private static final String DATA_TYPE = "bas-v3";
+  
+  private static final Version MIN_SW_VERSION_ABS = new Version(new Integer[] { 1, 0, 0, 0 });
+  
+  private final Abs abs;
+  
+  public AbsDataMiningSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+    this.abs = commManager.getAbsCom();
+  }
+  
+  public void readData() {
+    if (this.bikeIdentification.isAbsConnected() && hasService() && !hasData()) {
+      this.data = new TreeMap<>();
+      LOGGER.debug("Reading Abs-DataMining Data...");
+      this.data.put(DataMiningKey.BIKE_DATA_TYPE.getCffKey(), "bas-v3");
+      this.data.put(DataMiningKey.READ_DATE.getCffKey(), new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss").format(new Date()));
+      EcuIdentification absIdent = this.bikeIdentification.getAbsIdentification();
+      this.data.put(DataMiningKey.ABS_SERIALNUMBER_HU.getCffKey(), absIdent.getSerialNumber());
+      ComplexResponse partNumberKit = this.abs.readPartNumberKit();
+      this.data.put(DataMiningKey.ABS_KIT_NUMBER.getCffKey(), partNumberKit.isPositive() ? partNumberKit.toString() : "");
+      this.data.put(DataMiningKey.ABS_COMPONENT.getCffKey(), absIdent.getComponentType().toString());
+      this.data.put(DataMiningKey.ABS_SW_VERSION.getCffKey(), absIdent.getSwVersion());
+      this.data.put(DataMiningKey.ABS_HW_VERSION.getCffKey(), absIdent.getHwVersion());
+      this.abs.getBrakeUsageHistogram().entrySet().forEach(entry -> putInDataMapfromBrakeUsageHistogramm(entry));
+      ComplexResponse rlcDetection = this.abs.readRlcDetection();
+      this.data.put(DataMiningKey.ABS_RLC_DETECTION.getCffKey(), rlcDetection.isPositive() ? rlcDetection.toString() : "");
+      ComplexResponse vehicleDeceleration = this.abs.readVehicleDeceleration();
+      this.data.put(DataMiningKey.ABS_VEHICLE_DECELERATION.getCffKey(), vehicleDeceleration.isPositive() ? vehicleDeceleration.toString() : "");
+      ComplexResponse eventCounterSpeed2 = this.abs.readEventCounterSpeed2();
+      this.data.put(DataMiningKey.ABS_EVENT_COUNTER_SPEED2.getCffKey(), eventCounterSpeed2.isPositive() ? eventCounterSpeed2.toString() : "");
+      ComplexResponse eventCounterDeceleration2 = this.abs.readEventCounterDeceleration2();
+      this.data.put(DataMiningKey.ABS_EVENT_COUNTER_DECELERATION2.getCffKey(), eventCounterDeceleration2.isPositive() ? eventCounterDeceleration2.toString() : "");
+      ComplexResponse pressuresAtOutletValue = this.abs.readPressuresAtOutletValue();
+      this.data.put(DataMiningKey.ABS_PRESSURES_AT_OUTLET_VALUE.getCffKey(), pressuresAtOutletValue.isPositive() ? pressuresAtOutletValue.toString() : "");
+      ComplexResponse durationInControl = this.abs.readDurationInControl();
+      this.data.put(DataMiningKey.ABS_DURATION_IN_CONTROL.getCffKey(), durationInControl.isPositive() ? durationInControl.toString() : "");
+      ComplexResponse totalOperatingTime = this.abs.readTotalOperatingTime();
+      this.data.put(DataMiningKey.ABS_TOTAL_OPERATING_TIME.getCffKey(), totalOperatingTime.isPositive() ? totalOperatingTime.toString() : "");
+      ComplexResponse totalDistanceDriven = this.abs.readTotalDistanceDriven();
+      this.data.put(DataMiningKey.ABS_TOTAL_DISTANCE_DRIVEN.getCffKey(), totalDistanceDriven.isPositive() ? totalDistanceDriven.toString() : "");
+      ComplexResponse totalNumOfBrakeEvents = this.abs.readNumberOfControlOverLifetime();
+      this.data.put(DataMiningKey.ABS_TOTAL_NUMBEROF_ABSANDRLM_BRAKEEVENTS.getCffKey(), totalNumOfBrakeEvents.isPositive() ? totalNumOfBrakeEvents.toString() : "");
+      ComplexResponse silaOffOccured = this.abs.readSafetyLampDeactivatonEvent();
+      this.data.put(DataMiningKey.ABS_SILA_OFF_OCCURED.getCffKey(), silaOffOccured.isPositive() ? this.abs.readSafetyLampDeactivatonEvent().toString() : "");
+      ComplexResponse varianCode = this.abs.readVariantCode();
+      this.data.put(DataMiningKey.ABS_VARIANT_CODE.getCffKey(), varianCode.isPositive() ? customizeVariantCode(varianCode) : "");
+      this.data.put(DataMiningKey.ABS_ERRORCODES.getCffKey(), parseErrorResponse(this.abs.readErrorMemory()));
+      Du du = this.communicationManager.getDuCom();
+      ComplexResponse productLine = du.readProductLine();
+      this.data.put(DataMiningKey.ABS_BDU_PRODUCTLINE.getCffKey(), productLine.isPositive() ? productLine.toString() : "");
+      ComplexResponse bikeType = du.readBikeType();
+      this.data.put(DataMiningKey.ABS_BDU_BIKETYPE.getCffKey(), bikeType.isPositive() ? bikeType.toString() : "");
+      ComplexResponse wheelSize = du.readWheelSize();
+      this.data.put(DataMiningKey.ABS_BDU_WHEELSIZE.getCffKey(), wheelSize.isPositive() ? wheelSize.toString() : "");
+      this.data.put(DataMiningKey.ABS_BDU_ERRORCODES.getCffKey(), parseErrorResponse(du.readErrorMemory()));
+      LOGGER.debug("Abs-DataMining Data successfully read");
+    } 
+  }
+  
+  private String customizeVariantCode(ComplexResponse response) {
+    if (response.isPositive())
+      try {
+        String index = response.getParameterByName("AbsVariantCode").getValue();
+        String checksum = response.getParameterByName("AbsVariantCode_CheckPattern").getValue();
+        return String.format("{AbsVariantCode_CheckPattern=%s, AbsVariantCode=%s}", checksum, index);
+      } catch (ComplexResponse.DataAccessException ex) {
+        LOGGER.error("Failed to parse response pdu", (Throwable)ex);
+      }  
+    return "";
+  }
+  
+  private void putInDataMapfromBrakeUsageHistogramm(Map.Entry<AbsSettings.BrakeUsageHistogramService, ComplexResponse> entry) {
+    String cffKey;
+    ComplexResponse entryValue = entry.getValue();
+    switch ((AbsSettings.BrakeUsageHistogramService)entry.getKey()) {
+      case EDR_EC_DECELERATION:
+        cffKey = DataMiningKey.ABS_DECELERATION.getCffKey();
+        break;
+      case EDR_EC_ACCUMULATOR:
+        cffKey = DataMiningKey.ABS_ACCUMULATOR.getCffKey();
+        break;
+      case EDR_EC_CHANGE_MUE:
+        cffKey = DataMiningKey.ABS_CHANGE_MUE.getCffKey();
+        break;
+      case EDR_BRAKE_EC_PRESSURE_CALIIPER:
+        cffKey = DataMiningKey.ABS_BRAKE_PRESSURE.getCffKey();
+        break;
+      case EDR_ABS_EC_PRESSURE_CALIIPER:
+        cffKey = DataMiningKey.ABS_PRESSURE.getCffKey();
+        break;
+      case EDR_EC_SPEED:
+        cffKey = DataMiningKey.ABS_SPEED.getCffKey();
+        break;
+      case EDR_EC_ABSPHASE_CALLIPER:
+        cffKey = DataMiningKey.ABS_PHASE_CALLIPER.getCffKey();
+        break;
+      case EDR_ABS_INFOTABLE:
+        cffKey = DataMiningKey.ABS_INFO_TABLE.getCffKey();
+        break;
+      default:
+        LOGGER.error("Unknown brake usage histogram entry: {}", entry.getKey());
+        return;
+    } 
+    this.data.put(cffKey, entryValue.isPositive() ? entryValue.toString() : "");
+  }
+  
+  private boolean hasService() {
+    boolean result = false;
+    try {
+      Version swVersion = Version.parse(this.bikeIdentification.getAbsIdentification().getSwVersion());
+      return (swVersion != null) ? ((swVersion.compareTo(MIN_SW_VERSION_ABS) >= 0)) : false;
+    } catch (IOException ex) {
+      LOGGER.error("Failed to parse sw version of abs", (Throwable)ex);
+      return result;
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/beds/service/datamining/snapshots/connect/Bms1DataMiningSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.connect;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.datamining.snapshots.AbstractDataMiningSnapshot;
+import com.gigatronik.beds.service.ecu.api.Bms;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import java.io.IOException;
+import java.util.Map;
+import java.util.TreeMap;
+import org.apache.commons.lang3.StringUtils;
+
+public class Bms1DataMiningSnapshot extends AbstractDataMiningSnapshot {
+  private static final String DATA_TYPE = "bms1-v2";
+  
+  private static final Version MIN_SW_VERSION_BMS = new Version(new Integer[] { 1, 7, 1, 0 });
+  
+  private final Bms bms1;
+  
+  public Bms1DataMiningSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+    this.bms1 = commManager.getBms1Com();
+  }
+  
+  public void readData() {
+    if (this.bikeIdentification.isBms1Connected() && hasService() && !hasData()) {
+      LOGGER.debug("Reading Bms1-DataMining Data...");
+      try {
+        String numOfBlocks = this.bms1.readStatisticComponentCodeBlockCount().getString();
+        Map<String, Object> dataBlocksCache = new TreeMap<>();
+        if (StringUtils.isNotBlank(numOfBlocks)) {
+          for (int i = 0; i < Integer.parseInt(numOfBlocks); i++) {
+            String dataBlock = this.bms1.readStatisticComponentCodeBlocks(i).getString();
+            dataBlocksCache.put(DataMiningKey.BMS1_STAT_DATA_BLOCK.getCffKey() + "-" + i, dataBlock);
+          } 
+          this.data = new TreeMap<>();
+          this.data.put(DataMiningKey.BIKE_DATA_TYPE.getCffKey(), "bms1-v2");
+          this.data.put(DataMiningKey.BMS1_DATA_BLOCK_COUNT.getCffKey(), numOfBlocks);
+          this.data.putAll(dataBlocksCache);
+          LOGGER.debug("Bms1-DataMining Data successfully read");
+        } 
+      } catch (ComplexResponse.DataAccessException ex) {
+        LOGGER.error("Failed to read statistic data", (Throwable)ex);
+      } 
+    } 
+  }
+  
+  private boolean hasService() {
+    boolean result = false;
+    try {
+      Version swVersion = Version.parse(this.bikeIdentification.getBms1Identification().getSwVersion());
+      return (swVersion != null) ? ((swVersion.compareTo(MIN_SW_VERSION_BMS) > 0)) : false;
+    } catch (IOException ex) {
+      LOGGER.error("Failed to parse sw version of bms1", (Throwable)ex);
+      return result;
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/beds/service/datamining/snapshots/connect/Bms2DataMiningSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.connect;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.datamining.snapshots.AbstractDataMiningSnapshot;
+import com.gigatronik.beds.service.ecu.api.Bms;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import java.io.IOException;
+import java.util.Map;
+import java.util.TreeMap;
+import org.apache.commons.lang3.StringUtils;
+
+public class Bms2DataMiningSnapshot extends AbstractDataMiningSnapshot {
+  private static final String DATA_TYPE = "bms2-v2";
+  
+  private static final Version MIN_SW_VERSION_BMS = new Version(new Integer[] { 1, 7, 1, 0 });
+  
+  private final Bms bms2;
+  
+  public Bms2DataMiningSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+    this.bms2 = commManager.getBms2Com();
+  }
+  
+  public void readData() {
+    if (this.bikeIdentification.isBms2Connected() && hasService() && !hasData()) {
+      LOGGER.debug("Reading Bms2-DataMining Data...");
+      try {
+        String numOfBlocks = this.bms2.readStatisticComponentCodeBlockCount().getString();
+        Map<String, Object> dataBlocksCache = new TreeMap<>();
+        if (StringUtils.isNotBlank(numOfBlocks)) {
+          for (int i = 0; i < Integer.parseInt(numOfBlocks); i++) {
+            String dataBlock = this.bms2.readStatisticComponentCodeBlocks(i).getString();
+            dataBlocksCache.put(DataMiningKey.BMS2_STAT_DATA_BLOCK.getCffKey() + "-" + i, dataBlock);
+          } 
+          this.data = new TreeMap<>();
+          this.data.put(DataMiningKey.BIKE_DATA_TYPE.getCffKey(), "bms2-v2");
+          this.data.put(DataMiningKey.BMS2_DATA_BLOCK_COUNT.getCffKey(), numOfBlocks);
+          this.data.putAll(dataBlocksCache);
+          LOGGER.debug("Bms2-DataMining Data successfully read");
+        } 
+      } catch (ComplexResponse.DataAccessException ex) {
+        LOGGER.error("Failed to read statistic data", (Throwable)ex);
+      } 
+    } 
+  }
+  
+  private boolean hasService() {
+    boolean result = false;
+    try {
+      Version swVersion = Version.parse(this.bikeIdentification.getBms2Identification().getSwVersion());
+      return (swVersion != null) ? ((swVersion.compareTo(MIN_SW_VERSION_BMS) > 0)) : false;
+    } catch (IOException ex) {
+      LOGGER.error("Failed to parse sw version of bms2", (Throwable)ex);
+      return result;
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/beds/service/datamining/snapshots/connect/DuDataMiningSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.connect;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.datamining.snapshots.AbstractDataMiningSnapshot;
+import com.gigatronik.beds.service.ecu.api.Du;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import java.io.IOException;
+import java.util.Map;
+import java.util.TreeMap;
+import org.apache.commons.lang3.StringUtils;
+
+public class DuDataMiningSnapshot extends AbstractDataMiningSnapshot {
+  private static final String DATA_TYPE = "bdu-v2";
+  
+  private static final Version MIN_SW_VERSION_BDU_GEN2 = new Version(new Integer[] { 1, 7, 0, 0 });
+  
+  private static final Version MIN_SW_VERSION_BDU_GEN3 = new Version(new Integer[] { 1, 0, 1, 0 });
+  
+  private final Du du;
+  
+  public DuDataMiningSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+    this.du = commManager.getDuCom();
+  }
+  
+  public void readData() {
+    if (this.bikeIdentification.isDuConnected() && hasService() && !hasData()) {
+      LOGGER.debug("Reading Du-DataMining Data...");
+      try {
+        String numOfBlocks = this.du.readStatisticComponentCodeBlockCount().getString();
+        Map<String, Object> dataBlocksCache = new TreeMap<>();
+        if (StringUtils.isNotBlank(numOfBlocks)) {
+          for (int i = 0; i < Integer.parseInt(numOfBlocks); i++) {
+            String dataBlock = this.du.readStatisticComponentCodeBlocks(i).getString();
+            dataBlocksCache.put(DataMiningKey.DU_STAT_DATA_BLOCK.getCffKey() + "-" + i, dataBlock);
+          } 
+          this.data = new TreeMap<>();
+          this.data.put(DataMiningKey.BIKE_DATA_TYPE.getCffKey(), "bdu-v2");
+          this.data.put(DataMiningKey.DU_DATA_BLOCK_COUNT.getCffKey(), numOfBlocks);
+          this.data.putAll(dataBlocksCache);
+          LOGGER.debug("Du-DataMining Data successfully read");
+        } 
+      } catch (ComplexResponse.DataAccessException ex) {
+        LOGGER.error("Failed to read statistic data", (Throwable)ex);
+      } 
+    } 
+  }
+  
+  private boolean hasService() {
+    boolean gen4 = this.bikeIdentification.getDuIdentification().getComponentType().isBDU4xx();
+    boolean gen3 = this.bikeIdentification.getDuIdentification().getComponentType().isBDU3xx();
+    boolean gen2 = this.bikeIdentification.getDuIdentification().getComponentType().isBDU2xx();
+    boolean result = false;
+    try {
+      Version swVersion = Version.parse(this.bikeIdentification.getDuIdentification().getSwVersion());
+      if (swVersion != null) {
+        if (gen4)
+          return true; 
+        if (gen3)
+          return (swVersion.compareTo(MIN_SW_VERSION_BDU_GEN3) > 0); 
+        if (gen2)
+          return (swVersion.compareTo(MIN_SW_VERSION_BDU_GEN2) > 0); 
+      } 
+    } catch (IOException ex) {
+      LOGGER.error("Failed to parse sw version of bdu", (Throwable)ex);
+    } 
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/beds/service/datamining/snapshots/connect/SystemInformationSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.connect;
+
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.datamining.snapshots.AbstractDataMiningSnapshot;
+import com.gigatronik.bosch.utils.SystemInformation;
+import java.util.TreeMap;
+import org.apache.commons.lang3.StringUtils;
+
+public class SystemInformationSnapshot extends AbstractDataMiningSnapshot {
+  private SystemInformation sysinfo = null;
+  
+  private static final int MAX_CHARS_250 = 250;
+  
+  private static final int MAX_CHARS_32 = 32;
+  
+  private static final int MAX_CHARS_10 = 10;
+  
+  public void readData() {
+    if (this.sysinfo == null)
+      this.sysinfo = SystemInformation.getInstance(); 
+    LOGGER.debug("Reading SystemInformation-DataMining Data...");
+    if (this.data == null || this.data.isEmpty() || this.data.size() != 6) {
+      this.data = new TreeMap<>();
+      this.data.put(DataMiningKey.SYSTEM_OS_BUILD_NUMBER.getCffKey(), StringUtils.substring(this.sysinfo.getOsBuildNumber(), 0, 32));
+      this.data.put(DataMiningKey.SYSTEM_OS_NAME.getCffKey(), StringUtils.substring(this.sysinfo.getOsName(), 0, 32));
+      this.data.put(DataMiningKey.SYSTEM_OS_PLATFORM.getCffKey(), StringUtils.substring(this.sysinfo.getPlatform(), 0, 10));
+      this.data.put(DataMiningKey.SYSTEM_OS_PROCESSOR.getCffKey(), StringUtils.substring(this.sysinfo.getProcessortypeAndRate(), 0, 250));
+      this.data.put(DataMiningKey.SYSTEM_OS_RAM.getCffKey(), Long.valueOf(this.sysinfo.getPhysicalMemory()));
+      this.data.put(DataMiningKey.SYSTEM_OS_SYSTEM_TYPE.getCffKey(), StringUtils.substring(this.sysinfo.getSystemtype(), 0, 10));
+      LOGGER.debug("SystemInformation-DataMining Data successfully read");
+    } else {
+      LOGGER.debug("SystemInformation-DataMinig Data existed before");
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/beds/service/datamining/snapshots/flashupdate/AbsFlashUpdateSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.flashupdate;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.ecu.api.Abs;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import java.util.TreeMap;
+
+class AbsFlashUpdateSnapshot extends AbstractFlashUpdateSnapshot {
+  AbsFlashUpdateSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+  }
+  
+  void initIdentification() {
+    this.identification = this.bikeIdentification.getAbsIdentification();
+  }
+  
+  void collectData() {
+    if (this.bikeIdentification.isAbsConnected()) {
+      this.data = new TreeMap<>();
+      this.data.put(DataMiningKey.ABS_COMPONENT_TYPE.getCffKey(), this.identification.getComponentType());
+      this.data.put(DataMiningKey.ABS_SW_VERSION_PREVIOUS.getCffKey(), this.previousSwVersion);
+      Abs absCom = this.communicationManager.getAbsCom();
+      ComplexResponse swVersion = absCom.readSoftwareVersion();
+      this.data.put(DataMiningKey.ABS_SW_VERSION.getCffKey(), swVersion.isPositive() ? swVersion.toString() : "");
+      this.data.put(DataMiningKey.ABS_HW_VERSION.getCffKey(), this.identification.getHwVersion());
+      this.data.put(DataMiningKey.ABS_FLASH_UPDATE_COUNTER.getCffKey(), Integer.valueOf(this.flashCounter));
+      String progresses = this.lastProgress.isEmpty() ? "" : String.join(",", this.lastProgress);
+      this.data.put(DataMiningKey.ABS_FLASH_UPDATE_PROGRESS_LIST.getCffKey(), progresses);
+      String errors = this.errorCodes.isEmpty() ? "" : String.join(",", this.errorCodes);
+      this.data.put(DataMiningKey.ABS_FLASH_UPDATE_ERRORCODE_LIST.getCffKey(), errors);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/beds/service/datamining/snapshots/flashupdate/AbstractFlashUpdateSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.flashupdate;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.ecuflash.api.FlashProcedure;
+import com.gigatronik.beds.service.ecuflash.impl.BaseFlashProcedure;
+import com.gigatronik.beds.service.ecuflash.impl.FlashStatistic;
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+import com.gigatronik.ebike.common.configuration.EcuIdentification;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+abstract class AbstractFlashUpdateSnapshot {
+  protected static final Logger LOGGER = LoggerFactory.getLogger(AbstractFlashUpdateSnapshot.class);
+  
+  protected CommunicationManager communicationManager;
+  
+  protected BikeIdentification bikeIdentification;
+  
+  protected EcuIdentification identification;
+  
+  protected BaseFlashProcedure.FlashProgressType ecuType;
+  
+  protected Map<String, Object> data;
+  
+  protected int flashCounter = 0;
+  
+  protected String previousSwVersion = "";
+  
+  protected List<String> lastProgress = new ArrayList<>();
+  
+  protected List<String> errorCodes = new ArrayList<>();
+  
+  AbstractFlashUpdateSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    this.communicationManager = commManager;
+    this.bikeIdentification = confManager.getBikeIdentification();
+    initIdentification();
+  }
+  
+  abstract void initIdentification();
+  
+  Map<String, Object> getData() {
+    return this.data;
+  }
+  
+  BaseFlashProcedure.FlashProgressType getEcuType() {
+    return this.ecuType;
+  }
+  
+  boolean hasData() {
+    return (this.data != null && !this.data.isEmpty());
+  }
+  
+  void resetData() {
+    this.data = null;
+    this.flashCounter = 0;
+    this.previousSwVersion = "";
+    this.lastProgress = new ArrayList<>();
+    this.errorCodes = new ArrayList<>();
+  }
+  
+  void updateStatistics(FlashStatistic statistic) {
+    if (statistic.getFlashState() != FlashProcedure.FlashState.SKIPPED) {
+      this.flashCounter++;
+      this.lastProgress.add(statistic.getLastProgressAsString());
+      this.errorCodes.addAll(statistic.getErrorCodes());
+    } 
+  }
+  
+  abstract void collectData();
+  
+  protected void setPreviousSwVersion() {
+    if (StringUtils.isBlank(this.previousSwVersion))
+      this.previousSwVersion = this.identification.getSwVersion(); 
+  }
+  
+  boolean isFlashed() {
+    return (this.flashCounter > 0);
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/beds/service/datamining/snapshots/flashupdate/BcsFlashUpdateSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.flashupdate;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.ecu.api.Bcs;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import java.util.TreeMap;
+
+class BcsFlashUpdateSnapshot extends AbstractFlashUpdateSnapshot {
+  public BcsFlashUpdateSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+  }
+  
+  void initIdentification() {
+    this.identification = this.bikeIdentification.getBcsIdentification();
+  }
+  
+  void collectData() {
+    if (this.bikeIdentification.isBcsConnected()) {
+      this.data = new TreeMap<>();
+      this.data.put(DataMiningKey.BCS_COMPONENT_TYPE.getCffKey(), this.identification.getComponentType());
+      this.data.put(DataMiningKey.BCS_SW_VERSION_PREVIOUS.getCffKey(), this.previousSwVersion);
+      Bcs bcsCom = this.communicationManager.getBcsCom();
+      ComplexResponse swVersion = bcsCom.readSoftwareVersion();
+      this.data.put(DataMiningKey.BCS_SW_VERSION.getCffKey(), swVersion.isPositive() ? swVersion.toString() : "");
+      this.data.put(DataMiningKey.BCS_HW_VERSION.getCffKey(), this.identification.getHwVersion());
+      this.data.put(DataMiningKey.BCS_FLASH_UPDATE_COUNTER.getCffKey(), Integer.valueOf(this.flashCounter));
+      String progresses = this.lastProgress.isEmpty() ? "" : String.join(",", this.lastProgress);
+      this.data.put(DataMiningKey.BCS_FLASH_UPDATE_PROGRESS_LIST.getCffKey(), progresses);
+      String errors = this.errorCodes.isEmpty() ? "" : String.join(",", this.errorCodes);
+      this.data.put(DataMiningKey.BCS_FLASH_UPDATE_ERRORCODE_LIST.getCffKey(), errors);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/beds/service/datamining/snapshots/flashupdate/BctFlashUpdateSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.flashupdate;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.ecu.api.Bct;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import java.util.TreeMap;
+
+class BctFlashUpdateSnapshot extends AbstractFlashUpdateSnapshot {
+  BctFlashUpdateSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+  }
+  
+  void initIdentification() {
+    this.identification = this.bikeIdentification.getBctIdentification();
+  }
+  
+  void collectData() {
+    if (this.bikeIdentification.isBctConnected()) {
+      this.data = new TreeMap<>();
+      this.data.put(DataMiningKey.BCT_COMPONENT_TYPE.getCffKey(), this.identification.getComponentType());
+      this.data.put(DataMiningKey.BCT_SW_VERSION_PREVIOUS.getCffKey(), this.previousSwVersion);
+      Bct bctCom = this.communicationManager.getBctCom();
+      ComplexResponse swVersion = this.identification.isBootLoader() ? bctCom.readSoftwareVersionFbl() : bctCom.readSoftwareVersion();
+      this.data.put(DataMiningKey.BCT_SW_VERSION.getCffKey(), swVersion.isPositive() ? swVersion.toString() : "");
+      this.data.put(DataMiningKey.BCT_HW_VERSION.getCffKey(), this.identification.getHwVersion());
+      this.data.put(DataMiningKey.BCT_FLASH_UPDATE_COUNTER.getCffKey(), Integer.valueOf(this.flashCounter));
+      String progresses = this.lastProgress.isEmpty() ? "" : String.join(",", this.lastProgress);
+      this.data.put(DataMiningKey.BCT_FLASH_UPDATE_PROGRESS_LIST.getCffKey(), progresses);
+      String errors = this.errorCodes.isEmpty() ? "" : String.join(",", this.errorCodes);
+      this.data.put(DataMiningKey.BCT_FLASH_UPDATE_ERRORCODE_LIST.getCffKey(), errors);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/beds/service/datamining/snapshots/flashupdate/Bms1FlashUpdateSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.flashupdate;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.ecu.api.Bms;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.EcuIdentification;
+import java.util.TreeMap;
+
+class Bms1FlashUpdateSnapshot extends AbstractFlashUpdateSnapshot {
+  Bms1FlashUpdateSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+  }
+  
+  void initIdentification() {
+    this.identification = (EcuIdentification)this.bikeIdentification.getBms1Identification();
+  }
+  
+  void collectData() {
+    if (this.bikeIdentification.isBms1Connected()) {
+      this.data = new TreeMap<>();
+      this.data.put(DataMiningKey.BMS1_COMPONENT_TYPE.getCffKey(), this.identification.getComponentType());
+      this.data.put(DataMiningKey.BMS1_SW_VERSION_PREVIOUS.getCffKey(), this.previousSwVersion);
+      Bms bms1Com = this.communicationManager.getBms1Com();
+      ComplexResponse swVersion = this.identification.isBootLoader() ? bms1Com.readSoftwareVersionFbl() : bms1Com.readSoftwareVersion();
+      this.data.put(DataMiningKey.BMS1_SW_VERSION.getCffKey(), swVersion.isPositive() ? swVersion.toString() : "");
+      this.data.put(DataMiningKey.BMS1_HW_VERSION.getCffKey(), this.identification.getHwVersion());
+      this.data.put(DataMiningKey.BMS1_FLASH_UPDATE_COUNTER.getCffKey(), Integer.valueOf(this.flashCounter));
+      String progresses = this.lastProgress.isEmpty() ? "" : String.join(",", this.lastProgress);
+      this.data.put(DataMiningKey.BMS1_FLASH_UPDATE_PROGRESS_LIST.getCffKey(), progresses);
+      String errors = this.errorCodes.isEmpty() ? "" : String.join(",", this.errorCodes);
+      this.data.put(DataMiningKey.BMS1_FLASH_UPDATE_ERRORCODE_LIST.getCffKey(), errors);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 18: com/gigatronik/beds/service/datamining/snapshots/flashupdate/Bms2FlashUpdateSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.flashupdate;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.ecu.api.Bms;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.EcuIdentification;
+import java.util.TreeMap;
+
+class Bms2FlashUpdateSnapshot extends AbstractFlashUpdateSnapshot {
+  Bms2FlashUpdateSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+  }
+  
+  void initIdentification() {
+    this.identification = (EcuIdentification)this.bikeIdentification.getBms2Identification();
+  }
+  
+  void collectData() {
+    if (this.bikeIdentification.isBms2Connected()) {
+      this.data = new TreeMap<>();
+      this.data.put(DataMiningKey.BMS2_COMPONENT_TYPE.getCffKey(), this.identification.getComponentType());
+      this.data.put(DataMiningKey.BMS2_SW_VERSION_PREVIOUS.getCffKey(), this.previousSwVersion);
+      Bms bms2Com = this.communicationManager.getBms2Com();
+      ComplexResponse swVersion = this.identification.isBootLoader() ? bms2Com.readSoftwareVersionFbl() : bms2Com.readSoftwareVersion();
+      this.data.put(DataMiningKey.BMS2_SW_VERSION.getCffKey(), swVersion.isPositive() ? swVersion.toString() : "");
+      this.data.put(DataMiningKey.BMS2_HW_VERSION.getCffKey(), this.identification.getHwVersion());
+      this.data.put(DataMiningKey.BMS2_FLASH_UPDATE_COUNTER.getCffKey(), Integer.valueOf(this.flashCounter));
+      String progresses = this.lastProgress.isEmpty() ? "" : String.join(",", this.lastProgress);
+      this.data.put(DataMiningKey.BMS2_FLASH_UPDATE_PROGRESS_LIST.getCffKey(), progresses);
+      String errors = this.errorCodes.isEmpty() ? "" : String.join(",", this.errorCodes);
+      this.data.put(DataMiningKey.BMS2_FLASH_UPDATE_ERRORCODE_LIST.getCffKey(), errors);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 19: com/gigatronik/beds/service/datamining/snapshots/flashupdate/DuFlashUpdateSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.flashupdate;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.ecu.api.Du;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.EcuIdentification;
+import java.util.TreeMap;
+
+class DuFlashUpdateSnapshot extends AbstractFlashUpdateSnapshot {
+  DuFlashUpdateSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+  }
+  
+  void initIdentification() {
+    this.identification = (EcuIdentification)this.bikeIdentification.getDuIdentification();
+  }
+  
+  void collectData() {
+    if (this.bikeIdentification.isDuConnected()) {
+      this.data = new TreeMap<>();
+      this.data.put(DataMiningKey.DU_COMPONENT_TYPE.getCffKey(), this.identification.getComponentType());
+      this.data.put(DataMiningKey.DU_SW_VERSION_PREVIOUS.getCffKey(), this.previousSwVersion);
+      Du duCom = this.communicationManager.getDuCom();
+      ComplexResponse swVersion = this.identification.isBootLoader() ? duCom.readSoftwareVersionFbl() : duCom.readSoftwareVersion();
+      this.data.put(DataMiningKey.DU_SW_VERSION.getCffKey(), swVersion.isPositive() ? swVersion.toString() : "");
+      this.data.put(DataMiningKey.DU_HW_VERSION.getCffKey(), this.identification.getHwVersion());
+      this.data.put(DataMiningKey.DU_FLASH_UPDATE_COUNTER.getCffKey(), Integer.valueOf(this.flashCounter));
+      String progresses = this.lastProgress.isEmpty() ? "" : String.join(",", this.lastProgress);
+      this.data.put(DataMiningKey.DU_FLASH_UPDATE_PROGRESS_LIST.getCffKey(), progresses);
+      String errors = this.errorCodes.isEmpty() ? "" : String.join(",", this.errorCodes);
+      this.data.put(DataMiningKey.DU_FLASH_UPDATE_ERRORCODE_LIST.getCffKey(), errors);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 20: com/gigatronik/beds/service/datamining/snapshots/flashupdate/FlashUpdateSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.flashupdate;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.datamining.snapshots.AbstractDataMiningSnapshot;
+import com.gigatronik.beds.service.ecuflash.impl.FlashStatistic;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+
+public class FlashUpdateSnapshot extends AbstractDataMiningSnapshot {
+  private static final String DATA_TYPE = "swupdate-v2";
+  
+  private final List<AbstractFlashUpdateSnapshot> flashUpdateSnapshots = new ArrayList<>();
+  
+  private boolean anyCompFlashed = false;
+  
+  public FlashUpdateSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+    initFlashUpdateSnapshots(confManager);
+  }
+  
+  private void initFlashUpdateSnapshots(ConfigurationManager confManager) {
+    this.flashUpdateSnapshots.add(new HmiFlashUpdateSnapshot(this.communicationManager, confManager));
+    this.flashUpdateSnapshots.add(new DuFlashUpdateSnapshot(this.communicationManager, confManager));
+    this.flashUpdateSnapshots.add(new Bms1FlashUpdateSnapshot(this.communicationManager, confManager));
+    this.flashUpdateSnapshots.add(new Bms2FlashUpdateSnapshot(this.communicationManager, confManager));
+    this.flashUpdateSnapshots.add(new AbsFlashUpdateSnapshot(this.communicationManager, confManager));
+    this.flashUpdateSnapshots.add(new BcsFlashUpdateSnapshot(this.communicationManager, confManager));
+    this.flashUpdateSnapshots.add(new BctFlashUpdateSnapshot(this.communicationManager, confManager));
+  }
+  
+  public void setPreviousSwVersion() {
+    this.flashUpdateSnapshots.forEach(snapshot -> snapshot.setPreviousSwVersion());
+  }
+  
+  public void readData() {
+    this.flashUpdateSnapshots.forEach(snapshot -> snapshot.collectData());
+  }
+  
+  public Map<String, Object> getData() {
+    this.data = new TreeMap<>();
+    if (hasData())
+      this.data.put(DataMiningKey.BIKE_DATA_TYPE.getCffKey(), "swupdate-v2"); 
+    this.flashUpdateSnapshots.forEach(snapshot -> {
+          Map<String, Object> snapshotData = snapshot.getData();
+          if (snapshotData != null && !snapshotData.isEmpty())
+            this.data.putAll(snapshotData); 
+        });
+    return this.data;
+  }
+  
+  public void clearData() {
+    super.clearData();
+    this.flashUpdateSnapshots.forEach(snaphot -> snaphot.resetData());
+    this.anyCompFlashed = false;
+  }
+  
+  public boolean hasData() {
+    if (this.anyCompFlashed)
+      return true; 
+    for (AbstractFlashUpdateSnapshot snapshot : this.flashUpdateSnapshots) {
+      if (snapshot.hasData() && snapshot.isFlashed()) {
+        this.anyCompFlashed = true;
+        return true;
+      } 
+    } 
+    return false;
+  }
+  
+  public void setFlashStatistics(Set<FlashStatistic> statistics) {
+    statistics.forEach(statistic -> {
+          for (AbstractFlashUpdateSnapshot snapshot : this.flashUpdateSnapshots) {
+            if (snapshot.getEcuType() == statistic.getEcuType())
+              snapshot.updateStatistics(statistic); 
+          } 
+        });
+  }
+}
+
+
+========================================================================================================================
+ITEM 21: com/gigatronik/beds/service/datamining/snapshots/flashupdate/HmiFlashUpdateSnapshot.java
+========================================================================================================================
+package com.gigatronik.beds.service.datamining.snapshots.flashupdate;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.datamining.DataMiningKey;
+import com.gigatronik.beds.service.ecu.api.Hmi;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.EcuIdentification;
+import java.util.TreeMap;
+
+class HmiFlashUpdateSnapshot extends AbstractFlashUpdateSnapshot {
+  HmiFlashUpdateSnapshot(CommunicationManager commManager, ConfigurationManager confManager) {
+    super(commManager, confManager);
+  }
+  
+  void initIdentification() {
+    this.identification = (EcuIdentification)this.bikeIdentification.getHmiIdentification();
+  }
+  
+  void collectData() {
+    if (this.bikeIdentification.isHmiConnected()) {
+      this.data = new TreeMap<>();
+      this.data.put(DataMiningKey.HMI_COMPONENT_TYPE.getCffKey(), this.identification.getComponentType());
+      this.data.put(DataMiningKey.HMI_SW_VERSION_PREVIOUS.getCffKey(), this.previousSwVersion);
+      Hmi buiCom = this.communicationManager.getHmiCom();
+      ComplexResponse swVersion = this.identification.isBootLoader() ? buiCom.readSoftwareVersionFbl() : buiCom.readSoftwareVersion();
+      this.data.put(DataMiningKey.HMI_SW_VERSION.getCffKey(), swVersion.isPositive() ? swVersion.toString() : "");
+      this.data.put(DataMiningKey.HMI_HW_VERSION.getCffKey(), this.identification.getHwVersion());
+      this.data.put(DataMiningKey.HMI_FLASH_UPDATE_COUNTER.getCffKey(), Integer.valueOf(this.flashCounter));
+      String progresses = this.lastProgress.isEmpty() ? "" : String.join(",", this.lastProgress);
+      this.data.put(DataMiningKey.HMI_FLASH_UPDATE_PROGRESS_LIST.getCffKey(), progresses);
+      String errors = this.errorCodes.isEmpty() ? "" : String.join(",", this.errorCodes);
+      this.data.put(DataMiningKey.HMI_FLASH_UPDATE_ERRORCODE_LIST.getCffKey(), errors);
+    } 
+  }
+}
+

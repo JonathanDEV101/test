@@ -1,0 +1,434 @@
+JAR: internationalization-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\internationalization-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/dart2/bosch/service/internationalization/I18NDateTimesFormats.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.service.internationalization;
+
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Date;
+import java.util.Locale;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class I18NDateTimesFormats {
+  private static final Logger LOGGER = LoggerFactory.getLogger(I18NDateTimesFormats.class);
+  
+  private static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
+  
+  private static final String DEFAULT_TIME_FORMAT = "HH:mm";
+  
+  public static String getLocalTime(Date date) {
+    return formatTimeByLocale(date, I18NUtil.getLocale());
+  }
+  
+  public static String formatTimeByLocale(Date time, Locale locale) {
+    SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
+    return timeFormat.format(time);
+  }
+  
+  public static String formatDateByCurrentLocale(Date date) {
+    return formatDateByLocale(date, I18NUtil.getLocale());
+  }
+  
+  public static String formatDateByCurrentLocale(LocalDate date) {
+    return date.format(DateTimeFormatter.ofPattern(getDateFormatterByLocale(I18NUtil.getLocale())));
+  }
+  
+  public static String formatDateByLocale(Date date, Locale locale) {
+    String formatPattern = getDateFormatterByLocale(locale);
+    return new SimpleDateFormat(formatPattern, locale).format(date);
+  }
+  
+  public static String reFormatDateByLocale(String date, Locale locale) {
+    try {
+      Date parsedDate = new SimpleDateFormat("yyyy-MM-dd").parse(date);
+      return new SimpleDateFormat(getDateFormatterByLocale(locale), locale).format(parsedDate);
+    } catch (ParseException ex) {
+      LOGGER.error("Error on parsing date string {} with format {} ", date, "yyyy-MM-dd", ex);
+      return date;
+    } 
+  }
+  
+  public static String getDateFormatterByCurrentLocale() {
+    Locale locale = I18NUtil.getLocale();
+    return getDateFormatterByLocale(locale);
+  }
+  
+  public static String getDateFormatterByLocale(Locale locale) {
+    String formatPattern;
+    if (Locale.GERMAN.equals(locale) || I18NUtil.NORWEGIAN_LOCALE.equals(locale) || I18NUtil.FINNISH_LOCALE.equals(locale) || I18NUtil.BULGARIAN_LOCALE.equals(locale)) {
+      formatPattern = "dd.MM.yyyy";
+    } else if (Locale.ENGLISH.equals(locale)) {
+      formatPattern = "MMM dd, yyyy";
+    } else if (Locale.FRENCH.equals(locale)) {
+      formatPattern = "dd MMM yyyy";
+    } else if (I18NUtil.SPANISH_LOCALE.equals(locale) || Locale.ITALIAN.equals(locale) || I18NUtil.DUTCH_LOCALE.equals(locale)) {
+      formatPattern = "dd-MMM-yyyy";
+    } else if (I18NUtil.DANISH_LOCALE.equals(locale)) {
+      formatPattern = "dd-MM-yyyy";
+    } else if (I18NUtil.PORTUGESE_LOCALE.equals(locale)) {
+      formatPattern = "dd/MMM/yyyy";
+    } else if (Locale.JAPANESE.equals(locale) || Locale.CHINESE.equals(locale)) {
+      formatPattern = "yyyy/MM/dd";
+    } else {
+      formatPattern = "yyyy-MM-dd";
+    } 
+    return formatPattern;
+  }
+  
+  public static String formatDateToInternalToolFormat(Date date) {
+    return new SimpleDateFormat("yyyy-MM-dd").format(date);
+  }
+  
+  public static String formatDateToInternalToolFormat(LocalDate date) {
+    return date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+  }
+  
+  public static DateFormat getInternalDateFormat() {
+    return new SimpleDateFormat("yyyy-MM-dd");
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/dart2/bosch/service/internationalization/I18NUtil.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.service.internationalization;
+
+import com.gigatronik.beds.settings.SettingsProxy;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class I18NUtil {
+  private static final Logger LOGGER = LoggerFactory.getLogger(I18NUtil.class);
+  
+  public static final Locale SPANISH_LOCALE = new Locale("es", "ES");
+  
+  public static final Locale DUTCH_LOCALE = new Locale("nl", "NL");
+  
+  public static final Locale DANISH_LOCALE = new Locale("da", "DK");
+  
+  public static final Locale SWEDISH_LOCALE = new Locale("sv", "SV");
+  
+  public static final Locale PORTUGESE_LOCALE = new Locale("pt", "PT");
+  
+  public static final Locale FINNISH_LOCALE = new Locale("fi", "FI");
+  
+  public static final Locale NORWEGIAN_LOCALE = new Locale("no", "NO");
+  
+  public static final Locale BULGARIAN_LOCALE = new Locale("bg", "BG");
+  
+  public static final Locale CZECH_LOCALE = new Locale("cs", "CZ");
+  
+  public static final Locale KOREAN_LOCALE = new Locale("ko", "KR");
+  
+  public static final Locale POLISH_LOCALE = new Locale("pl", "PL");
+  
+  private static final String SETTINGS_KEY_LANGUAGE = "language";
+  
+  private static final List<Locale> SUPPORTED_GUI_LANGUAGE_LOCALES = initSupportedGuiLanguageLocales();
+  
+  private static final List<String> SUPPORTED_BUI_LANGUAGE_STRINGS = initSupportedBuiLanguagesArray();
+  
+  private static final Map<String, String> ISO_LANGUAGE_MAP = initIsoLanguageMap();
+  
+  private static Locale guiLocale;
+  
+  private static int guiLanguageIndex;
+  
+  static void setLocale() {
+    Locale locale;
+    try {
+      String settingsLanguage = SettingsProxy.getInstance().getGlobalSettings().getProperty("language");
+      locale = SUPPORTED_GUI_LANGUAGE_LOCALES.stream().filter(a -> a.getISO3Language().equals(settingsLanguage)).findFirst().orElse(null);
+      if (locale == null) {
+        LOGGER.warn("Language setting in property file is invalid: {}", settingsLanguage);
+        locale = SUPPORTED_GUI_LANGUAGE_LOCALES.stream().filter(a -> a.getISO3Language().equals(Locale.getDefault().getISO3Language())).findFirst().orElse(Locale.ENGLISH);
+        SettingsProxy.getInstance().getGlobalSettings().setProperty("language", locale.getISO3Language());
+      } 
+      LOGGER.info("Application language has been set to: " + locale.getDisplayName());
+    } catch (ConfigurationNotFoundException ex) {
+      LOGGER.warn("Accessing the language setting property is not possible --> fallback english", (Throwable)ex);
+      locale = Locale.ENGLISH;
+    } 
+    guiLanguageIndex = SUPPORTED_GUI_LANGUAGE_LOCALES.indexOf(locale);
+    guiLocale = locale;
+    Locale.setDefault(Locale.ENGLISH);
+  }
+  
+  public static Locale getLocale() {
+    if (guiLocale == null)
+      setLocale(); 
+    return guiLocale;
+  }
+  
+  public static int getDefaultGuiLanguageIndex() {
+    return guiLanguageIndex;
+  }
+  
+  public static String convIso2DisplayName(String isoName) {
+    return ISO_LANGUAGE_MAP.get(isoName);
+  }
+  
+  public static String convDisplay2IsoName(String displayName) {
+    return ISO_LANGUAGE_MAP.get(displayName);
+  }
+  
+  public static List<String> getBuiLanguages() {
+    return SUPPORTED_BUI_LANGUAGE_STRINGS;
+  }
+  
+  public static String[] getLanguages() {
+    String[] languages = new String[SUPPORTED_GUI_LANGUAGE_LOCALES.size()];
+    for (int i = 0; i < SUPPORTED_GUI_LANGUAGE_LOCALES.size(); i++)
+      languages[i] = formatToProperCasingFromLocale(SUPPORTED_GUI_LANGUAGE_LOCALES.get(i)); 
+    return languages;
+  }
+  
+  public static boolean checkLanguageSettingNeedsUpdate(String guiSelection) throws ConfigurationNotFoundException {
+    String isoSelection = convGuiSelection2iso6393(guiSelection);
+    String isoSetting = SettingsProxy.getInstance().getGlobalSettings().getProperty("language");
+    if (isoSelection == null)
+      throw new ConfigurationNotFoundException("Unsupported language has been selected"); 
+    return !isoSelection.equals(isoSetting);
+  }
+  
+  public static void writeLocaleSetting(String guiSelection) throws ConfigurationNotFoundException {
+    String isoSelection = convGuiSelection2iso6393(guiSelection);
+    if (isoSelection == null)
+      throw new ConfigurationNotFoundException("Unsupported language has been selected"); 
+    SettingsProxy.getInstance().getGlobalSettings().setProperty("language", isoSelection);
+  }
+  
+  private static List<Locale> initSupportedGuiLanguageLocales() {
+    List<Locale> aList = new ArrayList<>();
+    aList.add(Locale.ENGLISH);
+    aList.add(Locale.GERMAN);
+    aList.add(Locale.FRENCH);
+    aList.add(Locale.ITALIAN);
+    aList.add(SPANISH_LOCALE);
+    aList.add(DUTCH_LOCALE);
+    aList.add(DANISH_LOCALE);
+    aList.add(PORTUGESE_LOCALE);
+    aList.add(SWEDISH_LOCALE);
+    aList.add(Locale.JAPANESE);
+    aList.add(Locale.CHINESE);
+    aList.add(NORWEGIAN_LOCALE);
+    aList.add(FINNISH_LOCALE);
+    aList.add(BULGARIAN_LOCALE);
+    aList.add(CZECH_LOCALE);
+    aList.add(KOREAN_LOCALE);
+    aList.add(POLISH_LOCALE);
+    return Collections.unmodifiableList(aList);
+  }
+  
+  private static List<String> initSupportedBuiLanguagesArray() {
+    List<String> aList = new ArrayList<>();
+    aList.add(formatToProperCasingFromLocale(Locale.ENGLISH));
+    aList.add(formatToProperCasingFromLocale(Locale.GERMAN));
+    aList.add(formatToProperCasingFromLocale(Locale.FRENCH));
+    aList.add(formatToProperCasingFromLocale(Locale.ITALIAN));
+    aList.add(formatToProperCasingFromLocale(SPANISH_LOCALE));
+    aList.add(formatToProperCasingFromLocale(DUTCH_LOCALE));
+    aList.add(formatToProperCasingFromLocale(DANISH_LOCALE));
+    aList.add(formatToProperCasingFromLocale(PORTUGESE_LOCALE));
+    aList.add(formatToProperCasingFromLocale(SWEDISH_LOCALE));
+    aList.add(formatToProperCasingFromLocale(Locale.JAPANESE));
+    return Collections.unmodifiableList(aList);
+  }
+  
+  private static Map<String, String> initIsoLanguageMap() {
+    Map<String, String> aMap = new HashMap<>();
+    for (Locale locale : SUPPORTED_GUI_LANGUAGE_LOCALES) {
+      String languageDisplayString = formatToProperCasingFromLocale(locale);
+      aMap.put(locale.getISO3Language(), languageDisplayString);
+      aMap.put(languageDisplayString, locale.getISO3Language());
+    } 
+    return Collections.unmodifiableMap(aMap);
+  }
+  
+  private static String convGuiSelection2iso6393(String guiLanguage) {
+    for (Locale locale : SUPPORTED_GUI_LANGUAGE_LOCALES) {
+      if (guiLanguage.equals(formatToProperCasingFromLocale(locale)))
+        return locale.getISO3Language(); 
+    } 
+    return null;
+  }
+  
+  private static String formatToProperCasingFromLocale(Locale locale) {
+    String s = locale.getDisplayLanguage(locale);
+    return s.substring(0, 1).toUpperCase() + s.substring(0, 1).toUpperCase();
+  }
+  
+  public static boolean isLanguageCodeEqualLocale(String languageCode, Locale locale) {
+    if (languageCode == null || languageCode.length() < 2)
+      return false; 
+    String localeCode = locale.getISO3Language();
+    if (languageCode.length() == 2)
+      localeCode = locale.getLanguage(); 
+    return StringUtils.startsWithIgnoreCase(languageCode, localeCode);
+  }
+  
+  public static boolean isSelectedGuiLanguage(String langCode) {
+    if (langCode == null || langCode.length() < 2)
+      return false; 
+    String guiLangCode = getLocale().getISO3Language();
+    if (langCode.length() == 2)
+      guiLangCode = getLocale().getLanguage(); 
+    return StringUtils.startsWithIgnoreCase(langCode, guiLangCode);
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/dart2/bosch/service/internationalization/ResourceBundleFactory.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.service.internationalization;
+
+import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.Locale;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public final class ResourceBundleFactory {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ResourceBundleFactory.class);
+  
+  public static final String DEFAULT_RESOURCE_BUNDLE_NAME = "com.gigatronik.dart2.plugin.ui.Messages_Bundle";
+  
+  private static final String DART2_HOME_PATH = System.getenv("DART2_HOME");
+  
+  private static final String EXTERNAL_LANGUAGES_PATH = DART2_HOME_PATH + "/languages/";
+  
+  private static final String BUNDLE_PREFIX = "Messages_Bundle";
+  
+  private static Utf8ResourceBundleFormatted resourceBundle = null;
+  
+  public static Utf8ResourceBundleFormatted newDefaultResourceBundle() {
+    if (resourceBundle == null && !StringUtils.equals(System.getProperty("developmentRun"), "true"))
+      try {
+        resourceBundle = new Utf8ResourceBundleFormatted("Messages_Bundle", I18NUtil.getLocale(), getClassLoaderFromSystemPath());
+      } catch (MalformedURLException|java.util.MissingResourceException e) {
+        LOGGER.error("Could not load the languages from the external Path '{}'.", EXTERNAL_LANGUAGES_PATH, e);
+      }  
+    if (resourceBundle == null) {
+      resourceBundle = new Utf8ResourceBundleFormatted("com.gigatronik.dart2.plugin.ui.Messages_Bundle", I18NUtil.getLocale());
+      LOGGER.info("Using the Backup translations from the jar-File");
+    } 
+    return resourceBundle;
+  }
+  
+  public static Utf8ResourceBundleFormatted newResourceBundle(String bundleName) {
+    return new Utf8ResourceBundleFormatted(bundleName, I18NUtil.getLocale());
+  }
+  
+  public static Utf8ResourceBundleFormatted newResourceBundle(String bundleName, Locale locale) {
+    return new Utf8ResourceBundleFormatted(bundleName, locale);
+  }
+  
+  public static Utf8ResourceBundleFormatted newDefaultResourceBundle(Locale locale) {
+    Utf8ResourceBundleFormatted myBundle = null;
+    if (!StringUtils.equals(System.getProperty("developmentRun"), "true"))
+      try {
+        myBundle = new Utf8ResourceBundleFormatted("Messages_Bundle", locale, getClassLoaderFromSystemPath());
+      } catch (MalformedURLException|java.util.MissingResourceException e) {
+        LOGGER.error("Could not load the languages from the external Path '{}'.", EXTERNAL_LANGUAGES_PATH, e);
+      }  
+    if (myBundle == null) {
+      myBundle = new Utf8ResourceBundleFormatted("com.gigatronik.dart2.plugin.ui.Messages_Bundle", locale);
+      LOGGER.info("Using the Backup translations from the jar-File");
+    } 
+    return myBundle;
+  }
+  
+  private static ClassLoader getClassLoaderFromSystemPath() throws MalformedURLException {
+    File file = new File(EXTERNAL_LANGUAGES_PATH);
+    URL[] url = { file.toURI().toURL() };
+    return new URLClassLoader(url);
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/dart2/bosch/service/internationalization/Utf8ResourceBundleFormatted.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.service.internationalization;
+
+import com.gigatronik.dart2.framework.util.i18n.Utf8ResourceBundle;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class Utf8ResourceBundleFormatted {
+  private Utf8ResourceBundle instance = null;
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(Utf8ResourceBundleFormatted.class);
+  
+  Utf8ResourceBundleFormatted(String bundleName, Locale locale) {
+    this.instance = new Utf8ResourceBundle(bundleName, locale);
+  }
+  
+  Utf8ResourceBundleFormatted(String bundleName, Locale locale, ClassLoader loader) {
+    this.instance = new Utf8ResourceBundle(bundleName, locale, loader);
+  }
+  
+  public String getString(String key, boolean useLineBreak) {
+    String formattedString;
+    if (useLineBreak) {
+      formattedString = "<html>" + (String)this.instance.getObject(key) + "</html>";
+    } else {
+      formattedString = (String)this.instance.getObject(key);
+    } 
+    return formattedString;
+  }
+  
+  public String getString(String key) {
+    String result;
+    try {
+      result = this.instance.getString(key);
+    } catch (NullPointerException|java.util.MissingResourceException|ClassCastException ex) {
+      LOGGER.error("Missing Resource for key '{}'.", key, ex);
+      result = key;
+    } 
+    return result;
+  }
+  
+  public boolean isKeyExisting(String key) {
+    try {
+      this.instance.getString(key);
+    } catch (NullPointerException|java.util.MissingResourceException|ClassCastException ex) {
+      LOGGER.error("Key not existing '{}'.", key, ex);
+      return false;
+    } 
+    return true;
+  }
+  
+  public String getVarFromKey(String key) {
+    String result = getString(key);
+    Pattern pattern = Pattern.compile("<var>(.*?)</var>");
+    Matcher matcher = pattern.matcher(result);
+    if (matcher.find())
+      return matcher.group(1); 
+    return result;
+  }
+}
+

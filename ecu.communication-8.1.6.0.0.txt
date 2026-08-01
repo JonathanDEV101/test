@@ -1,0 +1,964 @@
+JAR: ecu.communication-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\ecu.communication-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/communication/api/BctOperationAssistent.java
+========================================================================================================================
+package com.gigatronik.beds.service.communication.api;
+
+import com.gigatronik.beds.common.bct.BctResponse;
+import com.gigatronik.beds.service.communication.impl.bct.BctBatteryData;
+
+public interface BctOperationAssistent {
+  BctBatteryData readBatteryData();
+  
+  BctBatteryData readBatteryDataFromCapacityTester();
+  
+  BctResponse writeBatteryDataToCapacityTester(BctBatteryData paramBctBatteryData);
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/service/communication/api/CommunicationManager.java
+========================================================================================================================
+package com.gigatronik.beds.service.communication.api;
+
+import com.gigatronik.beds.service.communication.impl.SystemDiagnosticSessionResult;
+import com.gigatronik.beds.service.ecu.api.Abs;
+import com.gigatronik.beds.service.ecu.api.Bcs;
+import com.gigatronik.beds.service.ecu.api.Bct;
+import com.gigatronik.beds.service.ecu.api.Bms;
+import com.gigatronik.beds.service.ecu.api.Du;
+import com.gigatronik.beds.service.ecu.api.Eshift;
+import com.gigatronik.beds.service.ecu.api.Hmi;
+import com.gigatronik.dart2.bosch.inactivitydetector.api.InactivityDetector;
+import com.gigatronik.ebike.common.configuration.Constants;
+
+public interface CommunicationManager extends InactivityDetector.InactivityListener {
+  Hmi getHmiCom();
+  
+  Du getDuCom();
+  
+  Bms getBms1Com();
+  
+  Bms getBms2Com();
+  
+  BctOperationAssistent getBctOperationAssistent();
+  
+  Eshift getEshiftCom();
+  
+  Bct getBctCom();
+  
+  Abs getAbsCom();
+  
+  Bcs getBcsCom();
+  
+  void startSystemDefaultSession();
+  
+  void clearSystemErrorMemory();
+  
+  SystemDiagnosticSessionResult startSystemDiagnosticSession();
+  
+  boolean startHmiDiagnosticSession();
+  
+  boolean startBctDiagnosticSession();
+  
+  boolean startDuDiagnosticSession();
+  
+  boolean startBms1DiagnosticSession();
+  
+  boolean startBms2DiagnosticSession();
+  
+  boolean startAbsDiagnosticSession();
+  
+  boolean startBcsDiagnosticSession();
+  
+  void setEcuType(Constants.EcuType paramEcuType, Constants.EcuMode paramEcuMode);
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/service/communication/api/SecurityAccessFailurePopupHandler.java
+========================================================================================================================
+package com.gigatronik.beds.service.communication.api;
+
+import com.gigatronik.ebike.common.configuration.ComponentType;
+import com.gigatronik.ebike.common.configuration.Constants;
+
+public interface SecurityAccessFailurePopupHandler {
+  void displaySecurityAccessFailedDialog(boolean paramBoolean, Constants.EcuType paramEcuType);
+  
+  void displaySecurityAccessFailedDialog(boolean paramBoolean, ComponentType paramComponentType);
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/service/communication/impl/bct/BctBatteryData.java
+========================================================================================================================
+package com.gigatronik.beds.service.communication.impl.bct;
+
+import com.gigatronik.dart2.bosch.service.internationalization.I18NDateTimesFormats;
+import com.gigatronik.dart2.bosch.service.internationalization.I18NUtil;
+import com.gigatronik.ebike.common.configuration.ComponentType;
+import com.gigatronik.ebike.common.util.ManufactureDateHelper;
+import com.gigatronik.ebike.common.util.SerialNumberHelper;
+import java.util.List;
+import org.apache.commons.lang3.StringUtils;
+
+public class BctBatteryData {
+  private String componentType;
+  
+  private String partNumber;
+  
+  private String serialNumber;
+  
+  private String hardwareVersion;
+  
+  private String softwareVersion;
+  
+  private String manufactureDate;
+  
+  private String cellTemperature;
+  
+  private String numberOfFullChargeCycles;
+  
+  private String nominalCapacity;
+  
+  private String nominalEnergy;
+  
+  private String measuredEnergy;
+  
+  private String internalVoltage;
+  
+  private List<String> errorCodes;
+  
+  private String dateOfMeasurement;
+  
+  private String cellType;
+  
+  private String endOfDischargeVoltage;
+  
+  public String getComponentType() {
+    return this.componentType;
+  }
+  
+  public void setComponentType(String componentType) {
+    this.componentType = componentType;
+  }
+  
+  public String getPartNumber() {
+    return this.partNumber;
+  }
+  
+  public String getPartNumberHex() {
+    byte[] bytes = this.partNumber.getBytes();
+    StringBuilder partNumberHex = new StringBuilder();
+    for (byte b : bytes)
+      partNumberHex.append(String.format("%02X", b)); 
+    return partNumberHex.toString();
+  }
+  
+  public void setPartNumber(String partNumber) {
+    this.partNumber = partNumber;
+  }
+  
+  public String getSerialNumber() {
+    return this.serialNumber;
+  }
+  
+  public String getSerialNumberForDisplay() {
+    if (ComponentType.parse(this.componentType).isBBP1xx())
+      return SerialNumberHelper.getSerialnumberBaPaClassic(this.serialNumber); 
+    return SerialNumberHelper.getSerialnumberBaPaVictor(this.serialNumber);
+  }
+  
+  public void setSerialNumber(String serialNumber) {
+    this.serialNumber = StringUtils.replace(serialNumber, "0x", "");
+  }
+  
+  public String getHardwareVersion() {
+    return this.hardwareVersion;
+  }
+  
+  public void setHardwareVersion(String hardwareVersion) {
+    this.hardwareVersion = hardwareVersion;
+  }
+  
+  public String getSoftwareVersion() {
+    return this.softwareVersion;
+  }
+  
+  public void setSoftwareVersion(String softwareVersion) {
+    this.softwareVersion = softwareVersion;
+  }
+  
+  public String getManufactureDate() {
+    return this.manufactureDate;
+  }
+  
+  public String getManufactureDateForDisplay(boolean encode) {
+    if (this.manufactureDate != null) {
+      if (encode)
+        return ManufactureDateHelper.codeManufactureDate(this.manufactureDate); 
+      return I18NDateTimesFormats.reFormatDateByLocale(this.manufactureDate, I18NUtil.getLocale());
+    } 
+    return this.manufactureDate;
+  }
+  
+  public void setManufactureDate(String manufactureDate) {
+    this.manufactureDate = manufactureDate;
+  }
+  
+  public String getCellTemperature() {
+    return this.cellTemperature;
+  }
+  
+  public void setCellTemperature(String cellTemperature) {
+    this.cellTemperature = cellTemperature;
+  }
+  
+  public String getNumberOfFullChargeCycles() {
+    return this.numberOfFullChargeCycles;
+  }
+  
+  public void setNumberOfFullChargeCycles(String numberOfFullChargeCycles) {
+    int indexDecimal = StringUtils.indexOf(numberOfFullChargeCycles, ".");
+    if (indexDecimal > 0) {
+      this.numberOfFullChargeCycles = numberOfFullChargeCycles.substring(0, indexDecimal);
+    } else {
+      this.numberOfFullChargeCycles = numberOfFullChargeCycles;
+    } 
+  }
+  
+  public String getNominalCapacity() {
+    return this.nominalCapacity;
+  }
+  
+  public void setNominalCapacity(String nominalCapacity) {
+    this.nominalCapacity = nominalCapacity;
+  }
+  
+  public String getNominalEnergy() {
+    return this.nominalEnergy;
+  }
+  
+  public void setNominalEnergy(String nominalEnergy) {
+    this.nominalEnergy = nominalEnergy;
+  }
+  
+  public String getMeasuredEnergy() {
+    return this.measuredEnergy;
+  }
+  
+  public void setMeasuredEnergy(String measuredEnergy) {
+    this.measuredEnergy = measuredEnergy;
+  }
+  
+  public List<String> getErrorCodes() {
+    return this.errorCodes;
+  }
+  
+  public void setErrorCodes(List<String> errorCodes) {
+    this.errorCodes = errorCodes;
+  }
+  
+  public String getErrorCodesForDisplay() {
+    String result = "";
+    if (this.errorCodes != null) {
+      StringBuilder displayCodes = new StringBuilder();
+      for (String errorCode : this.errorCodes) {
+        if (!StringUtils.equals(errorCode, "0x000000")) {
+          displayCodes.append(errorCode);
+          displayCodes.append(", ");
+        } 
+      } 
+      result = displayCodes.toString();
+      if (result.endsWith(", "))
+        return result.substring(0, result.length() - 2); 
+    } 
+    return result;
+  }
+  
+  public String getDateOfMeasurement() {
+    return this.dateOfMeasurement;
+  }
+  
+  public String getDateOfMeasurementForDisplay() {
+    if (StringUtils.isNotBlank(this.dateOfMeasurement))
+      return I18NDateTimesFormats.reFormatDateByLocale(this.dateOfMeasurement, I18NUtil.getLocale()); 
+    return this.dateOfMeasurement;
+  }
+  
+  public void setDateOfMeasurement(String dateOfMeasurement) {
+    this.dateOfMeasurement = dateOfMeasurement;
+  }
+  
+  public String getInternalVoltage() {
+    return this.internalVoltage;
+  }
+  
+  public void setInternalVoltage(String internalVoltage) {
+    this.internalVoltage = internalVoltage;
+  }
+  
+  public String getCellType() {
+    return this.cellType;
+  }
+  
+  public void setCellType(String cellType) {
+    this.cellType = cellType;
+  }
+  
+  public String getEndOfDischargeVoltage() {
+    return this.endOfDischargeVoltage;
+  }
+  
+  public void setEndOfDischargeVoltage(String endOfDischargeVoltage) {
+    this.endOfDischargeVoltage = endOfDischargeVoltage;
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/service/communication/impl/BctOperationAssistentImpl.java
+========================================================================================================================
+package com.gigatronik.beds.service.communication.impl;
+
+import com.gigatronik.beds.common.bct.BctBatteryType;
+import com.gigatronik.beds.common.bct.BctResponse;
+import com.gigatronik.beds.service.communication.api.BctOperationAssistent;
+import com.gigatronik.beds.service.communication.impl.bct.BctBatteryData;
+import com.gigatronik.beds.service.ecu.api.Bct;
+import com.gigatronik.beds.service.ecu.api.Bms;
+import com.gigatronik.beds.service.ecu.data.Dtc;
+import com.gigatronik.beds.service.ecu.data.DtcResponse;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.ComponentType;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.List;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class BctOperationAssistentImpl implements BctOperationAssistent {
+  private static final Logger LOGGER = LoggerFactory.getLogger(BctOperationAssistent.class);
+  
+  private final Bct bct;
+  
+  private final Bms bms;
+  
+  BctOperationAssistentImpl(Bms bms, Bct bct) {
+    this.bct = bct;
+    this.bms = bms;
+  }
+  
+  public BctBatteryData readBatteryData() {
+    BctBatteryData bctBatteryData = new BctBatteryData();
+    ComplexResponse bmsCompType = this.bms.readComponentType();
+    bctBatteryData.setComponentType(bmsCompType.isPositive() ? bmsCompType.toString() : null);
+    ComplexResponse response = this.bms.readPartNumber();
+    bctBatteryData.setPartNumber(response.isPositive() ? response.toString() : null);
+    response = this.bms.readSerialNumberUnformatted();
+    bctBatteryData.setSerialNumber(response.isPositive() ? response.toString() : null);
+    response = this.bms.readHardwareVersion();
+    bctBatteryData.setHardwareVersion(response.isPositive() ? response.toString() : null);
+    ComplexResponse softwareVersion = this.bms.readSoftwareVersion();
+    bctBatteryData.setSoftwareVersion(softwareVersion.isPositive() ? softwareVersion.toString() : null);
+    response = this.bms.readManufacturingDate();
+    bctBatteryData.setManufactureDate(response.isPositive() ? response.toString() : null);
+    DtcResponse dtcResponse = this.bms.readErrorMemory();
+    List<String> result = new ArrayList<>();
+    if (dtcResponse.isPositive())
+      dtcResponse.getDtcs().forEach(current -> result.add(current.getHexCode())); 
+    bctBatteryData.setErrorCodes(result);
+    bctBatteryData.setDateOfMeasurement(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")));
+    if (ComponentType.parse(bmsCompType.toString()).isBBP1xx()) {
+      readBatteryGen1Data(bctBatteryData);
+    } else {
+      try {
+        readBatteryGen2Data(bctBatteryData, softwareVersion.getVersion());
+      } catch (ComplexResponse.DataAccessException ex) {
+        LOGGER.error("Error pasrsing battery software version", (Throwable)ex);
+      } 
+    } 
+    return bctBatteryData;
+  }
+  
+  private void readBatteryGen1Data(BctBatteryData bctBatteryData) {
+    try {
+      ComplexResponse bmsInformation = this.bms.readBmsInformation();
+      bctBatteryData.setInternalVoltage(bmsInformation.getParameterByName("Battery_voltage").getValue());
+      bctBatteryData.setCellTemperature(bmsInformation.getParameterByName("Battery_temperature").getValue());
+      bctBatteryData.setNominalCapacity(bmsInformation.getParameterByName("Battery_capacity_state").getValue());
+    } catch (ComplexResponse.DataAccessException ex) {
+      LOGGER.error("Error reading the BMS Information.", (Throwable)ex);
+    } 
+    try {
+      ComplexResponse bmsLifetimeInfo = this.bms.readBmsLifetimeInfo();
+      bctBatteryData.setNumberOfFullChargeCycles(bmsLifetimeInfo.getParameterByName("Load_cycles").getValue());
+    } catch (ComplexResponse.DataAccessException ex) {
+      LOGGER.error("Error reading the BMS LifeTime Information.", (Throwable)ex);
+    } 
+  }
+  
+  private void readBatteryGen2Data(BctBatteryData bctBatteryData, Version bmsSwVer) {
+    ComplexResponse response = this.bms.readLoadCycles();
+    bctBatteryData.setNumberOfFullChargeCycles(response.isPositive() ? response.toString() : null);
+    response = this.bms.readBatteryTemperature();
+    bctBatteryData.setCellTemperature(response.isPositive() ? response.toString() : null);
+    response = this.bms.readBatteryVoltage();
+    bctBatteryData.setInternalVoltage(response.isPositive() ? response.toString() : null);
+    if (bmsSwVer.compareTo(new Version(new Integer[] { 1, 5, 2, 0 })) > 0) {
+      response = this.bms.readNominalCapacity();
+      bctBatteryData.setNominalCapacity(response.isPositive() ? response.toString() : null);
+      response = this.bms.readCellType(bmsSwVer);
+      bctBatteryData.setCellType(response.isPositive() ? response.toString() : null);
+      response = this.bms.readNominalEnergy();
+      bctBatteryData.setNominalEnergy(response.isPositive() ? response.toString() : null);
+      response = this.bms.readEndOfDischargeVoltage();
+      bctBatteryData.setEndOfDischargeVoltage(response.isPositive() ? response.toString() : null);
+    } 
+  }
+  
+  public BctResponse writeBatteryDataToCapacityTester(BctBatteryData bctBatteryData) {
+    List<ComplexResponse> responses = writeBatteryCommonData(bctBatteryData);
+    BctBatteryType batteryType = this.bct.getSelectedBattery();
+    switch (batteryType) {
+      case CLASSIC:
+        responses.addAll(writeBatteryGen1Data(bctBatteryData));
+        break;
+      case VICTOR:
+        responses.addAll(writeBatteryGen2Data(bctBatteryData));
+        break;
+      default:
+        LOGGER.error("Read out unknown battery type '{}'", batteryType);
+        break;
+    } 
+    if (!responses.isEmpty())
+      for (ComplexResponse response : responses) {
+        if (response.isNegative())
+          return BctResponse.REJECTED; 
+      }  
+    return BctResponse.OK;
+  }
+  
+  private List<ComplexResponse> writeBatteryCommonData(BctBatteryData bctBatteryData) {
+    List<ComplexResponse> responses = new ArrayList<>();
+    List<String> errorList = bctBatteryData.getErrorCodes();
+    if (errorList != null)
+      responses.add(this.bct.writeBatteryErrorCodes(errorList)); 
+    String value = bctBatteryData.getComponentType();
+    if (StringUtils.isNotEmpty(value))
+      responses.add(this.bct.writeBatteryComponentType(value)); 
+    value = bctBatteryData.getDateOfMeasurement();
+    if (StringUtils.isNotEmpty(value))
+      responses.add(this.bct.writeBatteryDateTimeValue(value)); 
+    value = bctBatteryData.getNominalCapacity();
+    if (StringUtils.isNotEmpty(value)) {
+      responses.add(this.bct.writeBatteryNominalCapacity(value));
+    } else {
+      responses.add(this.bct.writeBatteryNominalCapacity("0.0"));
+    } 
+    return responses;
+  }
+  
+  private List<ComplexResponse> writeBatteryGen1Data(BctBatteryData bctBatteryData) {
+    List<ComplexResponse> responses = new ArrayList<>();
+    String response = bctBatteryData.getSerialNumber();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryGen1SerialNumber(response)); 
+    response = bctBatteryData.getPartNumberHex();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryGen1PartNumber(response)); 
+    response = bctBatteryData.getSoftwareVersion();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryGen1SoftwareVersion(response)); 
+    response = bctBatteryData.getHardwareVersion();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryGen1HardwareVersion(response)); 
+    response = bctBatteryData.getManufactureDate();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryGen1ManufactureDate(response)); 
+    response = bctBatteryData.getInternalVoltage();
+    String responseCellTemp = bctBatteryData.getCellTemperature();
+    if (StringUtils.isNotEmpty(response) && StringUtils.isNotEmpty(responseCellTemp))
+      responses.add(this.bct.writeBatteryGen1Information(response, responseCellTemp)); 
+    response = bctBatteryData.getNumberOfFullChargeCycles();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryGen1NumberOfFullChargeCycles(response)); 
+    return responses;
+  }
+  
+  private List<ComplexResponse> writeBatteryGen2Data(BctBatteryData bctBatteryData) {
+    List<ComplexResponse> responses = new ArrayList<>();
+    String response = bctBatteryData.getSerialNumber();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatterySerialNumber(response)); 
+    response = bctBatteryData.getPartNumber();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryPartNumber(response)); 
+    response = bctBatteryData.getSoftwareVersion();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatterySoftwareVersion(response)); 
+    response = bctBatteryData.getHardwareVersion();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryHardwareVersion(response)); 
+    response = bctBatteryData.getManufactureDate();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryManufactureDate(response)); 
+    response = bctBatteryData.getCellTemperature();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryCellTemperature(response)); 
+    response = bctBatteryData.getNumberOfFullChargeCycles();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryNumbersOfChargeCycles(response)); 
+    response = bctBatteryData.getInternalVoltage();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryInternalVoltage(response)); 
+    response = bctBatteryData.getCellType();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryCellType(response)); 
+    response = bctBatteryData.getEndOfDischargeVoltage();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryEndOfDischargeVoltage(response)); 
+    response = bctBatteryData.getNominalEnergy();
+    if (StringUtils.isNotEmpty(response))
+      responses.add(this.bct.writeBatteryNominalEnergy(response)); 
+    return responses;
+  }
+  
+  public BctBatteryData readBatteryDataFromCapacityTester() {
+    BctBatteryData bctBatteryData = new BctBatteryData();
+    ComplexResponse response = this.bct.readBatteryComponentType();
+    bctBatteryData.setComponentType(response.isPositive() ? response.toString() : null);
+    response = this.bct.readBatteryPartNumber();
+    bctBatteryData.setPartNumber(response.isPositive() ? response.toString() : null);
+    response = this.bct.readBatterySerialNumber();
+    bctBatteryData.setSerialNumber(response.isPositive() ? response.toString() : null);
+    response = this.bct.readBatteryHardwareVersion();
+    bctBatteryData.setHardwareVersion(response.isPositive() ? response.toString() : null);
+    response = this.bct.readBatterySoftwareVersion();
+    bctBatteryData.setSoftwareVersion(response.isPositive() ? response.toString() : null);
+    response = this.bct.readBatteryManufactureDate();
+    try {
+      Calendar calendar = new GregorianCalendar();
+      calendar.setTime(response.getDate());
+      bctBatteryData.setManufactureDate(String.format("%04d-%02d-%02d", calendar.get(1), calendar.get(2) + 1, calendar.get(5)));
+    } catch (ComplexResponse.DataAccessException ex) {
+      LOGGER.error("Parsing battery manufacture date failed", (Throwable)ex);
+      bctBatteryData.setManufactureDate(null);
+    } 
+    response = this.bct.readBatteryCellTemperature();
+    bctBatteryData.setCellTemperature(response.isPositive() ? response.toString() : null);
+    response = this.bct.readBatteryNumberOfChargeCycles();
+    bctBatteryData.setNumberOfFullChargeCycles(response.isPositive() ? response.toString() : null);
+    response = this.bct.readBatteryNominalCapacity();
+    bctBatteryData.setNominalCapacity(response.isPositive() ? response.toString() : null);
+    bctBatteryData.setErrorCodes(this.bct.readBatteryErrorCodes());
+    response = this.bct.readPresentDateTime();
+    bctBatteryData.setDateOfMeasurement(response.isPositive() ? response.toString() : null);
+    response = this.bct.readBatteryInternalVoltage();
+    bctBatteryData.setInternalVoltage(response.isPositive() ? response.toString() : null);
+    response = this.bct.readBatteryNominalEnergy();
+    bctBatteryData.setNominalEnergy(response.isPositive() ? response.toString() : null);
+    response = this.bct.readBatteryCellType();
+    bctBatteryData.setCellType(response.isPositive() ? response.toString() : null);
+    response = this.bct.readMeasuredBatteryEnergy();
+    bctBatteryData.setMeasuredEnergy(response.isPositive() ? response.toString() : null);
+    return bctBatteryData;
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/service/communication/impl/CommunicationManagerImpl.java
+========================================================================================================================
+package com.gigatronik.beds.service.communication.impl;
+
+import com.gigatronik.beds.service.communication.api.BctOperationAssistent;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.ecu.api.Abs;
+import com.gigatronik.beds.service.ecu.api.Bcs;
+import com.gigatronik.beds.service.ecu.api.Bct;
+import com.gigatronik.beds.service.ecu.api.Bms;
+import com.gigatronik.beds.service.ecu.api.Du;
+import com.gigatronik.beds.service.ecu.api.Eshift;
+import com.gigatronik.beds.service.ecu.api.Hmi;
+import com.gigatronik.beds.service.ecu.impl.AbsImpl;
+import com.gigatronik.beds.service.ecu.impl.BcsImpl;
+import com.gigatronik.beds.service.ecu.impl.BctImpl;
+import com.gigatronik.beds.service.ecu.impl.bms.BmsImpl;
+import com.gigatronik.beds.service.ecu.impl.du.DuImpl;
+import com.gigatronik.beds.service.ecu.impl.du.EshiftImpl;
+import com.gigatronik.beds.service.ecu.impl.hmi.HmiImpl;
+import com.gigatronik.beds.service.rightsmanager.api.RightsManager;
+import com.gigatronik.diagserver.bosch.api.BoschServerAPI;
+import com.gigatronik.ebike.common.configuration.Constants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class CommunicationManagerImpl implements CommunicationManager {
+  private static final Logger LOGGER = LoggerFactory.getLogger(CommunicationManagerImpl.class);
+  
+  private final RightsManager rightsManager;
+  
+  private final BctOperationAssistentImpl bctOperationAssistent;
+  
+  private HmiImpl hmiCom = null;
+  
+  private DuImpl duCom = null;
+  
+  private BmsImpl bms1Com = null;
+  
+  private BmsImpl bms2Com = null;
+  
+  private Eshift eShiftCom = null;
+  
+  private Bct bctCom = null;
+  
+  private Abs absCom = null;
+  
+  private Bcs bcsCom = null;
+  
+  private Constants.EcuMode buiMode = Constants.EcuMode.NONE;
+  
+  private Constants.EcuMode bctMode = Constants.EcuMode.NONE;
+  
+  private Constants.EcuMode duMode = Constants.EcuMode.NONE;
+  
+  private Constants.EcuMode bms1Mode = Constants.EcuMode.NONE;
+  
+  private Constants.EcuMode bms2Mode = Constants.EcuMode.NONE;
+  
+  private Constants.EcuMode absMode = Constants.EcuMode.NONE;
+  
+  private Constants.EcuMode bcsMode = Constants.EcuMode.NONE;
+  
+  private Constants.EcuType buiType = Constants.EcuType.NONE;
+  
+  private Constants.EcuType bctType = Constants.EcuType.NONE;
+  
+  private Constants.EcuType duType = Constants.EcuType.NONE;
+  
+  private Constants.EcuType bms1Type = Constants.EcuType.NONE;
+  
+  private Constants.EcuType bms2Type = Constants.EcuType.NONE;
+  
+  private Constants.EcuType absType = Constants.EcuType.NONE;
+  
+  private Constants.EcuType bcsType = Constants.EcuType.NONE;
+  
+  public CommunicationManagerImpl(RightsManager rightsMan, BoschServerAPI boschServer) {
+    this.rightsManager = rightsMan;
+    this.hmiCom = new HmiImpl(boschServer);
+    this.bctCom = new BctImpl(boschServer);
+    this.absCom = new AbsImpl(boschServer);
+    this.duCom = new DuImpl(boschServer);
+    this.bms1Com = new BmsImpl(boschServer, 1);
+    this.bms2Com = new BmsImpl(boschServer, 2);
+    this.eShiftCom = new EshiftImpl(boschServer);
+    this.bcsCom = new BcsImpl(boschServer);
+    this.bctOperationAssistent = new BctOperationAssistentImpl((Bms)this.bms1Com, this.bctCom);
+  }
+  
+  public Hmi getHmiCom() {
+    return (Hmi)this.hmiCom;
+  }
+  
+  public Du getDuCom() {
+    return (Du)this.duCom;
+  }
+  
+  public Bms getBms1Com() {
+    return (Bms)this.bms1Com;
+  }
+  
+  public Bms getBms2Com() {
+    return (Bms)this.bms2Com;
+  }
+  
+  public BctOperationAssistent getBctOperationAssistent() {
+    return this.bctOperationAssistent;
+  }
+  
+  public Eshift getEshiftCom() {
+    return this.eShiftCom;
+  }
+  
+  public Bct getBctCom() {
+    return this.bctCom;
+  }
+  
+  public Abs getAbsCom() {
+    return this.absCom;
+  }
+  
+  public Bcs getBcsCom() {
+    return this.bcsCom;
+  }
+  
+  public void startSystemDefaultSession() {
+    if (this.duMode != Constants.EcuMode.NONE)
+      this.duCom.startDefaultSession(true); 
+    if (this.bms1Mode != Constants.EcuMode.NONE)
+      this.bms1Com.startDefaultSession(true); 
+    if (this.bms2Mode != Constants.EcuMode.NONE)
+      this.bms2Com.startDefaultSession(true); 
+    if (this.absMode != Constants.EcuMode.NONE)
+      this.absCom.startDefaultSession(true); 
+    if (this.buiMode != Constants.EcuMode.NONE)
+      this.hmiCom.startDefaultSession(true); 
+    if (this.bctMode != Constants.EcuMode.NONE)
+      this.bctCom.startDefaultSession(true); 
+    if (this.bcsMode != Constants.EcuMode.NONE)
+      this.bcsCom.startDefaultSession(true); 
+  }
+  
+  public void clearSystemErrorMemory() {
+    if (this.duMode == Constants.EcuMode.APP)
+      this.duCom.clearErrorMemory(); 
+    if (this.bms1Mode == Constants.EcuMode.APP)
+      this.bms1Com.clearErrorMemory(); 
+    if (this.bms2Mode == Constants.EcuMode.APP)
+      this.bms2Com.clearErrorMemory(); 
+    if (this.absMode == Constants.EcuMode.APP)
+      this.absCom.clearErrorMemory(); 
+    if (this.buiMode == Constants.EcuMode.APP)
+      this.hmiCom.clearErrorMemory(); 
+    if (this.bctMode == Constants.EcuMode.APP)
+      this.bctCom.clearErrorMemory(); 
+    if (this.bcsMode == Constants.EcuMode.APP)
+      this.bcsCom.clearErrorMemory(); 
+  }
+  
+  public void setEcuType(Constants.EcuType type, Constants.EcuMode mode) {
+    LOGGER.debug("{} configuration of ECU '{}' with mode '{}'", getClass().getName(), type, mode);
+    switch (type) {
+      case BUI21X:
+      case BUI25X:
+      case BUI270:
+      case BUI275:
+      case BUI330:
+      case BUI350:
+      case COBI:
+        this.buiType = type;
+        this.buiMode = mode;
+        this.hmiCom.configureInstance(type);
+        break;
+      case CLASSIC_DU:
+      case VICTOR_DU:
+        this.duType = type;
+        this.duMode = mode;
+        this.duCom.configureInstance(type);
+        break;
+      case CLASSIC_PP:
+      case VICTOR_PP1:
+        this.bms1Type = type;
+        this.bms1Mode = mode;
+        this.bms1Com.configureInstance(type);
+        break;
+      case VICTOR_PP2:
+        this.bms2Type = type;
+        this.bms2Mode = mode;
+        this.bms2Com.configureInstance(type);
+        break;
+      case BCT:
+        this.bctType = type;
+        this.bctMode = mode;
+        break;
+      case BAS100:
+        this.absType = type;
+        this.absMode = mode;
+        break;
+      case BCS250:
+        this.bcsType = type;
+        this.bcsMode = mode;
+        break;
+    } 
+  }
+  
+  public SystemDiagnosticSessionResult startSystemDiagnosticSession() {
+    LOGGER.debug("Starting system diagnostic session");
+    if (this.buiMode == Constants.EcuMode.APP && !startHmiDiagnosticSession())
+      return new SystemDiagnosticSessionResult(false, this.buiType); 
+    if (this.bctMode == Constants.EcuMode.APP && !startBctDiagnosticSession())
+      return new SystemDiagnosticSessionResult(false, this.bctType); 
+    if (this.duMode == Constants.EcuMode.APP && !startDuDiagnosticSession())
+      return new SystemDiagnosticSessionResult(false, this.duType); 
+    if (this.bms1Mode == Constants.EcuMode.APP && !startBms1DiagnosticSession())
+      return new SystemDiagnosticSessionResult(false, this.bms1Type); 
+    if (this.bms2Mode == Constants.EcuMode.APP && !startBms2DiagnosticSession())
+      return new SystemDiagnosticSessionResult(false, this.bms2Type); 
+    if (this.absMode == Constants.EcuMode.APP && !startAbsDiagnosticSession())
+      return new SystemDiagnosticSessionResult(false, this.absType); 
+    if (this.bcsMode == Constants.EcuMode.APP && !startBcsDiagnosticSession())
+      return new SystemDiagnosticSessionResult(false, this.bcsType); 
+    return new SystemDiagnosticSessionResult(true, Constants.EcuType.NONE);
+  }
+  
+  public boolean startHmiDiagnosticSession() {
+    if (this.buiType == Constants.EcuType.BUI330 && this.buiMode != Constants.EcuMode.APP) {
+      LOGGER.info("startHmiDiagnosticSession() has not been made, 'cause of Kiox BL bug");
+      return true;
+    } 
+    if (this.buiType == Constants.EcuType.BUI330 || this.buiType == Constants.EcuType.BUI350)
+      return (this.hmiCom.startExtendedSession().isPositive() && this.hmiCom.executeSecurityAccess(this.rightsManager.getAccessLevel()).isPositive()); 
+    return this.hmiCom.startExtendedSession().isPositive();
+  }
+  
+  public boolean startBctDiagnosticSession() {
+    return this.bctCom.startExtendedSession().isPositive();
+  }
+  
+  public boolean startDuDiagnosticSession() {
+    return (this.duCom.startExtendedSession().isPositive() && this.duCom.executeSecurityAccess(this.rightsManager.getAccessLevel()).isPositive());
+  }
+  
+  public boolean startBms1DiagnosticSession() {
+    return (this.bms1Com.startExtendedSession().isPositive() && this.bms1Com.executeSecurityAccess(this.rightsManager.getAccessLevel()).isPositive());
+  }
+  
+  public boolean startBms2DiagnosticSession() {
+    return (this.bms2Com.startExtendedSession().isPositive() && this.bms2Com.executeSecurityAccess(this.rightsManager.getAccessLevel()).isPositive());
+  }
+  
+  public boolean startAbsDiagnosticSession() {
+    return (this.absCom.startExtendedSession().isPositive() && this.absCom.executeSecurityAccess(this.rightsManager.getAccessLevel()).isPositive());
+  }
+  
+  public boolean startBcsDiagnosticSession() {
+    return this.bcsCom.startExtendedSession().isPositive();
+  }
+  
+  public void onInactivity() {
+    LOGGER.info("Stopping ecu polling and disconnect ecus caused by user inactivity ...");
+    startSystemDefaultSession();
+  }
+  
+  public void onInactivitySetBack() {}
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/service/communication/impl/SecurityAccessFailurePopupHandlerFactory.java
+========================================================================================================================
+package com.gigatronik.beds.service.communication.impl;
+
+import com.gigatronik.beds.service.communication.api.SecurityAccessFailurePopupHandler;
+import com.gigatronik.beds.service.rightsmanager.api.RightsManager;
+
+public class SecurityAccessFailurePopupHandlerFactory {
+  public static SecurityAccessFailurePopupHandler createInstance(RightsManager rightsManager) {
+    return new SecurityAccessFailurePopupHandlerImpl(rightsManager);
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/beds/service/communication/impl/SecurityAccessFailurePopupHandlerImpl.java
+========================================================================================================================
+package com.gigatronik.beds.service.communication.impl;
+
+import com.gigatronik.beds.service.communication.api.SecurityAccessFailurePopupHandler;
+import com.gigatronik.beds.service.rightsmanager.api.RightsManager;
+import com.gigatronik.beds.service.rightsmanager.api.UserLevel;
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+import com.gigatronik.ebike.common.configuration.ComponentType;
+import com.gigatronik.ebike.common.configuration.Constants;
+import com.gigatronik.ebike.gui.testinterface.TestableJOptionPane;
+import java.awt.EventQueue;
+import java.lang.reflect.InvocationTargetException;
+import javax.swing.SwingUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class SecurityAccessFailurePopupHandlerImpl implements SecurityAccessFailurePopupHandler {
+  private static final Logger LOGGER = LoggerFactory.getLogger(SecurityAccessFailurePopupHandlerImpl.class);
+  
+  private static final Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  private static final String SECURITY_ACCESS_FAILED_TITLE_MESSAGE_BUNDLE_KEY = "Bosch.diagnostic.tool";
+  
+  private static final String SECURITY_ACCESS_FAILED_TEXT_IBD_MESSAGE_BUNDLE_KEY = "Popup.failure.securityAccess.text.ibd";
+  
+  private static final String SECURITY_ACCESS_FAILED_TEXT_OEM_MESSAGE_BUNDLE_KEY = "Popup.failure.securityAccess.text.oem";
+  
+  private final RightsManager rightsManager;
+  
+  SecurityAccessFailurePopupHandlerImpl(RightsManager rightsManager) {
+    this.rightsManager = rightsManager;
+  }
+  
+  public void displaySecurityAccessFailedDialog(boolean blocking, Constants.EcuType ecu) {
+    LOGGER.info("Display security access failed dialog; blocking='{}', ecu='{}'", Boolean.valueOf(blocking), ecu);
+    displaySecurityAccessFailedDialog(blocking, (ecu != null) ? ecu.getProductName() : "unknown");
+  }
+  
+  public void displaySecurityAccessFailedDialog(boolean blocking, ComponentType ecu) {
+    LOGGER.info("Display security access failed dialog; blocking='{}', ecu='{}'", Boolean.valueOf(blocking), ecu);
+    displaySecurityAccessFailedDialog(blocking, (ecu != null) ? ecu.getProductName() : "unknown");
+  }
+  
+  private void displaySecurityAccessFailedDialog(boolean blocking, String ecu) {
+    String textRaw = this.rightsManager.isUserInLevel(UserLevel.OEM) ? BUNDLE.getString("Popup.failure.securityAccess.text.oem") : BUNDLE.getString("Popup.failure.securityAccess.text.ibd");
+    String text = String.format(textRaw, ecu, ecu);
+    if (SwingUtilities.isEventDispatchThread()) {
+      displayPopup(text);
+    } else {
+      delegateDisplayingToEventDispatchThread(blocking, text);
+    } 
+  }
+  
+  private void displayPopup(String text) {
+    TestableJOptionPane.showMessageDialog(text, BUNDLE.getString("Bosch.diagnostic.tool"), 0);
+  }
+  
+  private void delegateDisplayingToEventDispatchThread(boolean blocking, String text) {
+    if (blocking) {
+      try {
+        EventQueue.invokeAndWait(() -> displayPopup(text));
+      } catch (InterruptedException ex) {
+        LOGGER.warn("Waiting interrupted!", (Throwable)ex);
+        Thread.currentThread().interrupt();
+      } catch (InvocationTargetException ex) {
+        LOGGER.error("invokeAndWait() stopped with InvocationTargetException", (Throwable)ex);
+      } 
+    } else {
+      EventQueue.invokeLater(() -> displayPopup(text));
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/beds/service/communication/impl/SystemDiagnosticSessionResult.java
+========================================================================================================================
+package com.gigatronik.beds.service.communication.impl;
+
+import com.gigatronik.ebike.common.configuration.Constants;
+
+public class SystemDiagnosticSessionResult {
+  private final boolean success;
+  
+  private final Constants.EcuType ecu;
+  
+  public SystemDiagnosticSessionResult(boolean success, Constants.EcuType ecu) {
+    this.success = success;
+    this.ecu = ecu;
+  }
+  
+  public boolean wasSuccessful() {
+    return this.success;
+  }
+  
+  public Constants.EcuType getBadEcu() {
+    return this.ecu;
+  }
+}
+

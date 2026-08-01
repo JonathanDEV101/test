@@ -1,0 +1,937 @@
+JAR: plugin.environment-snapshot-2.0.76.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\plugin.environment-snapshot-2.0.76.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/ApplicationCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.SingleCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+
+public class ApplicationCheck extends OsSpecificCheck {
+  private static final String[] WINDOWS_PROCESS_COMMANDS = new String[] { "wmic", "product", "get", "name" };
+  
+  private static final String[] OSX_PROCESS_COMMANDS = new String[] { "ls", "-l", "/Applications/" };
+  
+  protected EnvironmentSnapshotDartPlugin.CheckResult windowsCheck() {
+    return new SingleCheckResultImpl<>(this, executeShellCommand(WINDOWS_PROCESS_COMMANDS));
+  }
+  
+  protected EnvironmentSnapshotDartPlugin.CheckResult osxCheck() {
+    return new SingleCheckResultImpl<>(this, executeShellCommand(OSX_PROCESS_COMMANDS));
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/Check.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.PluginImpl;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.check.proxy.ProcessBuilderProxy;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.check.proxy.ProcessBuilderProxyImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentCheckDartPlugin;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+abstract class Check extends PluginImpl implements EnvironmentCheckDartPlugin {
+  private static final Logger LOGGER = LoggerFactory.getLogger(Check.class);
+  
+  private final ProcessBuilderProxy processBuilder = new ProcessBuilderProxyImpl();
+  
+  protected String executeShellCommand(String... commandAndParams) {
+    String result = null;
+    try {
+      this.processBuilder.command(commandAndParams);
+      Process process = this.processBuilder.start();
+      StringBuilder builder = new StringBuilder("Standard Output:").append(System.getProperty("line.separator"));
+      builder.append(IOUtils.toString(process.getInputStream(), StandardCharsets.UTF_8)).append(System.getProperty("line.separator"));
+      builder.append("Error Output:").append(System.getProperty("line.separator"));
+      builder.append(IOUtils.toString(process.getErrorStream(), StandardCharsets.UTF_8));
+      result = builder.toString();
+    } catch (IOException ex) {
+      LOGGER.error("Error running process", (Throwable)ex);
+    } 
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/CpuWorkloadCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.PluginImpl;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.SingleCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentCheckDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import java.util.Locale;
+import oshi.SystemInfo;
+
+public class CpuWorkloadCheck extends PluginImpl implements EnvironmentCheckDartPlugin {
+  private static final int SYSTEM_LOAD_ELEMENTS = 3;
+  
+  private static final String LOAD_AVERAGE_OUTPUT = "Load average - last 1/5/15 minutes (%s/%s/%s)";
+  
+  private final SystemInfo systemInfo = new SystemInfo();
+  
+  public EnvironmentSnapshotDartPlugin.CheckResult execute() {
+    double[] systemLoadAverage = this.systemInfo.getHardware().getProcessor().getSystemLoadAverage(3);
+    return new SingleCheckResultImpl<>(this, String.format("Load average - last 1/5/15 minutes (%s/%s/%s)", formatDoubleValue(systemLoadAverage[0]), formatDoubleValue(systemLoadAverage[1]), formatDoubleValue(systemLoadAverage[2])));
+  }
+  
+  private static String formatDoubleValue(double loadAverageValue) {
+    return String.format(Locale.US, "%.2f", loadAverageValue);
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/dataobjects/ProcessElement.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check.dataobjects;
+
+import oshi.software.os.OSProcess;
+
+public class ProcessElement {
+  private final String name;
+  
+  private final String command;
+  
+  private final String state;
+  
+  private final int pid;
+  
+  private final int parentPid;
+  
+  private final long residentBytes;
+  
+  private final long kernelTime;
+  
+  private final long totalBytes;
+  
+  private final long userMillis;
+  
+  private final int priority;
+  
+  private final int threadCount;
+  
+  public ProcessElement(OSProcess process) {
+    this.name = process.getName();
+    this.command = process.getPath();
+    this.state = process.getState().name();
+    this.pid = process.getProcessID();
+    this.parentPid = process.getParentProcessID();
+    this.residentBytes = process.getResidentSetSize();
+    this.kernelTime = process.getKernelTime();
+    this.totalBytes = process.getVirtualSize();
+    this.userMillis = process.getUserTime();
+    this.priority = process.getPriority();
+    this.threadCount = process.getThreadCount();
+  }
+  
+  public String toString() {
+    return "{name=" + this.name + ", command=" + this.command + ", state=" + this.state + ", pid=" + this.pid + ", parentPid=" + this.parentPid + ", residentBytes=" + this.residentBytes + ", kernelTime=" + this.kernelTime + ", totalBytes=" + this.totalBytes + ", userMillis=" + this.userMillis + ", priority=" + this.priority + ", threadCount=" + this.threadCount + '}';
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/DiskStorageCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.PluginImpl;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.KeyValueListCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentCheckDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import java.io.File;
+import javax.measure.Measurable;
+import javax.measure.Measure;
+import javax.measure.unit.NonSI;
+
+public class DiskStorageCheck extends PluginImpl implements EnvironmentCheckDartPlugin {
+  private static final String TOTAL_SPACE_KEY = "%s total space: ";
+  
+  private static final String FREE_SPACE_KEY = "%s free space: ";
+  
+  private static final File[] ROOT_DEVICES = File.listRoots();
+  
+  public EnvironmentSnapshotDartPlugin.CheckResult execute() {
+    KeyValueListCheckResultImpl<String, Measurable> result = new KeyValueListCheckResultImpl<>(this);
+    for (File disk : ROOT_DEVICES) {
+      result.addKeyValue(String.format("%s total space: ", disk), Measure.valueOf(disk.getTotalSpace(), NonSI.BYTE));
+      result.addKeyValue(String.format("%s free space: ", disk), Measure.valueOf(disk.getFreeSpace(), NonSI.BYTE));
+    } 
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/DriverCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.SingleCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+
+public class DriverCheck extends OsSpecificCheck {
+  private static final String[] WINDOWS_PROCESS_COMMANDS = new String[] { "DriverQuery", "/v" };
+  
+  private static final String[] OSX_PROCESS_COMMANDS = new String[] { "kextstat" };
+  
+  protected EnvironmentSnapshotDartPlugin.CheckResult windowsCheck() {
+    return new SingleCheckResultImpl<>(this, executeShellCommand(WINDOWS_PROCESS_COMMANDS));
+  }
+  
+  protected EnvironmentSnapshotDartPlugin.CheckResult osxCheck() {
+    return new SingleCheckResultImpl<>(this, executeShellCommand(OSX_PROCESS_COMMANDS));
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/EnergyOptionsCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.SingleCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+
+public class EnergyOptionsCheck extends OsSpecificCheck {
+  private static final String[] WINDOWS_PROCESS_COMMANDS = new String[] { "powercfg", "-q" };
+  
+  private static final String[] OSX_PROCESS_COMMANDS = new String[] { "pmset", "-g" };
+  
+  protected EnvironmentSnapshotDartPlugin.CheckResult windowsCheck() {
+    return new SingleCheckResultImpl<>(this, executeShellCommand(WINDOWS_PROCESS_COMMANDS));
+  }
+  
+  protected EnvironmentSnapshotDartPlugin.CheckResult osxCheck() {
+    return new SingleCheckResultImpl<>(this, executeShellCommand(OSX_PROCESS_COMMANDS));
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/EnvironmentVariableCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.PluginImpl;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.KeyValueListCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentCheckDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import java.util.Map;
+
+public class EnvironmentVariableCheck extends PluginImpl implements EnvironmentCheckDartPlugin {
+  private final Map<String, String> environmentVariables = System.getenv();
+  
+  public EnvironmentSnapshotDartPlugin.CheckResult execute() {
+    KeyValueListCheckResultImpl<String, String> result = new KeyValueListCheckResultImpl<>(this);
+    for (Map.Entry<String, String> environmentEntry : this.environmentVariables.entrySet())
+      result.addKeyValue(environmentEntry.getKey(), environmentEntry.getValue()); 
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/FilesCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.check.proxy.FilesProxy;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.check.proxy.FilesProxyImpl;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.KeyValueListCheckResultImpl;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.SingleCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.DosFileAttributeView;
+import java.nio.file.attribute.DosFileAttributes;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributes;
+import java.util.Iterator;
+import javax.measure.Measure;
+import javax.measure.unit.NonSI;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class FilesCheck extends OsSpecificCheck {
+  private static final Logger LOGGER = LoggerFactory.getLogger(FilesCheck.class);
+  
+  private static final String STRING_SEPERATOR = ", ";
+  
+  private final String dart2path;
+  
+  private final String installFolder;
+  
+  private final FilesProxy filesProxy = new FilesProxyImpl();
+  
+  public FilesCheck() {
+    this.dart2path = System.getenv("DART2_HOME");
+    this.installFolder = Paths.get("").toAbsolutePath().toString();
+  }
+  
+  public EnvironmentSnapshotDartPlugin.CheckResult execute() {
+    return super.execute();
+  }
+  
+  protected EnvironmentSnapshotDartPlugin.CheckResult windowsCheck() {
+    EnvironmentSnapshotDartPlugin.CheckResult<String, String> result = null;
+    try {
+      KeyValueListCheckResultImpl<String, String> keyValueResult = new KeyValueListCheckResultImpl<>(this);
+      keyValueResult.addKeyValue(this.dart2path, getWindowsFiles(this.dart2path));
+      keyValueResult.addKeyValue(this.installFolder, getWindowsFiles(this.installFolder));
+      result = keyValueResult;
+    } catch (IOException ex) {
+      LOGGER.error("Error for reading windows file attribute", (Throwable)ex);
+    } finally {
+      if (result == null)
+        result = new SingleCheckResultImpl<>(this, "No file system data"); 
+    } 
+    return result;
+  }
+  
+  protected EnvironmentSnapshotDartPlugin.CheckResult osxCheck() {
+    EnvironmentSnapshotDartPlugin.CheckResult<String, String> result = null;
+    try {
+      KeyValueListCheckResultImpl<String, String> keyValueResult = new KeyValueListCheckResultImpl<>(this);
+      if (!StringUtils.isEmpty(this.dart2path))
+        keyValueResult.addKeyValue(this.dart2path, getOsxFiles(this.dart2path)); 
+      if (!StringUtils.isEmpty(this.installFolder))
+        keyValueResult.addKeyValue(this.installFolder, getOsxFiles(this.installFolder)); 
+      result = keyValueResult;
+    } catch (IOException ex) {
+      LOGGER.error("Error for reading OS X file attribute", (Throwable)ex);
+    } finally {
+      if (result == null)
+        result = new SingleCheckResultImpl<>(this, "No file system data"); 
+    } 
+    return result;
+  }
+  
+  private String getWindowsFiles(String folder) throws IOException {
+    StringBuilder builder = new StringBuilder();
+    Iterator<File> iterateFiles = FileUtils.iterateFiles(new File(folder), null, true);
+    while (iterateFiles.hasNext()) {
+      File file = iterateFiles.next();
+      DosFileAttributes fileAttributes = this.filesProxy.<DosFileAttributes>getAllFiles(file, DosFileAttributeView.class);
+      builder.append(getBasicFileInformation(file, fileAttributes));
+      builder.append(getDosFileInformation(fileAttributes));
+      builder.append(System.getProperty("line.separator"));
+    } 
+    return builder.toString();
+  }
+  
+  private String getOsxFiles(String folder) throws IOException {
+    StringBuilder builder = new StringBuilder();
+    Iterator<File> iterateFiles = FileUtils.iterateFiles(new File(folder), null, true);
+    while (iterateFiles.hasNext()) {
+      File file = iterateFiles.next();
+      PosixFileAttributes fileAttributes = this.filesProxy.<PosixFileAttributes>getAllFiles(file, PosixFileAttributeView.class);
+      builder.append(getBasicFileInformation(file, fileAttributes));
+      builder.append(getPosixFileInformation(fileAttributes));
+      builder.append(System.getProperty("line.separator"));
+    } 
+    return builder.toString();
+  }
+  
+  protected String getBasicFileInformation(File file, BasicFileAttributes attributes) {
+    StringBuilder builder = new StringBuilder();
+    builder.append("Path=").append(file.getAbsolutePath()).append(", ");
+    if (attributes.size() > 0L) {
+      builder.append("CRC32=").append(calculateCRC(file)).append(", ");
+    } else {
+      builder.append("CRC32=could not be calculated because the file size is 0 bytes").append(", ");
+    } 
+    builder.append("size=").append(Measure.valueOf(attributes.size(), NonSI.BYTE)).append(", ");
+    builder.append("Last modified=").append(attributes.lastModifiedTime().toString()).append(", ");
+    builder.append("Last access=").append(attributes.lastAccessTime().toString()).append(", ");
+    builder.append("File creation=").append(attributes.creationTime().toString()).append(", ");
+    builder.append("Is regular file=").append(attributes.isRegularFile()).append(", ");
+    builder.append("Is directory").append(attributes.isDirectory()).append(", ");
+    builder.append("Is symbolic link=").append(attributes.isSymbolicLink()).append(", ");
+    builder.append("Is other=").append(attributes.isOther());
+    return builder.toString();
+  }
+  
+  String calculateCRC(File file) {
+    String result;
+    try {
+      result = Long.toHexString(FileUtils.checksumCRC32(file));
+    } catch (IOException ex) {
+      result = String.format("%s-%s", file.getName(), ex.getMessage());
+      LOGGER.trace("Error accessing file", (Throwable)ex);
+    } 
+    return result;
+  }
+  
+  protected String getDosFileInformation(DosFileAttributes fileAttributes) {
+    StringBuilder builder = new StringBuilder(", ");
+    builder.append("Is read only=").append(fileAttributes.isReadOnly()).append(", ");
+    builder.append("Is hidden=").append(fileAttributes.isHidden()).append(", ");
+    builder.append("Is archive=").append(fileAttributes.isArchive()).append(", ");
+    builder.append("Is system=").append(fileAttributes.isSystem());
+    return builder.toString();
+  }
+  
+  protected String getPosixFileInformation(PosixFileAttributes fileAttributes) {
+    StringBuilder builder = new StringBuilder(", ");
+    builder.append("Owner=").append(fileAttributes.owner().getName()).append(", ");
+    builder.append("Group=").append(fileAttributes.group().getName()).append(", ");
+    builder.append("Permission=").append(fileAttributes.permissions().toString());
+    return builder.toString();
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/FolderPathCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.PluginImpl;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.KeyValueListCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentCheckDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import java.nio.file.Paths;
+
+public class FolderPathCheck extends PluginImpl implements EnvironmentCheckDartPlugin {
+  private final String dart2path = System.getenv("DART2_HOME");
+  
+  private final String installFolder = Paths.get("").toAbsolutePath().toString();
+  
+  public EnvironmentSnapshotDartPlugin.CheckResult execute() {
+    KeyValueListCheckResultImpl<String, String> result = new KeyValueListCheckResultImpl<>(this);
+    if (this.dart2path != null)
+      result.addKeyValue("DART2_HOME path", this.dart2path); 
+    result.addKeyValue("Install folder path", this.installFolder);
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/GeneralHostInformationCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.PluginImpl;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.KeyValueListCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentCheckDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import javax.measure.Measure;
+import javax.measure.unit.NonSI;
+import javax.measure.unit.SI;
+import javax.measure.unit.Unit;
+import oshi.SystemInfo;
+import oshi.hardware.CentralProcessor;
+import oshi.hardware.GlobalMemory;
+import oshi.hardware.HardwareAbstractionLayer;
+import oshi.software.os.OperatingSystem;
+
+public class GeneralHostInformationCheck extends PluginImpl implements EnvironmentCheckDartPlugin {
+  private final SystemInfo systemInfo = new SystemInfo();
+  
+  public EnvironmentSnapshotDartPlugin.CheckResult execute() {
+    KeyValueListCheckResultImpl<String, Object> result = new KeyValueListCheckResultImpl<>(this);
+    OperatingSystem operatingSystem = this.systemInfo.getOperatingSystem();
+    HardwareAbstractionLayer hardwareAbstractionLayer = this.systemInfo.getHardware();
+    result.addKeyValue("Operating System", operatingSystem.toString());
+    GlobalMemory memory = hardwareAbstractionLayer.getMemory();
+    CentralProcessor processor = hardwareAbstractionLayer.getProcessor();
+    result.addKeyValue("CPU frequency", Measure.valueOf(processor.getVendorFreq(), (Unit)SI.HERTZ));
+    result.addKeyValue("CPU cores", Measure.valueOf(processor.getPhysicalProcessorCount(), Unit.ONE));
+    result.addKeyValue("Total memory", Measure.valueOf(memory.getTotal(), NonSI.BYTE));
+    result.addKeyValue("Uptime", Measure.valueOf(processor.getSystemUptime(), (Unit)SI.SECOND));
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/JavaCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.KeyValueListCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import java.io.File;
+import org.apache.commons.lang3.SystemUtils;
+
+public class JavaCheck extends Check {
+  private static final String[] JAVA_VERSION_PROCESS_COMMANDS = new String[] { "java", "-version" };
+  
+  private final File JavaHome = SystemUtils.getJavaHome();
+  
+  public EnvironmentSnapshotDartPlugin.CheckResult execute() {
+    KeyValueListCheckResultImpl<String, String> result = new KeyValueListCheckResultImpl<>(this);
+    result.addKeyValue("JAVA_HOME", this.JavaHome.getAbsolutePath());
+    result.addKeyValue("Java version", executeShellCommand(JAVA_VERSION_PROCESS_COMMANDS));
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/JavaProxyCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.KeyValueListCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.URI;
+import java.net.URISyntaxException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class JavaProxyCheck extends Check {
+  private static final Logger LOGGER = LoggerFactory.getLogger(JavaProxyCheck.class);
+  
+  private final ProxySelector defaultProxySelector = ProxySelector.getDefault();
+  
+  private static String URI_BASE_ADDRESS = "http://foo/bar";
+  
+  public EnvironmentSnapshotDartPlugin.CheckResult execute() {
+    KeyValueListCheckResultImpl<String, String> result = new KeyValueListCheckResultImpl<>(this);
+    try {
+      for (Proxy proxy : this.defaultProxySelector.select(new URI(URI_BASE_ADDRESS))) {
+        InetSocketAddress addr = (InetSocketAddress)proxy.address();
+        if (addr != null) {
+          result.addKeyValue(String.format("%s proxy hostname", proxy.type().name()), addr.getHostName());
+          result.addKeyValue(String.format("%s proxy port", proxy.type().name()), Integer.toString(addr.getPort()));
+          continue;
+        } 
+        result.addKeyValue(proxy.type().name(), "no proxy");
+      } 
+    } catch (URISyntaxException ex) {
+      LOGGER.error("Error in Proxy check", (Throwable)ex);
+    } 
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/MemoryCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.PluginImpl;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.KeyValueListCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentCheckDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import javax.measure.Measurable;
+import javax.measure.Measure;
+import javax.measure.unit.NonSI;
+import oshi.SystemInfo;
+import oshi.hardware.GlobalMemory;
+import oshi.hardware.HardwareAbstractionLayer;
+
+public class MemoryCheck extends PluginImpl implements EnvironmentCheckDartPlugin {
+  private final SystemInfo systemInfo = new SystemInfo();
+  
+  public EnvironmentSnapshotDartPlugin.CheckResult execute() {
+    KeyValueListCheckResultImpl<String, Measurable> result = new KeyValueListCheckResultImpl<>(this);
+    HardwareAbstractionLayer hardwareAbstractionLayer = this.systemInfo.getHardware();
+    GlobalMemory memory = hardwareAbstractionLayer.getMemory();
+    result.addKeyValue("Total Memory", Measure.valueOf(memory.getTotal(), NonSI.BYTE));
+    result.addKeyValue("Available Memory", Measure.valueOf(memory.getAvailable(), NonSI.BYTE));
+    result.addKeyValue("Total Swap", Measure.valueOf(memory.getSwapTotal(), NonSI.BYTE));
+    result.addKeyValue("Used Swap", Measure.valueOf(memory.getSwapUsed(), NonSI.BYTE));
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/NetworkConnectionsCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.SingleCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+
+public class NetworkConnectionsCheck extends OsSpecificCheck {
+  private static final String[] WINDOWS_PROCESS_COMMANDS = new String[] { "wmic", "NIC" };
+  
+  private static final String[] OSX_PROCESS_COMMANDS = new String[] { "system_profiler", "SPNetworkDataType" };
+  
+  protected EnvironmentSnapshotDartPlugin.CheckResult windowsCheck() {
+    return new SingleCheckResultImpl<>(this, executeShellCommand(WINDOWS_PROCESS_COMMANDS));
+  }
+  
+  protected EnvironmentSnapshotDartPlugin.CheckResult osxCheck() {
+    return new SingleCheckResultImpl<>(this, executeShellCommand(OSX_PROCESS_COMMANDS));
+  }
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/OsSpecificCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.SingleCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import com.sun.jna.Platform;
+
+public abstract class OsSpecificCheck extends Check {
+  private final String osName = System.getProperty("os.name");
+  
+  private final int osType = Platform.getOSType();
+  
+  private final boolean hasRuntimeExec = Platform.hasRuntimeExec();
+  
+  public EnvironmentSnapshotDartPlugin.CheckResult execute() {
+    EnvironmentSnapshotDartPlugin.CheckResult<String> result;
+    if (this.hasRuntimeExec) {
+      switch (this.osType) {
+        case 2:
+          result = windowsCheck();
+          break;
+        case 0:
+          result = osxCheck();
+          break;
+        default:
+          result = new SingleCheckResultImpl<>(this, String.format("Specific check not supported for %s", this.osName));
+          break;
+      } 
+    } else {
+      result = new SingleCheckResultImpl<>(this, String.format("No runtime execution avaialble for %s", this.osName));
+    } 
+    return result;
+  }
+  
+  protected abstract EnvironmentSnapshotDartPlugin.CheckResult windowsCheck();
+  
+  protected abstract EnvironmentSnapshotDartPlugin.CheckResult osxCheck();
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/ProcessCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.PluginImpl;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.check.dataobjects.ProcessElement;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.SingleCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentCheckDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import oshi.SystemInfo;
+import oshi.software.os.OSProcess;
+import oshi.software.os.OperatingSystem;
+
+public class ProcessCheck extends PluginImpl implements EnvironmentCheckDartPlugin {
+  private final SystemInfo systemInfo = new SystemInfo();
+  
+  public EnvironmentSnapshotDartPlugin.CheckResult execute() {
+    StringBuilder builder = new StringBuilder();
+    OperatingSystem operatingSystem = this.systemInfo.getOperatingSystem();
+    OSProcess[] processes = operatingSystem.getProcesses(0, OperatingSystem.ProcessSort.NAME);
+    for (OSProcess process : processes) {
+      String toString = new ProcessElement(process).toString();
+      builder.append(toString).append(System.getProperty("line.separator"));
+    } 
+    return new SingleCheckResultImpl<>(this, builder.toString());
+  }
+}
+
+
+========================================================================================================================
+ITEM 18: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/proxy/FilesProxy.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check.proxy;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.attribute.BasicFileAttributeView;
+
+public interface FilesProxy {
+  <A extends java.nio.file.attribute.BasicFileAttributes> A getAllFiles(File paramFile, Class<? extends BasicFileAttributeView> paramClass) throws IOException;
+}
+
+
+========================================================================================================================
+ITEM 19: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/proxy/FilesProxyImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check.proxy;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.attribute.BasicFileAttributeView;
+
+public class FilesProxyImpl implements FilesProxy {
+  public <A extends java.nio.file.attribute.BasicFileAttributes> A getAllFiles(File attributeFile, Class<? extends BasicFileAttributeView> viewClazz) throws IOException {
+    return (A)Files.getFileAttributeView(attributeFile.toPath(), viewClazz).readAttributes();
+  }
+}
+
+
+========================================================================================================================
+ITEM 20: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/proxy/ProcessBuilderProxy.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check.proxy;
+
+import java.io.IOException;
+
+public interface ProcessBuilderProxy {
+  void command(String[] paramArrayOfString);
+  
+  Process start() throws IOException;
+}
+
+
+========================================================================================================================
+ITEM 21: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/proxy/ProcessBuilderProxyImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check.proxy;
+
+import java.io.IOException;
+
+public class ProcessBuilderProxyImpl implements ProcessBuilderProxy {
+  private final ProcessBuilder processBuilder = new ProcessBuilder(new String[0]);
+  
+  public void command(String[] commandAndParams) {
+    this.processBuilder.command(commandAndParams);
+  }
+  
+  public Process start() throws IOException {
+    return this.processBuilder.start();
+  }
+}
+
+
+========================================================================================================================
+ITEM 22: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/RuntimeCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.PluginImpl;
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.KeyValueListCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentCheckDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import java.lang.management.ManagementFactory;
+import java.lang.management.RuntimeMXBean;
+import java.util.Map;
+import java.util.Set;
+
+public class RuntimeCheck extends PluginImpl implements EnvironmentCheckDartPlugin {
+  private final RuntimeMXBean runtimeBean = ManagementFactory.getRuntimeMXBean();
+  
+  public EnvironmentSnapshotDartPlugin.CheckResult execute() {
+    KeyValueListCheckResultImpl<String, String> result = new KeyValueListCheckResultImpl<>(this);
+    Map<String, String> systemProperties = this.runtimeBean.getSystemProperties();
+    Set<String> keys = systemProperties.keySet();
+    for (String key : keys)
+      result.addKeyValue(key, systemProperties.get(key)); 
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 23: com/gigatronik/dart2/framework/plugin/environment/snapshot/check/ServiceCheck.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.check;
+
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.result.SingleCheckResultImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+
+public class ServiceCheck extends OsSpecificCheck {
+  private static final String[] WINDOWS_PROCESS_COMMANDS = new String[] { "sc", "queryex", "state=", "all" };
+  
+  private static final String[] OSX_PROCESS_COMMANDS = new String[] { "launchctl", "list" };
+  
+  protected EnvironmentSnapshotDartPlugin.CheckResult windowsCheck() {
+    return new SingleCheckResultImpl<>(this, executeShellCommand(WINDOWS_PROCESS_COMMANDS));
+  }
+  
+  protected EnvironmentSnapshotDartPlugin.CheckResult osxCheck() {
+    return new SingleCheckResultImpl<>(this, executeShellCommand(OSX_PROCESS_COMMANDS));
+  }
+}
+
+
+========================================================================================================================
+ITEM 24: com/gigatronik/dart2/framework/plugin/environment/snapshot/EnvironmentSnapshotPluginImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot;
+
+import com.gigatronik.dart2.framework.plugin.PluginImpl;
+import com.gigatronik.dart2.framework.plugins.PluginManager;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentCheckDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import java.util.List;
+
+public class EnvironmentSnapshotPluginImpl extends PluginImpl implements EnvironmentSnapshotDartPlugin {
+  public EnvironmentSnapshotDartPlugin.Snapshot createSnapshot() {
+    return createSnapshot(PluginManager.getInstance().getPlugins(EnvironmentCheckDartPlugin.class));
+  }
+  
+  EnvironmentSnapshotDartPlugin.Snapshot createSnapshot(List<EnvironmentCheckDartPlugin> plugins) {
+    return getResults(plugins.<EnvironmentCheckDartPlugin>toArray(new EnvironmentCheckDartPlugin[plugins.size()]));
+  }
+  
+  public EnvironmentSnapshotDartPlugin.Snapshot getResults(EnvironmentCheckDartPlugin... envChecks) {
+    SnapshotImpl result = new SnapshotImpl();
+    for (EnvironmentCheckDartPlugin envCheck : envChecks)
+      result.addResult(envCheck.execute()); 
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 25: com/gigatronik/dart2/framework/plugin/environment/snapshot/result/CheckResultBaseImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.result;
+
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentCheckDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+
+abstract class CheckResultBaseImpl implements EnvironmentSnapshotDartPlugin.CheckResult {
+  private final EnvironmentCheckDartPlugin check;
+  
+  public CheckResultBaseImpl(EnvironmentCheckDartPlugin check) {
+    this.check = check;
+  }
+  
+  public EnvironmentCheckDartPlugin getCheck() {
+    return this.check;
+  }
+}
+
+
+========================================================================================================================
+ITEM 26: com/gigatronik/dart2/framework/plugin/environment/snapshot/result/KeyValueListCheckResultImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.result;
+
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentCheckDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+public final class KeyValueListCheckResultImpl<K, V> extends CheckResultBaseImpl implements EnvironmentSnapshotDartPlugin.CheckResult {
+  private final Map<K, V> resultMap;
+  
+  public KeyValueListCheckResultImpl(EnvironmentCheckDartPlugin check) {
+    super(check);
+    this.resultMap = new LinkedHashMap<>();
+  }
+  
+  public Object getResult() {
+    return this.resultMap;
+  }
+  
+  public void addKeyValue(K key, V value) {
+    this.resultMap.put(key, value);
+  }
+}
+
+
+========================================================================================================================
+ITEM 27: com/gigatronik/dart2/framework/plugin/environment/snapshot/result/SingleCheckResultImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot.result;
+
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentCheckDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+
+public class SingleCheckResultImpl<T> extends CheckResultBaseImpl implements EnvironmentSnapshotDartPlugin.CheckResult {
+  private final T result;
+  
+  public SingleCheckResultImpl(EnvironmentCheckDartPlugin check, T result) {
+    super(check);
+    this.result = result;
+  }
+  
+  public Object getResult() {
+    return this.result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 28: com/gigatronik/dart2/framework/plugin/environment/snapshot/SnapshotImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin.environment.snapshot;
+
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import java.util.Date;
+import java.util.LinkedList;
+import java.util.List;
+
+public class SnapshotImpl implements EnvironmentSnapshotDartPlugin.Snapshot {
+  private final List<EnvironmentSnapshotDartPlugin.CheckResult> results = new LinkedList<>();
+  
+  private final Date timestamp = new Date();
+  
+  public void addResult(EnvironmentSnapshotDartPlugin.CheckResult result) {
+    this.results.add(result);
+  }
+  
+  public List<EnvironmentSnapshotDartPlugin.CheckResult> getResults() {
+    return this.results;
+  }
+  
+  public Date getTimestamp() {
+    return this.timestamp;
+  }
+}
+
+
+========================================================================================================================
+ITEM 29: com/gigatronik/dart2/framework/plugin/PluginImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugin;
+
+import com.gigatronik.dart2.framework.plugins.interfaces.DartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.Microservice;
+import java.util.UUID;
+
+public abstract class PluginImpl implements DartPlugin {
+  public String getVersion() {
+    return getClass().getPackage().getImplementationVersion();
+  }
+  
+  public String getName() {
+    return "Environment Snapshot Plugin";
+  }
+  
+  public String getBundle() {
+    return getClass().getPackage().getName();
+  }
+  
+  public UUID getUuid() {
+    return UUID.fromString("d0478afc-1d9b-4251-a7ab-99c0d2f5195e");
+  }
+  
+  public Microservice getWebContainer() {
+    return null;
+  }
+  
+  public boolean isSingleton() {
+    return false;
+  }
+}
+

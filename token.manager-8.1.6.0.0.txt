@@ -1,0 +1,257 @@
+JAR: token.manager-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\token.manager-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/donglemanager/api/DongleManager.java
+========================================================================================================================
+package com.gigatronik.beds.service.donglemanager.api;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedListener;
+
+public interface DongleManager extends HidDeviceConnectionChangedListener {
+  boolean getCurrentState();
+  
+  void fireState(boolean paramBoolean);
+  
+  void fireInitialState();
+  
+  void setGuiInitialized(boolean paramBoolean);
+  
+  void addDongleStateListener(DongleStateChangedEventListener paramDongleStateChangedEventListener);
+  
+  void removeDongleStateListener(DongleStateChangedEventListener paramDongleStateChangedEventListener);
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/service/donglemanager/api/DongleStateChangedEvent.java
+========================================================================================================================
+package com.gigatronik.beds.service.donglemanager.api;
+
+public class DongleStateChangedEvent {
+  private final boolean state;
+  
+  private final boolean initialized;
+  
+  public DongleStateChangedEvent(boolean state, boolean initialized) {
+    this.state = state;
+    this.initialized = initialized;
+  }
+  
+  public boolean isDongleConnected() {
+    return this.state;
+  }
+  
+  public boolean isDongleInitialized() {
+    return this.initialized;
+  }
+  
+  public String toString() {
+    return "state=" + this.state + ", initialized=" + this.initialized;
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/service/donglemanager/api/DongleStateChangedEventListener.java
+========================================================================================================================
+package com.gigatronik.beds.service.donglemanager.api;
+
+import com.gigatronik.beds.common.order.OrderableListener;
+
+public interface DongleStateChangedEventListener extends OrderableListener {
+  void onDongleStateChanged(DongleStateChangedEvent paramDongleStateChangedEvent);
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/service/donglemanager/impl/DongleStateChangedEventPublisher.java
+========================================================================================================================
+package com.gigatronik.beds.service.donglemanager.impl;
+
+import com.gigatronik.beds.common.order.ListSortMachine;
+import com.gigatronik.beds.service.donglemanager.api.DongleStateChangedEvent;
+import com.gigatronik.beds.service.donglemanager.api.DongleStateChangedEventListener;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+
+public class DongleStateChangedEventPublisher {
+  private static final List<String> CALLBACK_LIST_HEAD = Arrays.asList("DefaultDongleStateListener");
+  
+  private static final List<String> CALLBACK_LIST_TAIL = Arrays.asList("RightsManager");
+  
+  private final ListSortMachine<DongleStateChangedEventListener> listSortMachine = new ListSortMachine(CALLBACK_LIST_HEAD, CALLBACK_LIST_TAIL);
+  
+  private final List<DongleStateChangedEventListener> listeners = new ArrayList<>();
+  
+  private final Executor executor = Executors.newSingleThreadExecutor(new BasicThreadFactory.Builder().namingPattern("DongleStateChangedEventPublisher-%d").build());
+  
+  protected synchronized void addListener(DongleStateChangedEventListener listener) {
+    if (!this.listeners.contains(listener)) {
+      this.listeners.add(listener);
+      this.listSortMachine.sortList(this.listeners);
+    } 
+  }
+  
+  protected synchronized void removeListener(DongleStateChangedEventListener listener) {
+    this.listeners.remove(listener);
+  }
+  
+  protected synchronized void publishEvent(DongleStateChangedEvent event) {
+    this.listeners.forEach(listener -> this.executor.execute(() -> listener.onDongleStateChanged(event)));
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/service/donglemanager/impl/EventBasedDongleManager.java
+========================================================================================================================
+package com.gigatronik.beds.service.donglemanager.impl;
+
+import com.gigatronik.beds.service.donglemanager.api.DongleManager;
+import com.gigatronik.beds.service.donglemanager.api.DongleStateChangedEvent;
+import com.gigatronik.beds.service.donglemanager.api.DongleStateChangedEventListener;
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.dart2.framework.plugins.exceptions.TokenInitializationException;
+import com.gigatronik.dart2.framework.plugins.interfaces.TokenDartPlugin;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class EventBasedDongleManager implements DongleManager {
+  enum CurrentDongleConnectionState {
+    CONNECTED, CONNECTION_JOB_QUEUED, DISCONNECTED;
+  }
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(DongleManager.class);
+  
+  private static final short PID = -14971;
+  
+  private static final short VID = 1027;
+  
+  private static final int WAITING_TIME_FOR_DONGLE_DLL_ACCESS = 1000;
+  
+  private final DongleStateChangedEventPublisher eventPublisher = new DongleStateChangedEventPublisher();
+  
+  private final TokenDartPlugin dongle;
+  
+  private Timer delayedConnectTimer;
+  
+  private CurrentDongleConnectionState currentState = CurrentDongleConnectionState.DISCONNECTED;
+  
+  private final AtomicBoolean guiInitialized = new AtomicBoolean(false);
+  
+  public EventBasedDongleManager(TokenDartPlugin localToken) {
+    this.dongle = localToken;
+  }
+  
+  public synchronized void onHidDeviceConnectionChanged(HidDeviceConnectionChangedEvent event) {
+    if (event.getProductId() == -14971 && event.getVendorId() == 1027) {
+      LOGGER.info("Dongle (dis)connect event received with state '{}'", Boolean.valueOf(event.getState()));
+      if (event.getState()) {
+        onDongleConnected();
+      } else {
+        processHidDeviceDisconnectionEvent();
+      } 
+    } 
+  }
+  
+  private void onDongleConnected() {
+    if (this.currentState == CurrentDongleConnectionState.DISCONNECTED) {
+      LOGGER.debug("Wait '{}' ms before initialization of the dongle ...", Integer.valueOf(1000));
+      TimerTask task = new TimerTask() {
+          public void run() {
+            EventBasedDongleManager.this.processHidDeviceConnectionEvent();
+          }
+        };
+      this.delayedConnectTimer = new Timer("DelayedDongleConnectTimer-" + Thread.currentThread().getId());
+      this.delayedConnectTimer.schedule(task, 1000L);
+      this.currentState = CurrentDongleConnectionState.CONNECTION_JOB_QUEUED;
+    } 
+  }
+  
+  private synchronized void processHidDeviceConnectionEvent() {
+    LOGGER.debug("Process dongle connection event now");
+    try {
+      LOGGER.trace("Initialize dongle...");
+      this.dongle.initialize();
+      LOGGER.trace("... dongle initialized");
+      waitForGuiInitializationIsDone();
+      this.currentState = CurrentDongleConnectionState.CONNECTED;
+      fireChange(true);
+    } catch (TokenInitializationException ex) {
+      LOGGER.error("Failed to initialize the connected dongle!", (Throwable)ex);
+    } 
+  }
+  
+  private synchronized void waitForGuiInitializationIsDone() {
+    while (!this.guiInitialized.get() && !Thread.currentThread().isInterrupted()) {
+      LOGGER.debug("Waiting for GUI initialized...");
+      try {
+        wait();
+      } catch (InterruptedException ex) {
+        LOGGER.error("Sleep interrupted before dongle initialization", (Throwable)ex);
+        Thread.currentThread().interrupt();
+      } 
+    } 
+  }
+  
+  private void processHidDeviceDisconnectionEvent() {
+    if (this.currentState == CurrentDongleConnectionState.CONNECTED) {
+      try {
+        LOGGER.trace("Uninitialize dongle...");
+        this.dongle.uninitialize();
+        LOGGER.trace("... dongle uninitialized");
+      } catch (TokenInitializationException ex) {
+        LOGGER.error("Error uninitializing dongle", (Throwable)ex);
+      } 
+      fireChange(false);
+    } else if (this.currentState == CurrentDongleConnectionState.CONNECTION_JOB_QUEUED) {
+      LOGGER.debug("Kill all piped dongle connection jobs");
+      this.delayedConnectTimer.cancel();
+    } 
+    this.currentState = CurrentDongleConnectionState.DISCONNECTED;
+  }
+  
+  private void fireChange(boolean state) {
+    LOGGER.info("Fire dongle state changed event: '{}' to listeners", Boolean.valueOf(state));
+    this.eventPublisher.publishEvent(new DongleStateChangedEvent(state, (state && this.dongle.isDongleAvailable())));
+    LOGGER.info("all dongle changes fired");
+  }
+  
+  public boolean getCurrentState() {
+    return (this.currentState == CurrentDongleConnectionState.CONNECTED);
+  }
+  
+  public synchronized void setGuiInitialized(boolean initialized) {
+    LOGGER.debug("GUI's created! Notify waiting dongle initialization thread if necessary");
+    this.guiInitialized.set(initialized);
+    notifyAll();
+  }
+  
+  public void fireState(boolean state) {
+    fireChange(state);
+  }
+  
+  public void fireInitialState() {
+    if (this.dongle == null || !this.dongle.isDongleAvailable()) {
+      LOGGER.info("Fire initial dongle connect state 'false'...");
+      fireChange(false);
+    } 
+  }
+  
+  public synchronized void addDongleStateListener(DongleStateChangedEventListener listener) {
+    this.eventPublisher.addListener(listener);
+  }
+  
+  public synchronized void removeDongleStateListener(DongleStateChangedEventListener listener) {
+    this.eventPublisher.removeListener(listener);
+  }
+}
+

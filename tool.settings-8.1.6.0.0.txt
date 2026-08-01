@@ -1,0 +1,424 @@
+JAR: tool.settings-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\tool.settings-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/settings/download/CloudSettingsDownloaderFacade.java
+========================================================================================================================
+package com.gigatronik.beds.settings.download;
+
+public interface CloudSettingsDownloaderFacade {
+  boolean isServerAvailable();
+  
+  String downloadVersionFile() throws DownloadFailedException;
+  
+  String downloadCloudSettings() throws DownloadFailedException;
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/settings/download/DownloadFailedException.java
+========================================================================================================================
+package com.gigatronik.beds.settings.download;
+
+public class DownloadFailedException extends Exception {
+  public DownloadFailedException(String cause) {
+    super(cause);
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/settings/global/cloud/CloudSettings.java
+========================================================================================================================
+package com.gigatronik.beds.settings.global.cloud;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Paths;
+import java.util.Properties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class CloudSettings {
+  static final String ABSOLUTE_PATH_LOCAL_CLOUD_SETTINGS_FILE = System.getenv("DART2_HOME") + "/conf/cloudSettings.properties";
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(CloudSettings.class);
+  
+  private Properties settings = new Properties();
+  
+  public synchronized void consumeSettingsFileInEBikeAppDirectory() {
+    LOGGER.info("Initialize cloud settings");
+    if (isCloudSettingsFileInEBikeAppDirectory()) {
+      consumeSettingsFileInEBikeAppDirectoryChecked();
+    } else {
+      LOGGER.warn("Cannot consume cloud settings file from eBikeApp directory, 'cause it is missing.");
+    } 
+  }
+  
+  private void consumeSettingsFileInEBikeAppDirectoryChecked() {
+    try (InputStream input = new FileInputStream(ABSOLUTE_PATH_LOCAL_CLOUD_SETTINGS_FILE)) {
+      Properties properties = new Properties();
+      properties.load(input);
+      this.settings = properties;
+      LOGGER.info("Consumed settings from eBikeApp directory '{}'", this.settings);
+    } catch (IOException ex) {
+      LOGGER.warn("Consuming cloud settings file from eBikeApp directory failed.", (Throwable)ex);
+    } 
+  }
+  
+  boolean isCloudSettingsFileInEBikeAppDirectory() {
+    return Paths.get(ABSOLUTE_PATH_LOCAL_CLOUD_SETTINGS_FILE).toFile().exists();
+  }
+  
+  public synchronized String getProperty(String key) {
+    Object value = this.settings.get(key);
+    String stringValue = (value != null) ? value.toString() : null;
+    logRequest(key, stringValue);
+    return stringValue;
+  }
+  
+  private void logRequest(String key, String value) {
+    if (value != null)
+      LOGGER.info("Property '{}' request handled with response '{}' by cloud settings", key, value); 
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/settings/global/cloud/CloudSettingsUpdater.java
+========================================================================================================================
+package com.gigatronik.beds.settings.global.cloud;
+
+import com.gigatronik.beds.settings.download.CloudSettingsDownloaderFacade;
+import com.gigatronik.beds.settings.download.DownloadFailedException;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.CopyOption;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Properties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class CloudSettingsUpdater {
+  private static final Logger LOGGER = LoggerFactory.getLogger(CloudSettingsUpdater.class);
+  
+  static final String FILE_VERSION_PROPERTY_KEY = "fileVersion";
+  
+  private CloudSettingsDownloaderFacade downloader;
+  
+  public CloudSettingsUpdater(CloudSettingsDownloaderFacade downloader) {
+    this.downloader = downloader;
+  }
+  
+  public void updateCloudSettings() {
+    LOGGER.info("Update cloud settings file");
+    if (this.downloader.isServerAvailable())
+      updateCloudSettingsServerAvailable(); 
+  }
+  
+  private void updateCloudSettingsServerAvailable() {
+    if (isCloudSettingsFileInEBikeAppDirectory()) {
+      onSettingsFileAlreadyExists();
+    } else {
+      downloadCloudSettingsFile();
+    } 
+  }
+  
+  private void onSettingsFileAlreadyExists() {
+    try {
+      int localVersion = getVersionFromSettingsFileInEBikeAppDirectory();
+      LOGGER.debug("Version of settings in eBikeApp directory is '{}'", Integer.valueOf(localVersion));
+      onSettingsFileAlreadyExists(localVersion);
+    } catch (InvalidVersionException ex) {
+      LOGGER.warn("Extracting the cloud settings version from file in eBikeApp directory failed.", (Throwable)ex);
+      downloadCloudSettingsFile();
+    } 
+  }
+  
+  private void onSettingsFileAlreadyExists(int localVersion) {
+    try {
+      onSettingsFileAlreadyExistsTry(localVersion);
+    } catch (DownloadFailedException|InvalidVersionException ex) {
+      LOGGER.warn("Getting version of cloud settings on server not possible.", (ex instanceof DownloadFailedException) ? ex.getMessage() : ex);
+    } 
+  }
+  
+  private void onSettingsFileAlreadyExistsTry(int localVersion) throws DownloadFailedException, InvalidVersionException {
+    String pathVersionFile = this.downloader.downloadVersionFile();
+    int serverVersion = getVersionFromVersionFile(pathVersionFile);
+    LOGGER.debug("Version of settings on server is '{}'", Integer.valueOf(serverVersion));
+    determineDownloadNecessity(serverVersion, localVersion);
+  }
+  
+  private void determineDownloadNecessity(int serverVersion, int localVersion) {
+    if (serverVersion > localVersion) {
+      downloadCloudSettingsFile();
+    } else {
+      LOGGER.info("Cloud settings are up-to-date -> No download required.");
+    } 
+  }
+  
+  private void downloadCloudSettingsFile() {
+    try {
+      downloadCloudSettingsFileTry();
+    } catch (DownloadFailedException|IOException|InvalidVersionException ex) {
+      LOGGER.warn("Working with cloud settings from server failed.", (ex instanceof DownloadFailedException) ? ex.getMessage() : ex);
+    } 
+  }
+  
+  private void downloadCloudSettingsFileTry() throws DownloadFailedException, IOException, InvalidVersionException {
+    LOGGER.info("Download latest settings from server");
+    String pathDownloadedSettings = this.downloader.downloadCloudSettings();
+    Properties settings = readSettingsFile(pathDownloadedSettings);
+    getVersionFromProperties(settings);
+    copySettingsFileToEBikeAppDirectory(pathDownloadedSettings);
+    LOGGER.info("Updated local buffered cloud settings");
+  }
+  
+  void copySettingsFileToEBikeAppDirectory(String sourceFilePath) throws IOException {
+    Files.copy(Paths.get(sourceFilePath), Paths.get(CloudSettings.ABSOLUTE_PATH_LOCAL_CLOUD_SETTINGS_FILE), StandardCopyOption.REPLACE_EXISTING);
+  }
+  
+  int getVersionFromVersionFile(String filePath) throws InvalidVersionException {
+    try {
+      String fileContent = new String(Files.readAllBytes(Paths.get(filePath)), StandardCharsets.UTF_8);
+      return castToInteger(fileContent);
+    } catch (IOException ex) {
+      throw new InvalidVersionException("Extracting version from downloaded version file '" + filePath + "' failed.", ex);
+    } 
+  }
+  
+  private int getVersionFromSettingsFileInEBikeAppDirectory() throws InvalidVersionException {
+    try {
+      Properties settings = readSettingsFile(CloudSettings.ABSOLUTE_PATH_LOCAL_CLOUD_SETTINGS_FILE);
+      return getVersionFromProperties(settings);
+    } catch (IOException ex) {
+      throw new InvalidVersionException("Failed to access version from cloud settings file in eBikeApp directory.", ex);
+    } 
+  }
+  
+  private int getVersionFromProperties(Properties settings) throws InvalidVersionException {
+    Object fileVersion = settings.get("fileVersion");
+    if (fileVersion == null)
+      throw new InvalidVersionException("Version property is missing in settings '" + settings + "'"); 
+    return castToInteger(fileVersion);
+  }
+  
+  private int castToInteger(Object value) throws InvalidVersionException {
+    try {
+      return Integer.parseInt(value.toString());
+    } catch (NumberFormatException ex) {
+      throw new InvalidVersionException("Casting '" + value + "' to integer failed.", ex);
+    } 
+  }
+  
+  Properties readSettingsFile(String filePath) throws IOException {
+    try (InputStream input = new FileInputStream(filePath)) {
+      Properties settings = new Properties();
+      settings.load(input);
+      return settings;
+    } 
+  }
+  
+  boolean isCloudSettingsFileInEBikeAppDirectory() {
+    return Paths.get(CloudSettings.ABSOLUTE_PATH_LOCAL_CLOUD_SETTINGS_FILE).toFile().exists();
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/settings/global/cloud/InvalidVersionException.java
+========================================================================================================================
+package com.gigatronik.beds.settings.global.cloud;
+
+class InvalidVersionException extends Exception {
+  InvalidVersionException(String cause, Exception ex) {
+    super(cause, ex);
+  }
+  
+  InvalidVersionException(String cause) {
+    super(cause);
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/settings/global/GlobalSettingsProxy.java
+========================================================================================================================
+package com.gigatronik.beds.settings.global;
+
+import com.gigatronik.beds.settings.global.cloud.CloudSettings;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.gigatronik.dart2.framework.settings.RWSettings;
+import com.gigatronik.dart2.framework.settings.SettingsFactory;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class GlobalSettingsProxy {
+  private static final Logger LOGGER = LoggerFactory.getLogger(GlobalSettingsProxy.class);
+  
+  private RWSettings localSettings;
+  
+  private CloudSettings cloudSettings;
+  
+  public GlobalSettingsProxy(RWSettings localSettings) {
+    this.localSettings = localSettings;
+    this.cloudSettings = new CloudSettings();
+    this.cloudSettings.consumeSettingsFileInEBikeAppDirectory();
+  }
+  
+  public Object setProperty(String key, String value) {
+    Object previousValue = this.localSettings.setProperty(key, value);
+    LOGGER.info("setProperty(key='{}', value='{}', previous value='{}') called", key, value, previousValue);
+    try {
+      File userSettingsPath = new File(SettingsFactory.getInstance().getDart2HomePath(), "/conf/settings.properties");
+      String dump = Files.readString(userSettingsPath.toPath());
+      LOGGER.info("settings.properties dump: {}", dump);
+    } catch (IOException|OutOfMemoryError|SecurityException|NullPointerException e) {
+      LOGGER.error("Reading settings.properties file failed.", e);
+    } 
+    return previousValue;
+  }
+  
+  public String getProperty(String key) {
+    String value = this.localSettings.getProperty(key);
+    if (value == null)
+      value = this.cloudSettings.getProperty(key); 
+    LOGGER.trace("getProperty(key='{}', value='{}') called", key, value);
+    return value;
+  }
+  
+  public String getProperty(String key, String defaultValue) {
+    String value = getProperty(key);
+    return (value != null) ? value : defaultValue;
+  }
+  
+  public double getDouble(String key, double defaultValue) {
+    String value = getProperty(key);
+    if (value == null) {
+      LOGGER.debug("Working with default value '{}' for property '{}'", Double.valueOf(defaultValue), key);
+      return defaultValue;
+    } 
+    try {
+      return Double.parseDouble(value);
+    } catch (NumberFormatException ex) {
+      LOGGER.warn("Invalid configuration found for property '{}'! Cannot cast '{}' to requested type! Using default '{}'", key, value, defaultValue, ex);
+      return defaultValue;
+    } 
+  }
+  
+  public int getInteger(String key) throws ConfigurationNotFoundException {
+    try {
+      String value = getProperty(key);
+      return Integer.parseInt(value);
+    } catch (NumberFormatException ex) {
+      throw new ConfigurationNotFoundException("Value for key '" + key + "' is not available");
+    } 
+  }
+  
+  public int getInteger(String key, int defaultValue) {
+    String value = getProperty(key);
+    if (value == null) {
+      LOGGER.debug("Working with default value '{}' for property '{}'", Integer.valueOf(defaultValue), key);
+      return defaultValue;
+    } 
+    try {
+      return Integer.parseInt(value);
+    } catch (NumberFormatException ex) {
+      LOGGER.warn("Invalid configuration found for property '{}'! Cannot cast '{}' to requested type! Using default '{}'", key, value, defaultValue, ex);
+      return defaultValue;
+    } 
+  }
+  
+  public boolean getBoolean(String key) throws ConfigurationNotFoundException {
+    String value = getProperty(key);
+    if (value == null)
+      throw new ConfigurationNotFoundException("Value for key '" + key + "' is not available"); 
+    return Boolean.parseBoolean(value);
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/settings/SettingsProxy.java
+========================================================================================================================
+package com.gigatronik.beds.settings;
+
+import com.gigatronik.beds.settings.global.GlobalSettingsProxy;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.gigatronik.dart2.framework.settings.ROSettings;
+import com.gigatronik.dart2.framework.settings.RWSettings;
+import com.gigatronik.dart2.framework.settings.SettingsFactory;
+import java.io.File;
+import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class SettingsProxy {
+  private static final Logger LOGGER = LoggerFactory.getLogger(SettingsProxy.class);
+  
+  private static SettingsProxy instance;
+  
+  private SettingsFactory delegate;
+  
+  private GlobalSettingsProxy globalSettingsProxy;
+  
+  private boolean areLocalGlobalSettingMissing;
+  
+  public static synchronized SettingsProxy getInstance() {
+    if (instance == null)
+      instance = new SettingsProxy(); 
+    return instance;
+  }
+  
+  private SettingsProxy() {
+    this.delegate = SettingsFactory.getInstance();
+    RWSettings localSettings = getLocalSettings(this.delegate);
+    this.globalSettingsProxy = new GlobalSettingsProxy(localSettings);
+    this.areLocalGlobalSettingMissing = Objects.isNull(localSettings);
+  }
+  
+  private RWSettings getLocalSettings(SettingsFactory factory) {
+    try {
+      return factory.getGlobalSettings();
+    } catch (ConfigurationNotFoundException ex) {
+      LOGGER.warn("Local global settings are missing!", (Throwable)ex);
+      return null;
+    } 
+  }
+  
+  public GlobalSettingsProxy getGlobalSettings() throws ConfigurationNotFoundException {
+    if (this.areLocalGlobalSettingMissing)
+      throw new ConfigurationNotFoundException("Local global settings are missing!"); 
+    return this.globalSettingsProxy;
+  }
+  
+  public GlobalSettingsProxy getGlobalSettingsNoException() {
+    return this.globalSettingsProxy;
+  }
+  
+  public ROSettings getInternalSettings() throws ConfigurationNotFoundException {
+    return this.delegate.getInternalSettings();
+  }
+  
+  public RWSettings getUserSettings() throws ConfigurationNotFoundException {
+    return this.delegate.getUserSettings();
+  }
+  
+  public File getDart2HomePath() {
+    return this.delegate.getDart2HomePath();
+  }
+  
+  public String getDataPath() {
+    return this.delegate.getDataPath();
+  }
+}
+

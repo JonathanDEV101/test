@@ -1,0 +1,177 @@
+JAR: lockservice.servicesession-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\lockservice.servicesession-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/bosch/lockserver/servicesession/Daemon.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.servicesession;
+
+import com.gigatronik.bosch.lockserver.common.AbstractLockService;
+import com.gigatronik.bosch.lockserver.common.winapi.NativeInterface;
+import java.rmi.RemoteException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class Daemon {
+  private static final Logger LOGGER = LoggerFactory.getLogger(Daemon.class);
+  
+  private static AbstractLockService service = null;
+  
+  public static void main(String[] args) throws Exception {
+    start(args);
+  }
+  
+  public static void start(String[] args) {
+    try {
+      getService().start(args);
+    } catch (Exception e) {
+      LOGGER.error("Error starting service", (Throwable)e);
+      System.exit(1);
+    } 
+  }
+  
+  public static void stop(String[] args) {
+    try {
+      getService().stop(args);
+    } catch (Exception e) {
+      LOGGER.error("Error stopping service", (Throwable)e);
+      System.exit(1);
+    } 
+  }
+  
+  private static synchronized AbstractLockService getService() throws RemoteException {
+    if (service == null)
+      service = new ServiceSessionService(new NativeInterface()); 
+    return service;
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/bosch/lockserver/servicesession/ServiceSessionService.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.servicesession;
+
+import com.gigatronik.bosch.lockserver.common.AbstractLockService;
+import com.gigatronik.bosch.lockserver.common.ServiceConnection;
+import com.gigatronik.bosch.lockserver.common.ServiceConnectionException;
+import com.gigatronik.bosch.lockserver.common.rmiinterfaces.InputLockInterface;
+import com.gigatronik.bosch.lockserver.common.rmiinterfaces.LockException;
+import com.gigatronik.bosch.lockserver.common.winapi.NativeInterface;
+import com.gigatronik.bosch.lockserver.common.winapi.WindowsAPIException;
+import java.io.File;
+import java.rmi.RemoteException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ServiceSessionService extends AbstractLockService {
+  private static final transient Logger LOGGER = LoggerFactory.getLogger(ServiceSessionService.class);
+  
+  private static final int USER_SERVICE_STARTUP_DELAY = 500;
+  
+  private static final int USER_SERVICE_MAX_CONNECT_RETRIES = 10;
+  
+  private static final String USER_SESSION_EXECUTABLE = "UserSessionLockService.exe";
+  
+  private static final long serialVersionUID = 7622155371761577389L;
+  
+  private final transient NativeInterface nativeInterface;
+  
+  private final transient ServiceConnection<InputLockInterface> connection;
+  
+  public ServiceSessionService(NativeInterface nativeInterface) throws RemoteException {
+    super("com.gigatronik.dart2.bosch.lockserver.servicesession", 60152);
+    this.nativeInterface = nativeInterface;
+    this.connection = new ServiceConnection(LOCALHOST.getHostName(), "com.gigatronik.dart2.bosch.lockserver.usersession", getRmiRegistryPort());
+  }
+  
+  private static void catchedSleep(int userServiceStartupDelay) {
+    try {
+      Thread.sleep((long)userServiceStartupDelay);
+    } catch (InterruptedException e) {
+      LOGGER.warn("Sleep was interrupted", (Throwable)e);
+      Thread.currentThread().interrupt();
+    } 
+  }
+  
+  private synchronized ServiceConnection<InputLockInterface> getConnectedUserServiceConnection() throws ServiceConnectionException, WindowsAPIException {
+    try {
+      this.connection.connect();
+    } catch (ServiceConnectionException e) {
+      LOGGER.info("User service is not available, starting it up");
+      LOGGER.trace("Error occured during connect", (Throwable)e);
+      startUserSessionLockService();
+      waitForUserSessionLockService();
+    } 
+    return this.connection;
+  }
+  
+  private void waitForUserSessionLockService() throws ServiceConnectionException {
+    for (int i = 1; i < 10; i++) {
+      try {
+        LOGGER.debug("Connection try #{} of {}", Integer.valueOf(i), Integer.valueOf(10));
+        this.connection.connect();
+        LOGGER.debug("Connected!");
+        break;
+      } catch (ServiceConnectionException e) {
+        LOGGER.debug("Error connecting", (Throwable)e);
+        catchedSleep(500);
+      } 
+    } 
+    if (!this.connection.isConnected())
+      throw new ServiceConnectionException("Timeout while waiting for user session service. Giving up."); 
+  }
+  
+  private void startUserSessionLockService() throws WindowsAPIException {
+    File executable = new File(System.getProperty("user.dir"), "UserSessionLockService.exe");
+    this.nativeInterface.launchProcessInUserSession("\"" + executable.getAbsolutePath() + "\"");
+  }
+  
+  public void setLockState(boolean state) throws RemoteException, LockException {
+    try {
+      ((InputLockInterface)getConnectedUserServiceConnection().getInterface()).setLockState(state);
+    } catch (ServiceConnectionException|WindowsAPIException e) {
+      throw new LockException("Error setting lock state", e);
+    } 
+  }
+  
+  public boolean isInputBlocked() throws RemoteException, LockException {
+    try {
+      return ((InputLockInterface)getConnectedUserServiceConnection().getInterface()).isInputBlocked();
+    } catch (ServiceConnectionException|WindowsAPIException e) {
+      throw new LockException("Error getting lock state", e);
+    } 
+  }
+  
+  public void allowKeyEvent(int eventType) throws RemoteException, LockException {
+    try {
+      ((InputLockInterface)getConnectedUserServiceConnection().getInterface()).allowKeyEvent(eventType);
+    } catch (ServiceConnectionException|WindowsAPIException e) {
+      throw new LockException("Error allowing keyboard event", e);
+    } 
+  }
+  
+  public void allowMouseEvent(int eventType, int button) throws RemoteException, LockException {
+    try {
+      ((InputLockInterface)getConnectedUserServiceConnection().getInterface()).allowMouseEvent(eventType, button);
+    } catch (ServiceConnectionException|WindowsAPIException e) {
+      throw new LockException("Error allowing mouse event", e);
+    } 
+  }
+  
+  public void stop() throws RemoteException {
+    stopUserSessionServiceViaRmi();
+    super.stop();
+  }
+  
+  public void stopUserSessionService() throws RemoteException {
+    stopUserSessionServiceViaRmi();
+  }
+  
+  private void stopUserSessionServiceViaRmi() {
+    LOGGER.error("Stopping user session service");
+    stopServiceViaRmi("com.gigatronik.dart2.bosch.lockserver.usersession");
+    LOGGER.error("User service stopped");
+  }
+}
+

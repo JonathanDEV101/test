@@ -1,0 +1,544 @@
+JAR: token.blacklist-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\token.blacklist-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/dongleblacklist/api/BlacklistDownloadStateChanged.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.api;
+
+public enum BlacklistDownloadStateChanged {
+  CONNECTION_ERROR, DOWNLOAD_ERROR;
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/service/dongleblacklist/api/BlacklistDownloadStateChangedListener.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.api;
+
+public interface BlacklistDownloadStateChangedListener {
+  void onDownloadFailed(BlacklistDownloadStateChanged paramBlacklistDownloadStateChanged);
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/service/dongleblacklist/api/BlacklistIntegrityException.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.api;
+
+public class BlacklistIntegrityException extends Exception {
+  public BlacklistIntegrityException(String cause, Exception ex) {
+    super(cause, ex);
+  }
+  
+  public BlacklistIntegrityException(String cause) {
+    super(cause);
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/service/dongleblacklist/api/BlacklistUpdateListener.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.api;
+
+import com.gigatronik.beds.service.dongleblacklist.impl.DongleBlacklist;
+
+public interface BlacklistUpdateListener {
+  void onUpdateCycleStart();
+  
+  void onUpdateCycleEnd();
+  
+  void onListAvailable(DongleBlacklist paramDongleBlacklist);
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/service/dongleblacklist/api/DongleBlacklistService.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.api;
+
+public interface DongleBlacklistService {
+  boolean isBlacklisted(String paramString) throws BlacklistIntegrityException;
+  
+  void update(BlacklistUpdateListener paramBlacklistUpdateListener);
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/service/dongleblacklist/impl/AbstractProxyingBlacklistUpdateListener.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.impl;
+
+import com.gigatronik.beds.service.dongleblacklist.api.BlacklistUpdateListener;
+
+public abstract class AbstractProxyingBlacklistUpdateListener implements BlacklistUpdateListener {
+  private final BlacklistUpdateListener parent;
+  
+  public void onUpdateCycleStart() {
+    internalOnUpdateCycleStart();
+    this.parent.onUpdateCycleStart();
+  }
+  
+  protected abstract void internalOnUpdateCycleStart();
+  
+  public void onUpdateCycleEnd() {
+    internalOnUpdateCycleEnd();
+    this.parent.onUpdateCycleEnd();
+  }
+  
+  protected abstract void internalOnUpdateCycleEnd();
+  
+  public AbstractProxyingBlacklistUpdateListener(BlacklistUpdateListener parent) {
+    this.parent = parent;
+  }
+  
+  public void onListAvailable(DongleBlacklist list) {
+    internalOnListAvailable(list);
+    this.parent.onListAvailable(list);
+  }
+  
+  abstract void internalOnListAvailable(DongleBlacklist paramDongleBlacklist);
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/service/dongleblacklist/impl/BlacklistCryptor.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.impl;
+
+import java.security.Security;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.jasypt.encryption.pbe.StandardPBEStringEncryptor;
+
+public class BlacklistCryptor {
+  private static final String ALGORITHM = "PBEWITHSHA256AND128BITAES-CBC-BC";
+  
+  private final StandardPBEStringEncryptor encryptor;
+  
+  public BlacklistCryptor(String password) {
+    Security.addProvider(new BouncyCastleProvider());
+    this.encryptor = new StandardPBEStringEncryptor();
+    this.encryptor.setProviderName("BC");
+    this.encryptor.setAlgorithm("PBEWITHSHA256AND128BITAES-CBC-BC");
+    this.encryptor.setPassword(password);
+  }
+  
+  public String encrypt(String plainText) {
+    return this.encryptor.encrypt(plainText);
+  }
+  
+  public String decrypt(String cryptedText) {
+    return this.encryptor.decrypt(cryptedText);
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/beds/service/dongleblacklist/impl/BlacklistDownloader.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.impl;
+
+import com.gigatronik.beds.service.dongleblacklist.api.BlacklistDownloadStateChanged;
+import com.gigatronik.beds.service.dongleblacklist.api.BlacklistIntegrityException;
+import com.gigatronik.beds.service.dongleblacklist.api.BlacklistUpdateListener;
+import com.gigatronik.dart2.bosch.applicationprocess.ApplicationProcessManager;
+import com.gigatronik.dart2.bosch.updateserver.UPDATE_SERVER_URL;
+import com.gigatronik.dart2.bosch.updateserver.UpdateServerConnection;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.Charset;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class BlacklistDownloader {
+  private static final String BLACKLIST_FILE_NAME = "eb.bl";
+  
+  private static final Charset CHARSET = Charset.forName("UTF-8");
+  
+  private final Logger logger = LoggerFactory.getLogger(BlacklistDownloader.class);
+  
+  private final FileBasedBlacklist blacklist;
+  
+  private final int retryInterval;
+  
+  private ScheduledFuture<?> future;
+  
+  private ScheduledExecutorService scheduler;
+  
+  private final BlacklistDownloadStateChangedPublisher publisher;
+  
+  private final UpdateServerConnection updateServerConnection;
+  
+  private final ApplicationProcessManager applicationProcessManager;
+  
+  BlacklistDownloader(FileBasedBlacklist blacklist, int retryInterval) {
+    this.blacklist = blacklist;
+    this.retryInterval = retryInterval;
+    this.publisher = new BlacklistDownloadStateChangedPublisher();
+    this.updateServerConnection = new UpdateServerConnection();
+    this.applicationProcessManager = ApplicationProcessManager.getInstance();
+  }
+  
+  public synchronized void start(BlacklistUpdateListener listener) {
+    if (this.future == null) {
+      this.scheduler = Executors.newScheduledThreadPool(2);
+      this.future = this.scheduler.scheduleAtFixedRate(() -> download(listener), 0L, (long)this.retryInterval, TimeUnit.MILLISECONDS);
+    } else {
+      throw new IllegalStateException("Download process is already running");
+    } 
+  }
+  
+  private String readFile(String filePath) throws IOException {
+    try (FileInputStream stream = new FileInputStream(new File(filePath))) {
+      FileChannel fc = stream.getChannel();
+      MappedByteBuffer bb = fc.map(FileChannel.MapMode.READ_ONLY, 0L, fc.size());
+      return CHARSET.decode(bb).toString();
+    } 
+  }
+  
+  private void download(BlacklistUpdateListener listener) {
+    if (!isBlacklistDownloadAllowed()) {
+      this.logger.warn("Prevented downloading blacklist");
+      return;
+    } 
+    listener.onUpdateCycleStart();
+    if (!this.updateServerConnection.isServerAvailable()) {
+      this.logger.warn("Failed to connect to server on downloading blacklist");
+      this.publisher.fireChangedState(BlacklistDownloadStateChanged.CONNECTION_ERROR);
+      listener.onUpdateCycleEnd();
+      return;
+    } 
+    this.logger.info("Downloading blacklist...");
+    String downloadPath = this.updateServerConnection.downloadFileSync(UPDATE_SERVER_URL.get(UPDATE_SERVER_URL.BLACKLIST_DOWNLOAD).toString() + "eb.bl");
+    if (StringUtils.isNotBlank(downloadPath) && new File(downloadPath).exists()) {
+      this.logger.info("Successfully downloaded blacklist");
+      try {
+        String responseBlackl = readFile(downloadPath);
+        FileUtils.writeStringToFile(this.blacklist.getFile(), responseBlackl, CHARSET);
+        this.blacklist.checkIntegrity();
+        listener.onListAvailable(this.blacklist);
+        stop();
+      } catch (BlacklistIntegrityException e) {
+        this.logger.warn("Downloaded blacklist is corrupt", (Throwable)e);
+        this.publisher.fireChangedState(BlacklistDownloadStateChanged.DOWNLOAD_ERROR);
+      } catch (IOException e) {
+        this.logger.warn("Unable to save downloaded blacklist", (Throwable)e);
+        this.publisher.fireChangedState(BlacklistDownloadStateChanged.DOWNLOAD_ERROR);
+      } 
+    } else {
+      this.logger.warn("Error downloading blacklist.");
+      this.publisher.fireChangedState(BlacklistDownloadStateChanged.DOWNLOAD_ERROR);
+    } 
+    listener.onUpdateCycleEnd();
+  }
+  
+  public synchronized void stop() {
+    if (this.future != null) {
+      this.future.cancel(false);
+      this.future = null;
+    } 
+    if (this.scheduler != null) {
+      this.scheduler.shutdown();
+      this.scheduler = null;
+    } 
+  }
+  
+  BlacklistDownloadStateChangedPublisher getPublisher() {
+    return this.publisher;
+  }
+  
+  private boolean isBlacklistDownloadAllowed() {
+    return !this.applicationProcessManager.isBlockingProcessActive();
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/beds/service/dongleblacklist/impl/BlacklistDownloadStateChangedPublisher.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.impl;
+
+import com.gigatronik.beds.service.dongleblacklist.api.BlacklistDownloadStateChanged;
+import com.gigatronik.beds.service.dongleblacklist.api.BlacklistDownloadStateChangedListener;
+import java.util.ArrayList;
+import java.util.List;
+
+public class BlacklistDownloadStateChangedPublisher {
+  List<BlacklistDownloadStateChangedListener> listeners = new ArrayList<>();
+  
+  public void fireChangedState(BlacklistDownloadStateChanged event) {
+    for (BlacklistDownloadStateChangedListener runner : this.listeners)
+      runner.onDownloadFailed(event); 
+  }
+  
+  public void addListener(BlacklistDownloadStateChangedListener listener) {
+    this.listeners.add(listener);
+  }
+  
+  public void removeListener(BlacklistDownloadStateChangedListener listener) {
+    this.listeners.remove(listener);
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/beds/service/dongleblacklist/impl/BlacklistKeyDecryptor.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.impl;
+
+import com.gigatronik.bosch.plugin.unitoken.TokenException;
+import com.gigatronik.dart2.framework.plugins.interfaces.TokenDartPlugin;
+import java.util.HashMap;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class BlacklistKeyDecryptor {
+  private static final Logger LOGGER = LoggerFactory.getLogger(BlacklistKeyDecryptor.class);
+  
+  private static final int KEYSLOT_BLACKLIST_KEY_ENCRYPTION = 25;
+  
+  private static final byte[] BLACKLIST_KEY_ENCRYPTED = new byte[] { 
+      41, 65, -78, -76, 70, 19, 109, -4, 21, 126, 
+      125, 61, -30, 93, -86, -118 };
+  
+  private static final Object KEY = new Object();
+  
+  private static String PLAINKEY;
+  
+  private final TokenDartPlugin localToken;
+  
+  private final Map<String, Object> propertiesMap;
+  
+  public BlacklistKeyDecryptor(TokenDartPlugin localToken) {
+    this.localToken = localToken;
+    this.propertiesMap = new HashMap<>();
+    this.propertiesMap.put("key slot", Integer.valueOf(25));
+  }
+  
+  public String getBlacklistEncryptionKey() throws TokenException {
+    synchronized (KEY) {
+      if (PLAINKEY != null)
+        return PLAINKEY; 
+      LOGGER.debug("Start decrypting of warranty- / blacklist file encryption key");
+      byte[] decryptedKey = (byte[])this.localToken.decrypt("aes", BLACKLIST_KEY_ENCRYPTED, this.propertiesMap);
+      if (decryptedKey != null) {
+        LOGGER.debug("Decryption of warranty- / blacklist file encryption key is done");
+        PLAINKEY = new String(decryptedKey);
+        return PLAINKEY;
+      } 
+      LOGGER.warn("Decryption of warranty- / blacklist file encryption key failed");
+      throw new TokenException("Failed to decrypt warranty- / blacklist file key");
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/beds/service/dongleblacklist/impl/BlacklistReplacementDownloadListener.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.impl;
+
+import com.gigatronik.beds.service.dongleblacklist.api.BlacklistUpdateListener;
+import java.io.IOException;
+import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class BlacklistReplacementDownloadListener extends AbstractProxyingBlacklistUpdateListener {
+  private final Logger logger = LoggerFactory.getLogger(BlacklistReplacementDownloadListener.class);
+  
+  private final FileBasedBlacklist target;
+  
+  private final FileBasedBlacklist src;
+  
+  public BlacklistReplacementDownloadListener(FileBasedBlacklist src, FileBasedBlacklist target, BlacklistUpdateListener listener) {
+    super(listener);
+    this.src = src;
+    this.target = target;
+  }
+  
+  protected void internalOnUpdateCycleStart() {}
+  
+  protected void internalOnUpdateCycleEnd() {}
+  
+  void internalOnListAvailable(DongleBlacklist list) {
+    try {
+      FileUtils.copyFile(this.src.getFile(), this.target.getFile());
+    } catch (IOException e) {
+      this.logger.error("Error replacing local blacklist with online blacklist", (Throwable)e);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/beds/service/dongleblacklist/impl/DongleBlacklist.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.impl;
+
+import com.gigatronik.beds.service.dongleblacklist.api.BlacklistIntegrityException;
+
+public interface DongleBlacklist {
+  boolean isBlacklisted(String paramString) throws BlacklistIntegrityException;
+  
+  void checkIntegrity() throws BlacklistIntegrityException;
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/beds/service/dongleblacklist/impl/DongleBlacklistFactory.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.impl;
+
+import com.gigatronik.beds.service.dongleblacklist.api.DongleBlacklistService;
+import com.gigatronik.beds.settings.SettingsProxy;
+import com.gigatronik.bosch.plugin.tokenproxy.TokenPluginProxy;
+import com.gigatronik.bosch.plugin.unitoken.TokenException;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import java.io.File;
+
+public class DongleBlacklistFactory {
+  public static final File LOCAL_BLACKLIST_FILE = new File(SettingsProxy.getInstance().getDart2HomePath(), "conf/eB.bl");
+  
+  public static final File CLOUD_BLACKLIST_FILE = new File(SettingsProxy.getInstance().getDart2HomePath(), "conf/eBo.bl");
+  
+  private final BlacklistKeyDecryptor blacklistKeyDecryptor = new BlacklistKeyDecryptor(TokenPluginProxy.getInstance().getToken(TokenPluginProxy.TokenType.LOCAL));
+  
+  public DongleBlacklistService newBlacklistInstance() throws ConfigurationNotFoundException, TokenException {
+    FileBasedBlacklist localBlacklist = new FileBasedBlacklist(LOCAL_BLACKLIST_FILE, this.blacklistKeyDecryptor.getBlacklistEncryptionKey());
+    FileBasedBlacklist cloudBlacklist = new FileBasedBlacklist(CLOUD_BLACKLIST_FILE, this.blacklistKeyDecryptor.getBlacklistEncryptionKey());
+    return new DongleBlacklistServiceImpl(localBlacklist, cloudBlacklist);
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/beds/service/dongleblacklist/impl/DongleBlacklistServiceImpl.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.impl;
+
+import com.gigatronik.beds.service.dongleblacklist.api.BlacklistDownloadStateChangedListener;
+import com.gigatronik.beds.service.dongleblacklist.api.BlacklistIntegrityException;
+import com.gigatronik.beds.service.dongleblacklist.api.BlacklistUpdateListener;
+import com.gigatronik.beds.service.dongleblacklist.api.DongleBlacklistService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class DongleBlacklistServiceImpl implements DongleBlacklistService {
+  private static final Logger LOGGER = LoggerFactory.getLogger(DongleBlacklistServiceImpl.class);
+  
+  private static final int UPDATE_RETRY_INTERVAL = 60000;
+  
+  private final FileBasedBlacklist localBlacklist;
+  
+  private final FileBasedBlacklist cloudBlacklist;
+  
+  public DongleBlacklistServiceImpl(FileBasedBlacklist localBlacklist, FileBasedBlacklist cloudBlacklist) {
+    this.localBlacklist = localBlacklist;
+    this.cloudBlacklist = cloudBlacklist;
+  }
+  
+  public boolean isBlacklisted(String dongleId) throws BlacklistIntegrityException {
+    try {
+      return this.localBlacklist.isBlacklisted(dongleId);
+    } catch (BlacklistIntegrityException e) {
+      LOGGER.error("Error on blacklist check", (Throwable)e);
+      throw e;
+    } 
+  }
+  
+  public void update(BlacklistUpdateListener listener) {
+    BlacklistDownloader downloader = new BlacklistDownloader(this.cloudBlacklist, 60000);
+    downloader.getPublisher().addListener((BlacklistDownloadStateChangedListener)listener);
+    BlacklistUpdateListener proxyListener = new BlacklistReplacementDownloadListener(this.cloudBlacklist, this.localBlacklist, listener);
+    downloader.start(proxyListener);
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/beds/service/dongleblacklist/impl/FileBasedBlacklist.java
+========================================================================================================================
+package com.gigatronik.beds.service.dongleblacklist.impl;
+
+import com.gigatronik.beds.service.dongleblacklist.api.BlacklistIntegrityException;
+import java.io.File;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.io.FileUtils;
+import org.jasypt.exceptions.EncryptionOperationNotPossibleException;
+
+class FileBasedBlacklist implements DongleBlacklist {
+  private final File blacklistFile;
+  
+  private final BlacklistCryptor cryptor;
+  
+  private final AtomicReference<List<String>> blacklist = new AtomicReference<>();
+  
+  FileBasedBlacklist(File blacklistFile, String encryptionKey) {
+    this.cryptor = new BlacklistCryptor(encryptionKey);
+    this.blacklistFile = blacklistFile;
+  }
+  
+  private String readEncryptedBlacklistContents() throws IOException {
+    return FileUtils.readFileToString(this.blacklistFile, StandardCharsets.UTF_8);
+  }
+  
+  private List<String> parseBlacklist() throws BlacklistIntegrityException {
+    if (!Files.isWritable(this.blacklistFile.toPath()))
+      throw new BlacklistIntegrityException("File " + this.blacklistFile + " is not writable"); 
+    try {
+      String plainData = this.cryptor.decrypt(readEncryptedBlacklistContents());
+      Reader in = new StringReader(plainData);
+      CSVParser cSVParser = CSVFormat.EXCEL.parse(in);
+      List<String> result = new LinkedList<>();
+      for (CSVRecord record : (Iterable<CSVRecord>)cSVParser) {
+        String value = record.get(0);
+        result.add(value);
+      } 
+      return result;
+    } catch (IOException e) {
+      throw new BlacklistIntegrityException("Error reading blacklist", e);
+    } catch (EncryptionOperationNotPossibleException e) {
+      throw new BlacklistIntegrityException("Error decrypting blacklist", e);
+    } 
+  }
+  
+  public boolean isBlacklisted(String dongleId) throws BlacklistIntegrityException {
+    parseBlacklist();
+    if (this.blacklist.get() == null) {
+      List<String> parsed = parseBlacklist();
+      this.blacklist.compareAndSet(null, parsed);
+    } 
+    return this.blacklist.get().contains(dongleId);
+  }
+  
+  public void checkIntegrity() throws BlacklistIntegrityException {
+    parseBlacklist();
+  }
+  
+  public File getFile() {
+    return this.blacklistFile;
+  }
+}
+

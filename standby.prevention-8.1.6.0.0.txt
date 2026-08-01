@@ -1,0 +1,77 @@
+JAR: standby.prevention-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\standby.prevention-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/standbyprevention/StandbyPreventionService.java
+========================================================================================================================
+package com.gigatronik.beds.service.standbyprevention;
+
+import com.gigatronik.bosch.utils.ui.MouseInterface;
+import com.gigatronik.dart2.framework.plugins.interfaces.RemoteClientDartPlugin;
+import com.gigatronik.rdc.RemotePluginFacade;
+import java.awt.Point;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class StandbyPreventionService implements Runnable, RemoteClientDartPlugin.RemoteClientListener {
+  private static final Logger LOGGER = LoggerFactory.getLogger(StandbyPreventionService.class);
+  
+  private final ScheduledExecutorService executor;
+  
+  private final MouseInterface mouseInterface;
+  
+  private final int gracePeriod;
+  
+  private ScheduledFuture future;
+  
+  private int pingPongPixelDistance = 1;
+  
+  public StandbyPreventionService(ScheduledExecutorService executor, MouseInterface mouseInterface, RemotePluginFacade remotePluginFacade, int gracePeriod) {
+    this.executor = executor;
+    this.mouseInterface = mouseInterface;
+    this.gracePeriod = gracePeriod;
+    remotePluginFacade.addListener(this);
+    start();
+  }
+  
+  public void run() {
+    moveMouse();
+  }
+  
+  public void onClientIDChanged(String id) {}
+  
+  public void onConnectionStateChanged(boolean established, String server) {}
+  
+  public void onSessionStateChanged(boolean established, String peerId) {
+    if (established) {
+      stop();
+    } else {
+      start();
+    } 
+  }
+  
+  private synchronized void start() {
+    if (this.future == null) {
+      this.future = this.executor.scheduleAtFixedRate(this, 0L, (long)this.gracePeriod, TimeUnit.MILLISECONDS);
+      LOGGER.debug("Mouse robot started with grace period {} sec", Long.valueOf(TimeUnit.MILLISECONDS.toSeconds((long)this.gracePeriod)));
+    } 
+  }
+  
+  private synchronized void stop() {
+    if (this.future != null) {
+      this.future.cancel(true);
+      this.future = null;
+      LOGGER.debug("Mouse robot stopped because of remove client session");
+    } 
+  }
+  
+  private void moveMouse() {
+    Point position = this.mouseInterface.getMousePosition();
+    this.mouseInterface.setMousePosition(new Point(position.x, position.y + this.pingPongPixelDistance));
+    this.pingPongPixelDistance = -this.pingPongPixelDistance;
+  }
+}
+

@@ -1,0 +1,749 @@
+JAR: lockservice.common-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\lockservice.common-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/bosch/lockserver/common/AbstractLockService.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common;
+
+import com.gigatronik.bosch.lockserver.common.rmiinterfaces.InputLockInterface;
+import com.gigatronik.bosch.lockserver.common.rmiinterfaces.LockException;
+import com.gigatronik.bosch.lockserver.common.rmiinterfaces.ServiceControl;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.rmi.ConnectException;
+import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.RMIClientSocketFactory;
+import java.rmi.server.RMIServerSocketFactory;
+import java.rmi.server.UnicastRemoteObject;
+import java.util.Arrays;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public abstract class AbstractLockService extends UnicastRemoteObject implements InputLockInterface, ServiceControl {
+  private static final transient Logger LOGGER = LoggerFactory.getLogger(AbstractLockService.class);
+  
+  public static final InetAddress LOCALHOST = InetAddress.getLoopbackAddress();
+  
+  public static final int RMI_REGISTRY_PORT = 60152;
+  
+  public static final String RMI_USERSESSION_SERVERNAME = "com.gigatronik.dart2.bosch.lockserver.usersession";
+  
+  public static final String RMI_SERVICESESSION_SERVERNAME = "com.gigatronik.dart2.bosch.lockserver.servicesession";
+  
+  private static final long serialVersionUID = -6475141977957148843L;
+  
+  private final transient int rmiRegistryPort;
+  
+  private final transient String rmiServerName;
+  
+  static {
+    System.setProperty("java.rmi.server.hostname", LOCALHOST.getHostName());
+  }
+  
+  public AbstractLockService(String rmiServerName, int rmiRegistryPort) throws RemoteException {
+    LOGGER.info("LOCALHOST: {}", LOCALHOST);
+    this.rmiServerName = rmiServerName;
+    this.rmiRegistryPort = rmiRegistryPort;
+  }
+  
+  public void start(String[] args) {
+    LOGGER.info("Starting Service with parameters {}", Arrays.toString(args));
+    LOGGER.debug("Sec policy file is {}", System.getProperty("java.security.policy"));
+    try {
+      setupRegistry();
+    } catch (RemoteException e) {
+      LOGGER.error("Error binding to registry", (Throwable)e);
+    } 
+    LOGGER.info("Server '{}' is registred in registry on port {}", this.rmiServerName, Integer.valueOf(this.rmiRegistryPort));
+  }
+  
+  private void setupRegistry() throws RemoteException {
+    try {
+      LOGGER.info("Setup registry: localhost: {}, rmi_registry_port: {}", LOCALHOST, Integer.valueOf(60152));
+      Registry registry = LocateRegistry.getRegistry(LOCALHOST.getHostName(), 60152);
+      registry.rebind(this.rmiServerName, this);
+    } catch (ConnectException e) {
+      LOGGER.info("Registry on port {} not found. Creating new registry.", Integer.valueOf(this.rmiRegistryPort), e);
+      RMIClientSocketFactory csf = java.net.Socket::new;
+      RMIServerSocketFactory ssf = port -> {
+          LOGGER.info("Creating new Socket '{}:{}'", LOCALHOST, Integer.valueOf(port));
+          return new ServerSocket(port, 50, LOCALHOST);
+        };
+      Registry registry = LocateRegistry.createRegistry(this.rmiRegistryPort, csf, ssf);
+      registry.rebind(this.rmiServerName, this);
+    } 
+  }
+  
+  public void stop(String[] args) {
+    LOGGER.info("Stopping Service with parameters {}", Arrays.toString(args));
+    stopServiceViaRmi(getRmiServerName());
+  }
+  
+  protected void stopServiceViaRmi(String servicename) {
+    try {
+      ServiceConnection<ServiceControl> connection = new ServiceConnection<>(LOCALHOST.getHostName(), servicename, 
+          getRmiRegistryPort());
+      connection.connect();
+      stopRemoteService(connection);
+    } catch (RemoteException|ServiceConnectionException e) {
+      LOGGER.error("Error stopping service", (Throwable)e);
+    } 
+  }
+  
+  private void stopRemoteService(ServiceConnection<ServiceControl> connection) throws RemoteException, ServiceConnectionException {
+    LOGGER.debug("Calling RMI stop on remote service '{}'", connection.getServername());
+    connection.getInterface().stop();
+    LOGGER.debug("Remote service stopped");
+  }
+  
+  public void stop() throws RemoteException {
+    LOGGER.debug("RMI Stop called");
+    try {
+      Registry registry = LocateRegistry.getRegistry(LOCALHOST.getHostName(), this.rmiRegistryPort);
+      registry.unbind(this.rmiServerName);
+      UnicastRemoteObject.unexportObject(this, true);
+    } catch (NotBoundException e) {
+      LOGGER.warn("Failed to stop service", (Throwable)e);
+    } 
+  }
+  
+  public void allowKeyEvent(int eventType) throws RemoteException, LockException {}
+  
+  public void allowMouseEvent(int eventType, int button) throws RemoteException, LockException {}
+  
+  public void stopUserSessionService() throws RemoteException {}
+  
+  public String getRmiServerName() {
+    return this.rmiServerName;
+  }
+  
+  public int getRmiRegistryPort() {
+    return this.rmiRegistryPort;
+  }
+  
+  public void ping() throws RemoteException {}
+  
+  public void init() throws RemoteException {}
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/bosch/lockserver/common/LockStateMonitor.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common;
+
+public interface LockStateMonitor {
+  void startMonitor();
+  
+  void stopMonitor();
+  
+  boolean isInputLocked();
+  
+  void refreshState();
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/bosch/lockserver/common/LockStateMonitorImpl.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common;
+
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class LockStateMonitorImpl implements LockStateMonitor {
+  private static final Logger LOGGER = LoggerFactory.getLogger(LockStateMonitorImpl.class);
+  
+  private static final long REFRESH_DELAY = 0L;
+  
+  private static final long REFRESH_PERIOD = 1000L;
+  
+  private final BooleanSupplier lockServiceLocked;
+  
+  private final ScheduledExecutorService service;
+  
+  private final Consumer<Boolean> lockedChangeListener;
+  
+  private ScheduledFuture taskFuture;
+  
+  private boolean locked;
+  
+  public LockStateMonitorImpl(BooleanSupplier lockServiceLocked, ScheduledExecutorService service, Consumer<Boolean> lockChangeListener) {
+    this.lockServiceLocked = lockServiceLocked;
+    this.service = service;
+    this.lockedChangeListener = lockChangeListener;
+  }
+  
+  public synchronized void startMonitor() {
+    if (!isMonitoring()) {
+      this.taskFuture = this.service.scheduleAtFixedRate(this::refreshState, 0L, 1000L, TimeUnit.MILLISECONDS);
+      LOGGER.debug("Input lock monitor started with delay: {} ms, period: {} ms", Long.valueOf(0L), Long.valueOf(1000L));
+    } 
+  }
+  
+  public synchronized void stopMonitor() {
+    if (isMonitoring()) {
+      this.taskFuture.cancel(false);
+      this.taskFuture = null;
+      LOGGER.debug("Input lock monitor stopped");
+    } 
+  }
+  
+  public boolean isInputLocked() {
+    if (!isMonitoring())
+      refreshState(); 
+    return isLocked();
+  }
+  
+  private synchronized boolean isMonitoring() {
+    return (this.taskFuture != null && !this.taskFuture.isDone());
+  }
+  
+  private synchronized boolean isLocked() {
+    return this.locked;
+  }
+  
+  private synchronized boolean setLocked(boolean locked) {
+    if (this.locked != locked) {
+      LOGGER.debug("Input lock state changed from {} to {}", Boolean.valueOf(this.locked), Boolean.valueOf(locked));
+      this.locked = locked;
+      return true;
+    } 
+    return false;
+  }
+  
+  private void setLockedAndNotifyListener(boolean locked) {
+    if (setLocked(locked) && this.lockedChangeListener != null)
+      this.lockedChangeListener.accept(Boolean.valueOf(locked)); 
+  }
+  
+  public void refreshState() {
+    try {
+      boolean serviceLocked = this.lockServiceLocked.getAsBoolean();
+      setLockedAndNotifyListener(serviceLocked);
+    } catch (RuntimeException e) {
+      LOGGER.error("Input lock check is failed, locked will be set to false", (Throwable)e);
+      setLockedAndNotifyListener(false);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/bosch/lockserver/common/rmiinterfaces/InputLockInterface.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common.rmiinterfaces;
+
+import java.rmi.RemoteException;
+
+public interface InputLockInterface extends PingableRemote {
+  void setLockState(boolean paramBoolean) throws RemoteException, LockException;
+  
+  boolean isInputBlocked() throws RemoteException, LockException;
+  
+  void allowKeyEvent(int paramInt) throws RemoteException, LockException;
+  
+  void allowMouseEvent(int paramInt1, int paramInt2) throws RemoteException, LockException;
+  
+  void stopUserSessionService() throws RemoteException;
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/bosch/lockserver/common/rmiinterfaces/LockException.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common.rmiinterfaces;
+
+public class LockException extends Exception {
+  private static final long serialVersionUID = 5890006655237716024L;
+  
+  public LockException(String cause, Throwable e) {
+    super(cause, e);
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/bosch/lockserver/common/rmiinterfaces/PingableRemote.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common.rmiinterfaces;
+
+import java.rmi.Remote;
+import java.rmi.RemoteException;
+
+public interface PingableRemote extends Remote {
+  void ping() throws RemoteException;
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/bosch/lockserver/common/rmiinterfaces/ServiceControl.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common.rmiinterfaces;
+
+import java.rmi.RemoteException;
+
+public interface ServiceControl extends PingableRemote {
+  void init() throws RemoteException;
+  
+  void stop() throws RemoteException;
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/bosch/lockserver/common/ServiceConnection.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common;
+
+import com.gigatronik.bosch.lockserver.common.rmiinterfaces.PingableRemote;
+import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ServiceConnection<T extends PingableRemote> {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ServiceConnection.class);
+  
+  private T remoteInterface = null;
+  
+  private final String rmiServerName;
+  
+  private final String registryHostname;
+  
+  private final int registryPort;
+  
+  public ServiceConnection(String registryHostname, String rmiServername, int registryPort) {
+    LOGGER.debug("Creating Service Connection: registryHostname: {}, rmiServername: {}, registryPort {}", registryHostname, rmiServername, registryPort);
+    this.rmiServerName = rmiServername;
+    this.registryPort = registryPort;
+    this.registryHostname = registryHostname;
+  }
+  
+  private T connectRMI() throws RemoteException, NotBoundException {
+    T result = null;
+    result = (T)getRegistry().lookup(this.rmiServerName);
+    result.ping();
+    return result;
+  }
+  
+  private Registry getRegistry() throws RemoteException {
+    Registry registry = LocateRegistry.getRegistry(this.registryHostname, this.registryPort);
+    return registry;
+  }
+  
+  public boolean ping(String peerRmiServerName) throws ServiceConnectionException {
+    PingableRemote peer;
+    try {
+      peer = (PingableRemote)getRegistry().lookup(peerRmiServerName);
+    } catch (NotBoundException|RemoteException e) {
+      throw new ServiceConnectionException("Error accessing registry", e);
+    } 
+    try {
+      peer.ping();
+      return true;
+    } catch (RemoteException e) {
+      LOGGER.debug("Error pinging remote", (Throwable)e);
+      return false;
+    } 
+  }
+  
+  public boolean isConnected() {
+    if (this.remoteInterface != null)
+      try {
+        this.remoteInterface.ping();
+        return true;
+      } catch (RemoteException e) {
+        LOGGER.debug("Pinging remote failed", (Throwable)e);
+        this.remoteInterface = null;
+      }  
+    return false;
+  }
+  
+  public void connect() throws ServiceConnectionException {
+    try {
+      this.remoteInterface = connectRMI();
+    } catch (RemoteException|NotBoundException e) {
+      throw new ServiceConnectionException("Error connecting to remote service", e);
+    } 
+  }
+  
+  public T getInterface() throws ServiceConnectionException {
+    if (this.remoteInterface == null)
+      throw new ServiceConnectionException("Remote interface not available. Was connect() called first?"); 
+    return this.remoteInterface;
+  }
+  
+  public String getServername() {
+    return this.rmiServerName;
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/bosch/lockserver/common/ServiceConnectionException.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common;
+
+public class ServiceConnectionException extends Exception {
+  private static final long serialVersionUID = -944066469268679973L;
+  
+  public ServiceConnectionException(String string, Exception e) {
+    super(string, e);
+  }
+  
+  public ServiceConnectionException(String string) {
+    super(string);
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/bosch/lockserver/common/winapi/CustomAdvapi32.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common.winapi;
+
+import com.sun.jna.platform.win32.Advapi32;
+import com.sun.jna.platform.win32.WinNT;
+import com.sun.jna.ptr.IntByReference;
+
+public interface CustomAdvapi32 extends Advapi32 {
+  boolean SetTokenInformation(WinNT.HANDLE paramHANDLE, int paramInt1, IntByReference paramIntByReference, int paramInt2);
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/bosch/lockserver/common/winapi/CustomKernel32.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common.winapi;
+
+import com.sun.jna.platform.win32.Kernel32;
+import com.sun.jna.platform.win32.WinDef;
+
+public interface CustomKernel32 extends Kernel32 {
+  WinDef.DWORD WTSGetActiveConsoleSessionId();
+  
+  boolean ProcessIdToSessionId(WinDef.DWORD paramDWORD, WinDef.DWORDByReference paramDWORDByReference);
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/bosch/lockserver/common/winapi/KeyhookLibrary.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common.winapi;
+
+import com.sun.jna.Library;
+import com.sun.jna.platform.win32.WinDef;
+
+public interface KeyhookLibrary extends Library {
+  boolean LockInput(boolean paramBoolean);
+  
+  boolean IsBlocked();
+  
+  void AllowKeyboardEvent(WinDef.DWORD paramDWORD);
+  
+  void AllowMouseEvent(WinDef.DWORD paramDWORD);
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/bosch/lockserver/common/winapi/KeyhookNativeInterface.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common.winapi;
+
+import com.sun.jna.Native;
+import com.sun.jna.platform.win32.WinDef;
+import com.sun.jna.win32.W32APIOptions;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class KeyhookNativeInterface {
+  private static final Logger LOGGER = LoggerFactory.getLogger(KeyhookNativeInterface.class);
+  
+  private static final String KEYBOARD_LOCK_LIB_32 = "keyhook32";
+  
+  private static final String KEYBOARD_LOCK_LIB_64 = "keyhook64";
+  
+  private final KeyhookLibrary keyhookLibrary;
+  
+  public KeyhookNativeInterface() {
+    this.keyhookLibrary = loadKeyboardLockLibrary();
+  }
+  
+  public KeyhookNativeInterface(KeyhookLibrary keyhookLibrary) {
+    this.keyhookLibrary = keyhookLibrary;
+  }
+  
+  public void allowKeyEvent(int eventType) {
+    if (eventType == 401) {
+      eventType = 256;
+    } else if (eventType == 402) {
+      eventType = 257;
+    } else {
+      throw new IllegalArgumentException("Unsupported key event type " + eventType);
+    } 
+    LOGGER.debug("keyhookLibrary.AllowKeyboardEvent({})", Integer.valueOf(eventType));
+    this.keyhookLibrary.AllowKeyboardEvent(new WinDef.DWORD((long)eventType));
+  }
+  
+  public void allowMouseInput(int eventType, int buttons) {
+    if (eventType == 503) {
+      eventType = 512;
+    } else if (eventType == 507) {
+      eventType = 522;
+    } else if (eventType == 501 && buttons == 1) {
+      eventType = 513;
+    } else if (eventType == 501 && buttons == 2) {
+      eventType = 519;
+    } else if (eventType == 501 && buttons == 3) {
+      eventType = 516;
+    } else if (eventType == 502 && buttons == 1) {
+      eventType = 514;
+    } else if (eventType == 502 && buttons == 2) {
+      eventType = 520;
+    } else if (eventType == 502 && buttons == 3) {
+      eventType = 517;
+    } else {
+      throw new IllegalArgumentException("Unsupported mouse event type " + eventType);
+    } 
+    LOGGER.debug("keyhookLibrary.AllowMouseEvent({})", Integer.valueOf(eventType));
+    this.keyhookLibrary.AllowMouseEvent(new WinDef.DWORD((long)eventType));
+  }
+  
+  public boolean blockInput(boolean block) {
+    LOGGER.debug("Calling keylock library to {}...", block ? "block" : "unblock");
+    boolean result = this.keyhookLibrary.LockInput(block);
+    LOGGER.debug("{} by keyboard library: {}", block ? "Blocked" : "Unblocked", Boolean.valueOf(result));
+    return result;
+  }
+  
+  public boolean isInputBlocked() {
+    boolean locked = this.keyhookLibrary.IsBlocked();
+    LOGGER.debug("Is input locked={}", Boolean.valueOf(locked));
+    return locked;
+  }
+  
+  private static KeyhookLibrary loadKeyboardLockLibrary() {
+    String lib, fallbackLib;
+    LOGGER.debug("Loading keylock library...");
+    String arch = System.getProperty("os.arch");
+    if (arch == null || arch.endsWith("64")) {
+      lib = "keyhook64";
+      fallbackLib = "keyhook32";
+    } else {
+      lib = "keyhook32";
+      fallbackLib = "keyhook64";
+    } 
+    KeyhookLibrary library = KeyhookNativeInterface.<KeyhookLibrary>loadLibrary(lib, KeyhookLibrary.class, W32APIOptions.UNICODE_OPTIONS);
+    if (library == null)
+      library = KeyhookNativeInterface.<KeyhookLibrary>loadLibrary(fallbackLib, KeyhookLibrary.class, W32APIOptions.UNICODE_OPTIONS); 
+    if (library == null)
+      throw new IllegalStateException("Failed to load input lock library"); 
+    return library;
+  }
+  
+  private static <T> T loadLibrary(String library, Class<T> libraryInterface, Map options) {
+    try {
+      LOGGER.debug("Load library {}, interface={}, options={}", library, libraryInterface, options);
+      T loadLibrary = (T)Native.loadLibrary(library, libraryInterface, options);
+      LOGGER.debug("Library {} loaded", library);
+      return loadLibrary;
+    } catch (UnsatisfiedLinkError|Exception e) {
+      LOGGER.debug("Failed to load library {}", library, e);
+      throw e;
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/bosch/lockserver/common/winapi/NativeInterface.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common.winapi;
+
+import com.sun.jna.LastErrorException;
+import com.sun.jna.Native;
+import com.sun.jna.NativeLong;
+import com.sun.jna.platform.win32.WinBase;
+import com.sun.jna.platform.win32.WinDef;
+import com.sun.jna.platform.win32.WinNT;
+import com.sun.jna.ptr.IntByReference;
+import com.sun.jna.ptr.PointerByReference;
+import com.sun.jna.win32.W32APIOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class NativeInterface {
+  private static final Logger LOGGER = LoggerFactory.getLogger(NativeInterface.class);
+  
+  private final CustomKernel32 kernel32;
+  
+  private final Wtsapi32 wtsapi32;
+  
+  private final CustomAdvapi32 advapi32;
+  
+  public NativeInterface(CustomKernel32 ke32, Wtsapi32 wa32, CustomAdvapi32 aa32) {
+    this.kernel32 = ke32;
+    this.wtsapi32 = wa32;
+    this.advapi32 = aa32;
+  }
+  
+  public NativeInterface() {
+    this.kernel32 = (CustomKernel32)Native.loadLibrary("kernel32", CustomKernel32.class, W32APIOptions.UNICODE_OPTIONS);
+    this.wtsapi32 = (Wtsapi32)Native.loadLibrary("Wtsapi32", Wtsapi32.class, W32APIOptions.UNICODE_OPTIONS);
+    this.advapi32 = (CustomAdvapi32)Native.loadLibrary("Advapi32", CustomAdvapi32.class, W32APIOptions.UNICODE_OPTIONS);
+  }
+  
+  protected WinDef.DWORD getCurrentSessionId() throws WindowsAPIException {
+    WinDef.DWORD processId = new WinDef.DWORD((long)this.kernel32.GetCurrentProcessId());
+    WinDef.DWORDByReference pSessionId = new WinDef.DWORDByReference();
+    checkAPIError(this.kernel32.ProcessIdToSessionId(processId, pSessionId));
+    return pSessionId.getValue();
+  }
+  
+  protected WinNT.HANDLE getUserToken(WinDef.DWORD serviceSessionId) throws WindowsAPIException {
+    LOGGER.debug("getUserToken for session {}", serviceSessionId);
+    WinNT.HANDLEByReference result = new WinNT.HANDLEByReference();
+    checkAPIError(this.wtsapi32.WTSQueryUserToken(new NativeLong((long)serviceSessionId.intValue()), result));
+    LOGGER.debug("returned token is {}", result.getValue());
+    return result.getValue();
+  }
+  
+  public static String formatMessage(int code) {
+    PointerByReference buffer = new PointerByReference();
+    if (0 == CustomKernel32.INSTANCE.FormatMessage(4864, null, code, 0, buffer, 0, null))
+      throw new LastErrorException(CustomKernel32.INSTANCE.GetLastError()); 
+    String s = buffer.getValue().getWideString(0L);
+    CustomKernel32.INSTANCE.LocalFree(buffer.getValue());
+    return s.trim();
+  }
+  
+  protected void checkAPIError(boolean result) throws WindowsAPIException {
+    if (!result) {
+      int error = this.kernel32.GetLastError();
+      LOGGER.debug("Windows Error Code {}", Integer.valueOf(error));
+      throw new WindowsAPIException(error, formatMessage(error));
+    } 
+  }
+  
+  protected WinNT.HANDLE getCurrentProcessToken() throws WindowsAPIException {
+    WinNT.HANDLE ourProcessHandle = this.kernel32.GetCurrentProcess();
+    try {
+      LOGGER.debug("Process Handle is {}", ourProcessHandle);
+      WinNT.HANDLEByReference ourToken = new WinNT.HANDLEByReference();
+      checkAPIError(this.advapi32.OpenProcessToken(ourProcessHandle, 983551, ourToken));
+      return ourToken.getValue();
+    } finally {
+      this.kernel32.CloseHandle(ourProcessHandle);
+    } 
+  }
+  
+  public void launchProcessInUserSession(String process) throws WindowsAPIException {
+    WinDef.DWORD interactiveSessionId = this.kernel32.WTSGetActiveConsoleSessionId();
+    WinDef.DWORD serviceSessionId = getCurrentSessionId();
+    WinNT.HANDLEByReference pExecutionToken = new WinNT.HANDLEByReference();
+    WinNT.HANDLE currentProcessToken = getCurrentProcessToken();
+    try {
+      WinNT.HANDLE interactiveUserToken = getUserToken(interactiveSessionId);
+      LOGGER.debug("Interactive Session ID: {}", Long.valueOf(interactiveSessionId.longValue()));
+      LOGGER.debug("Service Session ID: {}", Long.valueOf(serviceSessionId.longValue()));
+      LOGGER.debug("Current Process Token: {}", currentProcessToken);
+      LOGGER.debug("Interactive User Token: {}", interactiveUserToken);
+      checkAPIError(this.advapi32.DuplicateTokenEx(currentProcessToken, 983551, null, 2, 1, pExecutionToken));
+    } finally {
+      this.kernel32.CloseHandle(currentProcessToken);
+    } 
+    WinNT.HANDLE executionToken = pExecutionToken.getValue();
+    try {
+      checkAPIError(this.advapi32.SetTokenInformation(executionToken, 12, new IntByReference(
+              interactiveSessionId.intValue()), 4));
+      LOGGER.debug("Set token session to {}", interactiveSessionId);
+      LOGGER.debug("Executing {}", process);
+      WinBase.STARTUPINFO si = new WinBase.STARTUPINFO();
+      WinBase.PROCESS_INFORMATION processInfo = new WinBase.PROCESS_INFORMATION();
+      int dwFlags = 8;
+      checkAPIError(
+          this.advapi32.CreateProcessAsUser(executionToken, null, process, null, null, false, 8, null, null, si, processInfo));
+      LOGGER.debug("Execution done. Process ID is {}", processInfo.dwProcessId);
+    } finally {
+      this.kernel32.CloseHandle(executionToken);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/bosch/lockserver/common/winapi/WindowsAPIException.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common.winapi;
+
+public class WindowsAPIException extends Exception {
+  private static final long serialVersionUID = 2747165809809093082L;
+  
+  private final int code;
+  
+  public WindowsAPIException(int apiErrorCode) {
+    super("Windows API returned code " + apiErrorCode);
+    this.code = apiErrorCode;
+  }
+  
+  public WindowsAPIException(int apiErrorCode, String formatMessage) {
+    super("Windows API returned code " + apiErrorCode + ": '" + formatMessage + "'");
+    this.code = apiErrorCode;
+  }
+  
+  public int getErrorCode() {
+    return this.code;
+  }
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/bosch/lockserver/common/winapi/WMEvent.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common.winapi;
+
+public class WMEvent {
+  public static final int WM_MOUSEMOVE = 512;
+  
+  public static final int WM_MOUSEWHEEL = 522;
+  
+  public static final int WM_LBUTTONDOWN = 513;
+  
+  public static final int WM_LBUTTONUP = 514;
+  
+  public static final int WM_MBUTTONDOWN = 519;
+  
+  public static final int WM_MBUTTONUP = 520;
+  
+  public static final int WM_RBUTTONDOWN = 516;
+  
+  public static final int WM_RBUTTONUP = 517;
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/bosch/lockserver/common/winapi/Wtsapi32.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.common.winapi;
+
+import com.sun.jna.NativeLong;
+import com.sun.jna.platform.win32.WinNT;
+import com.sun.jna.win32.StdCallLibrary;
+
+public interface Wtsapi32 extends StdCallLibrary {
+  boolean WTSQueryUserToken(NativeLong paramNativeLong, WinNT.HANDLEByReference paramHANDLEByReference);
+}
+

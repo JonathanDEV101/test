@@ -1,0 +1,3665 @@
+JAR: common-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\common-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/common/bct/BctBatteryType.java
+========================================================================================================================
+package com.gigatronik.beds.common.bct;
+
+public enum BctBatteryType {
+  NONE, CLASSIC, VICTOR;
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/common/bct/BctError.java
+========================================================================================================================
+package com.gigatronik.beds.common.bct;
+
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+import java.util.MissingResourceException;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public enum BctError {
+  UNKNOWN("BctError.UNKNOWN.text"),
+  EMON_NO_FAULT(""),
+  EMON_COMMUNICATION_TO_BAT_NOT_POSSIBLE("BctError.EMON_COMMUNICATION_TO_BAT_NOT_POSSIBLE.text"),
+  EMON_WRONG_BAT_TYPE_SELECTED("BctError.EMON_WRONG_BAT_TYPE_SELECTED.text"),
+  EMON_LOST_CAN_COMMUNICATION("BctError.EMON_LOST_CAN_COMMUNICATION.text"),
+  EMON_BAT_NOT_FULLY_CHARGED("BctError.EMON_BAT_NOT_FULLY_CHARGED.text"),
+  EMON_FAN_BLOCKED("BctError.EMON_FAN_BLOCKED.text"),
+  EMON_BAT_TEMP_TOO_LOW("BctError.EMON_BAT_TEMP_TO_LOW.text"),
+  EMON_BAT_TEMP_TOO_HIGH("BctError.EMON_BAT_TEMP_TO_HIGH.text"),
+  EMON_MEASUREMENT_CANCELED_BY_TESTER("BctError.EMON_MEASUREMENT_CANCELED_BY_TESTER.text", "BctError.EMON_DISCHARGE_CANCELED_BY_USER.text"),
+  EMON_BAT_DISCONNECTED_DURING_MEASUREMENT("BctError.EMON_BAT_DISCONNECTED_DURING_MEASUREMENT.text"),
+  EMON_DRIVEUNIT_DETECTED("BctError.EMON_DRIVEUNIT_DETECTED.text"),
+  EMON_BAT_CHARGER_DETECTED("BctError.EMON_BAT_CHARGER_DETECTED.text"),
+  EMON_MULTI_BAT_DETECTED("BctError.EMON_MULTI_BAT_DETECTED.text"),
+  EMON_BAT_DATA_NOT_AVAILABLE("BctError.EMON_BAT_DATA_NOT_AVAILABLE.text"),
+  EMON_BCT_TEMP_TOO_HIGH("BctError.EMON_BCT_TEMP_TO_HIGH.text"),
+  EMON_BCT_INPUT_SHORTED("BctError.EMON_BCT_INPUT_SHORTED.text"),
+  EMON_BCT_INTERNAL_FAULT("BctError.EMON_BCT_INTERNAL_FAULT.text"),
+  EMON_BAT_INTERNAL_FAULT("BctError.EMON_BAT_INTERNAL_FAULT.text"),
+  EMON_BCT_TEMP_TOO_LOW("BctError.EMON_BCT_TEMP_TOO_LOW.text");
+  
+  private static final Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(BctError.class);
+  
+  private final String textKey;
+  
+  private String disKey;
+  
+  BctError(String key) {
+    this.textKey = key;
+  }
+  
+  BctError(String measKey, String discKey) {
+    this.textKey = measKey;
+    this.disKey = discKey;
+  }
+  
+  public String getText() {
+    String text;
+    try {
+      text = StringUtils.isBlank(this.textKey) ? "" : BUNDLE.getString(this.textKey);
+    } catch (MissingResourceException e) {
+      LOGGER.error("Error text for {} missing in resource bundle.", name(), e);
+      text = name();
+    } 
+    return text;
+  }
+  
+  public String getText(boolean discharge) {
+    return (discharge && StringUtils.isNotBlank(this.disKey)) ? BUNDLE.getString(this.disKey) : getText();
+  }
+  
+  public static BctError parse(String name) {
+    try {
+      if (name != null)
+        return valueOf(name); 
+      return UNKNOWN;
+    } catch (Exception e) {
+      LOGGER.error("Error parsing ComponentType: " + e.getMessage(), (Throwable)e);
+      return UNKNOWN;
+    } 
+  }
+  
+  public boolean isMeasurementError() {
+    return (this == EMON_BAT_DISCONNECTED_DURING_MEASUREMENT || this == EMON_LOST_CAN_COMMUNICATION);
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/common/bct/BctResponse.java
+========================================================================================================================
+package com.gigatronik.beds.common.bct;
+
+public enum BctResponse {
+  OK, NO_BATTERY_SET, NO_RESPONSE, REJECTED, BATTERY_NO_RESPONSE;
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/common/bct/BctState.java
+========================================================================================================================
+package com.gigatronik.beds.common.bct;
+
+public enum BctState {
+  NOT_CONNECTED, CONNECTED_FBL, IDLE, IDLE_BATTERY_SET, TEST_RUNNING, TEST_FINISHED, TEST_ERROR, DISCHARGE_RUNNING, DISCHARGE_FINISHED, DISCHARGE_ERROR;
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/common/bct/BctTestProgress.java
+========================================================================================================================
+package com.gigatronik.beds.common.bct;
+
+public class BctTestProgress {
+  private final int stateOfCharge;
+  
+  private final int remainingMinutes;
+  
+  public BctTestProgress(int stateOfCharge, int remainingMinutes) {
+    this.stateOfCharge = stateOfCharge;
+    this.remainingMinutes = remainingMinutes;
+  }
+  
+  public int getStateOfCharge() {
+    return this.stateOfCharge;
+  }
+  
+  public int getRemainingMinutes() {
+    return this.remainingMinutes;
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/common/event/AbstractOptionPaneEvent.java
+========================================================================================================================
+package com.gigatronik.beds.common.event;
+
+public abstract class AbstractOptionPaneEvent {
+  private String messageKey;
+  
+  private String titleKey;
+  
+  public String getMessageKey() {
+    return this.messageKey;
+  }
+  
+  public void setMessageKey(String messageKey) {
+    this.messageKey = messageKey;
+  }
+  
+  public String getTitleKey() {
+    return this.titleKey;
+  }
+  
+  public void setTitleKey(String titleKey) {
+    this.titleKey = titleKey;
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/common/event/ApplicationEventQueue.java
+========================================================================================================================
+package com.gigatronik.beds.common.event;
+
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ApplicationEventQueue {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ApplicationEventQueue.class);
+  
+  private static final ApplicationEventQueue INSTANCE = new ApplicationEventQueue();
+  
+  private static final ScheduledExecutorService EXECUTOR = Executors.newSingleThreadScheduledExecutor(new BasicThreadFactory.Builder().namingPattern("ApplicationEventQueue").build());
+  
+  public static ApplicationEventQueue getInstance() {
+    return INSTANCE;
+  }
+  
+  public synchronized void queueJob(Runnable job, String description) {
+    LOGGER.debug("Queue job '{}'", description);
+    EXECUTOR.execute(job);
+  }
+  
+  @Deprecated
+  public static ScheduledExecutorService getExecutor() {
+    return EXECUTOR;
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/beds/common/order/ListSortingException.java
+========================================================================================================================
+package com.gigatronik.beds.common.order;
+
+class ListSortingException extends Exception {
+  ListSortingException(String message) {
+    super(message);
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/beds/common/order/ListSortMachine.java
+========================================================================================================================
+package com.gigatronik.beds.common.order;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ListSortMachine<T extends OrderableListener> {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ListSortMachine.class);
+  
+  private final List<String> orderGuideListHead;
+  
+  private final List<String> orderGuideListTail;
+  
+  public ListSortMachine(List<String> orderGuideListHead, List<String> orderGuideListTail) {
+    this.orderGuideListHead = orderGuideListHead;
+    this.orderGuideListTail = orderGuideListTail;
+  }
+  
+  public void sortList(List<T> list) {
+    List<T> sortedList = createSortedList(list);
+    transferOrdering(list, sortedList);
+  }
+  
+  private List<T> createSortedList(List<T> list) {
+    List<List<T>> lists = splitListInGroups(list);
+    orderLists(lists);
+    return mergeLists(lists);
+  }
+  
+  private List<List<T>> splitListInGroups(List<T> list) {
+    List<T> head = new ArrayList<>();
+    List<T> body = new ArrayList<>();
+    List<T> tail = new ArrayList<>();
+    list.forEach(listener -> {
+          if (isInHeadList(listener)) {
+            head.add(listener);
+          } else if (isInTailList(listener)) {
+            tail.add(listener);
+          } else {
+            body.add(listener);
+          } 
+        });
+    List<List<T>> lists = new ArrayList<>();
+    lists.add(head);
+    lists.add(body);
+    lists.add(tail);
+    return lists;
+  }
+  
+  private boolean isInHeadList(T element) {
+    return this.orderGuideListHead.contains(element.getOrderingName());
+  }
+  
+  private boolean isInTailList(T element) {
+    return this.orderGuideListTail.contains(element.getOrderingName());
+  }
+  
+  private void orderLists(List<List<T>> lists) {
+    orderListPart(lists.get(0), this.orderGuideListHead);
+    orderListPart(lists.get(2), this.orderGuideListTail);
+  }
+  
+  private void orderListPart(List<T> list, List<String> orderGuideList) {
+    list.sort(Comparator.comparingInt(element -> computeShouldIndex(element, orderGuideList)));
+  }
+  
+  private int computeShouldIndex(T element, List<String> orderGuideList) {
+    try {
+      return computeShouldIndexTry(element, orderGuideList);
+    } catch (ListSortingException ex) {
+      LOGGER.warn("Ordering list element '" + element + "' failed", (Throwable)ex);
+      return 0;
+    } 
+  }
+  
+  private int computeShouldIndexTry(T listener, List<String> orderGuideList) throws ListSortingException {
+    Optional<String> match = orderGuideList.stream().filter(listElement -> listElement.equalsIgnoreCase(listener.getOrderingName())).findFirst();
+    if (match.isPresent())
+      return orderGuideList.indexOf(match.get()); 
+    throw new ListSortingException("Computing index for listener '" + listener + "' not possible, 'cause element's not in list");
+  }
+  
+  private List<T> mergeLists(List<List<T>> lists) {
+    List<T> mergedList = new ArrayList<>();
+    Objects.requireNonNull(mergedList);
+    lists.forEach(mergedList::addAll);
+    return mergedList;
+  }
+  
+  private void transferOrdering(List<T> unsortedList, List<T> sortedList) {
+    unsortedList.clear();
+    unsortedList.addAll(sortedList);
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/beds/common/order/OrderableListener.java
+========================================================================================================================
+package com.gigatronik.beds.common.order;
+
+public interface OrderableListener {
+  default String getOrderingName() {
+    return getClass().getSimpleName();
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/ebike/common/configuration/BikeIdentification.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration;
+
+import java.util.List;
+
+public interface BikeIdentification {
+  HmiIdentification getHmiIdentification();
+  
+  DuIdentification getDuIdentification();
+  
+  BmsIdentification getBms1Identification();
+  
+  BmsIdentification getBms2Identification();
+  
+  EshiftIdentification getEShiftIdentification();
+  
+  EcuIdentification getBctIdentification();
+  
+  EcuIdentification getAbsIdentification();
+  
+  EcuIdentification getBcsIdentification();
+  
+  Constants.SystemType getSystemType();
+  
+  String getApplicationId();
+  
+  ComplexResponse getApplicationIdResponse();
+  
+  String getBikeId();
+  
+  ComplexResponse getBikeIdResponse();
+  
+  String getBikeType();
+  
+  String getBikeTypeDisplayName();
+  
+  ProductLine getProductLine();
+  
+  String getProductLineDisplayName();
+  
+  boolean isHmiConnected();
+  
+  boolean isBctConnected();
+  
+  boolean isDuConnected();
+  
+  boolean isBms1Connected();
+  
+  boolean isBms2Connected();
+  
+  boolean isAbsConnected();
+  
+  boolean isBcsConnected();
+  
+  boolean isEshiftConnected();
+  
+  boolean isAutoDownShiftSupported();
+  
+  boolean isShiftDetectionSupported();
+  
+  boolean isWalkAssistSupported();
+  
+  boolean isHmiStandalone();
+  
+  boolean isDriveOffSupported();
+  
+  String isHmiLessSystem();
+  
+  ComplexResponse getHmiLessSystemResponse();
+  
+  List<ComponentType> getAllConnectedComponentTypes();
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/ebike/common/configuration/BikeType.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration;
+
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+import org.apache.commons.lang3.StringUtils;
+
+public enum BikeType {
+  UNDEFINED("", ""),
+  PEDELEC("BIKE_TYPE_PEDELEC", "EBikeApplication.bikeType.pedelec"),
+  SPEED("BIKE_TYPE_SPEED_BIKE", "EBikeApplication.bikeType.speedBike"),
+  SPORT("BIKE_TYPE_SPORT", "EBikeApplication.bikeType.sport"),
+  CLASSIC_PLUS("BIKE_TYPE_CLASSIC_PLUS", "EBikeApplication.bikeType.classicPlus");
+  
+  private static final Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  private final String xmlAttribute;
+  
+  private final String displayNameProperty;
+  
+  BikeType(String xmlAttribute, String displayNameProperty) {
+    this.xmlAttribute = xmlAttribute;
+    this.displayNameProperty = displayNameProperty;
+  }
+  
+  public String getXmlAttribute() {
+    return this.xmlAttribute;
+  }
+  
+  public String getDisplayName() {
+    if (this == UNDEFINED)
+      return this.xmlAttribute; 
+    return BUNDLE.getString(this.displayNameProperty);
+  }
+  
+  public static BikeType getValueByXmlAttribute(String attribute) {
+    for (BikeType value : values()) {
+      if (value.getXmlAttribute().equals(attribute))
+        return value; 
+    } 
+    return UNDEFINED;
+  }
+  
+  public static BikeType fromDisplayName(String name) {
+    if (StringUtils.isNotBlank(name))
+      for (BikeType value : values()) {
+        if (value.getDisplayName().equals(name))
+          return value; 
+      }  
+    return UNDEFINED;
+  }
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/ebike/common/configuration/BmsIdentification.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration;
+
+public class BmsIdentification extends EcuIdentification {
+  private boolean isSecondBms = false;
+  
+  public void clear() {
+    this.isSecondBms = false;
+    super.clear();
+  }
+  
+  public void setBatteryNumber(boolean isBattery2) {
+    this.isSecondBms = isBattery2;
+  }
+  
+  public boolean isBatteryTwo() {
+    return this.isSecondBms;
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/ebike/common/configuration/ComplexResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration;
+
+import com.gigatronik.dart2.bosch.service.internationalization.I18NDateTimesFormats;
+import com.gigatronik.dart2.framework.util.Version;
+import java.io.IOException;
+import java.text.ParseException;
+import java.util.Date;
+import java.util.List;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public final class ComplexResponse {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ComplexResponse.class);
+  
+  private final Object value;
+  
+  public class DataAccessException extends Exception {
+    private static final long serialVersionUID = 1L;
+    
+    public DataAccessException(String message) {
+      super(message);
+    }
+  }
+  
+  public ComplexResponse(String value) {
+    this.value = value;
+  }
+  
+  public ComplexResponse(List<Parameter> value) {
+    this.value = value;
+  }
+  
+  public ComplexResponse(Version value) {
+    this.value = value;
+  }
+  
+  public ComplexResponse(Date value) {
+    this.value = value;
+  }
+  
+  public ComplexResponse(NegativeResponse value) {
+    this.value = value;
+  }
+  
+  public boolean isPositive() {
+    return (this.value != null && !isNegative());
+  }
+  
+  public boolean isNegative() {
+    return this.value instanceof NegativeResponse;
+  }
+  
+  public String getString() throws DataAccessException {
+    if (this.value instanceof String)
+      return (String)this.value; 
+    if (this.value instanceof Version) {
+      LOGGER.warn("getString() called on Version - try conversion");
+      return this.value.toString();
+    } 
+    if (this.value instanceof Date) {
+      LOGGER.warn("getString() called on Date - try conversion");
+      return dateValueToString((Date)this.value);
+    } 
+    throw createException();
+  }
+  
+  public Date getDate() throws DataAccessException {
+    if (this.value instanceof Date)
+      return (Date)this.value; 
+    if (this.value instanceof String) {
+      LOGGER.warn("getDate() called on String - try conversion");
+      return stringToDate((String)this.value);
+    } 
+    throw createException();
+  }
+  
+  public Version getVersion() throws DataAccessException {
+    if (this.value instanceof Version)
+      return (Version)this.value; 
+    if (this.value instanceof String) {
+      LOGGER.warn("getVersion() called on String - try conversion");
+      return stringToVersion((String)this.value);
+    } 
+    throw createException();
+  }
+  
+  public NegativeResponse getNegativeResponse() throws DataAccessException {
+    if (this.value instanceof NegativeResponse)
+      return (NegativeResponse)this.value; 
+    throw createException();
+  }
+  
+  public String toString() {
+    if (this.value instanceof NegativeResponse)
+      return ((NegativeResponse)this.value).getErrorText(); 
+    if (this.value instanceof String)
+      return (String)this.value; 
+    if (this.value instanceof Version)
+      return ((Version)this.value).toString(); 
+    if (this.value instanceof Date)
+      return dateValueToString((Date)this.value); 
+    if (this.value instanceof List)
+      return listValueToString((List<Parameter>)this.value); 
+    return (this.value != null) ? this.value.toString() : "";
+  }
+  
+  private String dateValueToString(Date date) {
+    return I18NDateTimesFormats.formatDateToInternalToolFormat(date);
+  }
+  
+  private Date stringToDate(String date) throws DataAccessException {
+    try {
+      return I18NDateTimesFormats.getInternalDateFormat().parse(date);
+    } catch (ParseException ex) {
+      LOGGER.error("Error parsing String to Date", ex.getMessage());
+      throw createException();
+    } 
+  }
+  
+  private String listValueToString(List<Parameter> list) {
+    StringBuilder strb = new StringBuilder();
+    for (Parameter parameter : list) {
+      strb.append(parameter.getValue());
+      strb.append(",");
+    } 
+    return (strb.length() > 0) ? strb.deleteCharAt(strb.length() - 1).toString() : "";
+  }
+  
+  private Version stringToVersion(String version) throws DataAccessException {
+    try {
+      return Version.parse(version);
+    } catch (IOException|NumberFormatException ex) {
+      LOGGER.error("Error parsing String to Version", ex.getMessage());
+      throw createException();
+    } 
+  }
+  
+  private DataAccessException createException() {
+    if (this.value == null)
+      return new DataAccessException("Value is null"); 
+    return new DataAccessException("Requested value is invalid");
+  }
+  
+  public List<Parameter> getParameterList() throws DataAccessException {
+    if (this.value instanceof List)
+      return (List<Parameter>)this.value; 
+    throw createException();
+  }
+  
+  public Parameter getParameterByName(String name) throws DataAccessException {
+    if (this.value instanceof List)
+      for (Parameter parameter : (Iterable<Parameter>)this.value) {
+        if (StringUtils.equals(parameter.getName(), name))
+          return parameter; 
+      }  
+    throw createException();
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/ebike/common/configuration/ComponentType.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public enum ComponentType {
+  NONE("", Constants.PRODUCTNAME_NONE, ""),
+  COMP_UNSPECIFIED("", Constants.PRODUCTNAME_UNSPECIFIED, ""),
+  COMP_BBA100("ABS", Constants.PRODUCTNAME_BBA100, ""),
+  COMP_BCS250("BCS", Constants.PRODUCTNAME_BCS250, ""),
+  COMP_BCT100("BCT", Constants.PRODUCTNAME_BCT100, ""),
+  COMP_BSE100("", Constants.PRODUCTNAME_BSE100, ""),
+  COMP_BDU100("DU_ReleaseKW43", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_CLASSIC_PLUS),
+  COMP_BDU190("DU_ReleaseKW43", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_CLASSIC_PLUS),
+  COMP_BDU250("BDU250", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_CRUISE),
+  COMP_BDU255("BDU250", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_CRUISE_BACKPEDAL),
+  COMP_BDU280("BDU250", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_20MPH),
+  COMP_BDU290("BDU250", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_SPEED),
+  COMP_BDU310("BDU3XX", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_CRUISE),
+  COMP_BDU330("BDU3XX", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_20MPH),
+  COMP_BDU350("BDU3XX", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_CRUISE),
+  COMP_BDU365("BDU3XX", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_CRUISE),
+  COMP_BDU380("BDU3XX", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_20MPH),
+  COMP_BDU385("BDU3XX", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_20MPH),
+  COMP_BDU386("BDU3XX", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_SPEED),
+  COMP_BDU450("BDU3XX", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_CRUISE),
+  COMP_BDU480("BDU3XX", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_20MPH),
+  COMP_BDU490("BDU3XX", Constants.PRODUCTNAME_BDUXXX, Constants.PRODUCTLINE_SPEED),
+  COMP_BUI100("", Constants.PRODUCTNAME_BUI100, ""),
+  COMP_BUI210("BUI210", Constants.PRODUCTNAME_BUI21X, ""),
+  COMP_BUI215("BUI210", Constants.PRODUCTNAME_BUI21X, ""),
+  COMP_BUI250("BUI2x0", Constants.PRODUCTNAME_BUI25X, Constants.PRODUCTLINE_CLASSIC_PLUS),
+  COMP_BUI251("BUI2x0", Constants.PRODUCTNAME_BUI25X, ""),
+  COMP_BUI255("BUI2x0", Constants.PRODUCTNAME_BUI25X, ""),
+  COMP_BUI270("BUI270", Constants.PRODUCTNAME_BUI27X, ""),
+  COMP_BUI275("BUI270", Constants.PRODUCTNAME_BUI27X, ""),
+  COMP_BUI330("BUI33x", Constants.PRODUCTNAME_BUI330, ""),
+  COMP_BUI350("BUI35x", Constants.PRODUCTNAME_BUI350, ""),
+  COMP_CUI100("CUI100", Constants.PRODUCTNAME_CUI100, ""),
+  COMP_BBP100("BMS_ReleaseKW43", Constants.PRODUCTNAME_BPPXXX, Constants.PRODUCTLINE_CLASSIC_PLUS),
+  COMP_BBP200("BBP250", Constants.PRODUCTNAME_BPPXXX, Constants.PRODUCTLINE_FRAME),
+  COMP_BBP210("BBP250", Constants.PRODUCTNAME_BPPXXX, Constants.PRODUCTLINE_RACK),
+  COMP_BBP250("BBP250", Constants.PRODUCTNAME_BBP250, ""),
+  COMP_BBP280("BBP250", Constants.PRODUCTNAME_POWERTUBE, ""),
+  COMP_BBP281("BBP250", Constants.PRODUCTNAME_POWERTUBE, ""),
+  COMP_BBP282("BBP250", Constants.PRODUCTNAME_POWERTUBE, ""),
+  COMP_BBP283("BBP250", Constants.PRODUCTNAME_POWERTUBE, ""),
+  COMP_BBP290("BBP250", Constants.PRODUCTNAME_POWERTUBE, ""),
+  COMP_BBP291("BBP250", Constants.PRODUCTNAME_POWERTUBE, "");
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(ComponentType.class);
+  
+  private final String odxEcuName;
+  
+  private final String productName;
+  
+  private final String productLine;
+  
+  ComponentType(String odxEcuName, String productName, String productLine) {
+    this.odxEcuName = odxEcuName;
+    this.productName = productName;
+    this.productLine = productLine;
+  }
+  
+  public String getOdxEcuName() {
+    return this.odxEcuName;
+  }
+  
+  public String getDisplayName() {
+    if (StringUtils.isNotEmpty(this.productLine))
+      return this.productName + " " + this.productName; 
+    return this.productName;
+  }
+  
+  public String getProductName() {
+    return this.productName;
+  }
+  
+  public String getProductLineName() {
+    return this.productLine;
+  }
+  
+  public String getName() {
+    return (this != NONE) ? name().replace("COMP_", "") : "";
+  }
+  
+  public static ComponentType parse(String name) {
+    try {
+      return StringUtils.isNotBlank(name) ? valueOf(name) : NONE;
+    } catch (Exception e) {
+      LOGGER.error("Error parsing ComponentType: " + e.getMessage(), (Throwable)e);
+      return NONE;
+    } 
+  }
+  
+  public boolean isBDU1xx() {
+    return name().startsWith("COMP_BDU1");
+  }
+  
+  public boolean isBDU2xx() {
+    return name().startsWith("COMP_BDU2");
+  }
+  
+  public boolean isBDU3xx() {
+    return name().startsWith("COMP_BDU3");
+  }
+  
+  public boolean isBDU4xx() {
+    return name().startsWith("COMP_BDU4");
+  }
+  
+  public boolean isBDUVictor() {
+    return (isBDU2xx() || isBDU3xx() || isBDU4xx());
+  }
+  
+  public boolean isBUI21x() {
+    return name().startsWith("COMP_BUI21");
+  }
+  
+  public boolean isBUI25x() {
+    return name().startsWith("COMP_BUI25");
+  }
+  
+  public boolean isBUI27x() {
+    return name().startsWith("COMP_BUI27");
+  }
+  
+  public boolean isBUI33x() {
+    return (this == COMP_BUI330);
+  }
+  
+  public boolean isBUI35x() {
+    return (this == COMP_BUI350);
+  }
+  
+  public boolean isCUI1xx() {
+    return (this == COMP_CUI100);
+  }
+  
+  public boolean isBBP1xx() {
+    return name().startsWith("COMP_BBP1");
+  }
+  
+  public boolean isBBP2xx() {
+    return name().startsWith("COMP_BBP2");
+  }
+  
+  public boolean isBmsVictor() {
+    return isBBP2xx();
+  }
+  
+  public boolean isPowerTube() {
+    return getProductName().equals(Constants.PRODUCTNAME_POWERTUBE);
+  }
+  
+  public boolean isHmi() {
+    return (name().startsWith("COMP_BUI") || name().startsWith("COMP_CUI"));
+  }
+  
+  public boolean isDriveUnit() {
+    return name().startsWith("COMP_BDU");
+  }
+  
+  public boolean isBms() {
+    return name().startsWith("COMP_BBP");
+  }
+  
+  public boolean isBct() {
+    return (this == COMP_BCT100);
+  }
+  
+  public boolean isBcs() {
+    return (this == COMP_BCS250);
+  }
+  
+  public boolean isAbs() {
+    return (this == COMP_BBA100);
+  }
+  
+  public boolean isNyon() {
+    return (this == COMP_BUI270 || this == COMP_BUI275 || this == COMP_BUI350);
+  }
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/ebike/common/configuration/Constants.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration;
+
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+
+public final class Constants {
+  private static final transient Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  public static final String ECU_ID_BUI = "BUI";
+  
+  public static final String ECU_ID_HMI = "HMI";
+  
+  public static final String ECU_ID_DU = "DU";
+  
+  public static final String ECU_ID_BDU = "BDU";
+  
+  public static final String ECU_ID_BMS = "BMS";
+  
+  public static final String ECU_ID_PP1 = "BBP1";
+  
+  public static final String ECU_ID_PP2 = "BBP2";
+  
+  public static final String ECU_ID_ESHIFT = "ESHIFT";
+  
+  public static final String ECU_ID_BAS = "ABS";
+  
+  public static final String ECU_ID_BCS = "BCS";
+  
+  public static final String ECU_ID_GB = "GB";
+  
+  public static final String ECU_ID_BCT = "BCT";
+  
+  public static final String GLOCKENKERN_HARDED = "Glockenkern gehaertet";
+  
+  public static final String GLOCKENKERN_NOT_HARDED = "Glockenkern nicht gehaertet";
+  
+  public static final String VALUE_OK = "ok";
+  
+  public static final String VALUE_NOK = "not ok";
+  
+  public static final String PRODUCTNAME_NONE = BUNDLE.getString("ProductName.none");
+  
+  public static final String PRODUCTNAME_UNSPECIFIED = BUNDLE.getString("ProductName.unspecified");
+  
+  public static final String PRODUCTNAME_BBA100 = BUNDLE.getString("ProductName.abs");
+  
+  public static final String PRODUCTNAME_BCS250 = BUNDLE.getString("ProductName.bcs250");
+  
+  public static final String PRODUCTNAME_BCT100 = BUNDLE.getString("ProductName.capacityTester");
+  
+  public static final String PRODUCTNAME_BSE100 = BUNDLE.getString("ProductName.sensor");
+  
+  public static final String PRODUCTNAME_BDUXXX = BUNDLE.getString("ProductName.driveUnit");
+  
+  public static final String PRODUCTNAME_BUI100 = BUNDLE.getString("ProductName.bui100");
+  
+  public static final String PRODUCTNAME_BUI21X = BUNDLE.getString("ProductName.purion");
+  
+  public static final String PRODUCTNAME_BUI25X = BUNDLE.getString("ProductName.intuvia");
+  
+  public static final String PRODUCTNAME_BUI27X = BUNDLE.getString("ProductName.nyon");
+  
+  public static final String PRODUCTNAME_BUI330 = BUNDLE.getString("ProductName.bui330");
+  
+  public static final String PRODUCTNAME_BUI350 = BUNDLE.getString("ProductName.bui350");
+  
+  public static final String PRODUCTNAME_BPPXXX = BUNDLE.getString("ProductName.powerPack");
+  
+  public static final String PRODUCTNAME_BBP250 = BUNDLE.getString("ProductName.bbp250");
+  
+  public static final String PRODUCTNAME_POWERTUBE = BUNDLE.getString("ProductName.powerTube");
+  
+  public static final String PRODUCTNAME_CUI100 = BUNDLE.getString("ProductName.cui100");
+  
+  public static final String PRODUCTNAME_ESHIFT = BUNDLE.getString("ProductName.eshift");
+  
+  public static final String PRODUCTLINE_CLASSIC_PLUS = BUNDLE.getString("ProductLine.classicPlus");
+  
+  public static final String PRODUCTLINE_CRUISE = BUNDLE.getString("ProductLine.cruise");
+  
+  public static final String PRODUCTLINE_CRUISE_BACKPEDAL = BUNDLE.getString("ProductLine.cruiseBackpedal");
+  
+  public static final String PRODUCTLINE_20MPH = BUNDLE.getString("ProductLine.20mph");
+  
+  public static final String PRODUCTLINE_SPEED = BUNDLE.getString("ProductLine.speed");
+  
+  public static final String PRODUCTLINE_ACTIVE = BUNDLE.getString("ProductLine.active");
+  
+  public static final String PRODUCTLINE_PERFORMANCE = BUNDLE.getString("ProductLine.performance");
+  
+  public static final String PRODUCTLINE_FRAME = BUNDLE.getString("ProductLine.frame");
+  
+  public static final String PRODUCTLINE_RACK = BUNDLE.getString("ProductLine.rack");
+  
+  public static final String MODEL_SHIMANO_DI2 = "ShimanoDi2";
+  
+  public static final String MODEL_SHIMANO_DI2HIUB = "ShimanoDi2Hub";
+  
+  public static final String MODEL_SHIMANO_DI2REARDERAILLEUR = "ShimanoDi2RearDerailleur";
+  
+  public static final String MODEL_ROHLOFF_E14 = "RohloffE14";
+  
+  public static final String ENDING_CFF2 = ".cff2";
+  
+  public static final String ENDING_CFF3 = ".cff3";
+  
+  public static final String DISPLAY_VALUE_NOT_AVAILABLE = BUNDLE.getString("Servicetab.ValueNotAvailable");
+  
+  public static final int TIMEOUT_RX_USB_BOOT = 3000;
+  
+  public static final int TIMEOUT_RX_USB = 300;
+  
+  public static final int TIMEOUT_RX_USB_BCT = 500;
+  
+  public static final short VID_BOSCH = 4236;
+  
+  public enum EcuMode {
+    NONE, APP, FBL, PROGRAMMING, MASS_STORAGE, BCT_MEASUREMENT;
+  }
+  
+  public enum EcuType {
+    NONE(Constants.PRODUCTNAME_NONE),
+    BUI21X(Constants.PRODUCTNAME_BUI21X),
+    BUI25X(Constants.PRODUCTNAME_BUI25X),
+    BUI270(Constants.PRODUCTNAME_BUI27X),
+    BUI275(Constants.PRODUCTNAME_BUI27X),
+    BUI330(Constants.PRODUCTNAME_BUI330),
+    BUI350(Constants.PRODUCTNAME_BUI350),
+    COBI(Constants.PRODUCTNAME_CUI100),
+    CLASSIC_DU(Constants.PRODUCTNAME_BDUXXX),
+    CLASSIC_PP(Constants.PRODUCTNAME_BPPXXX),
+    VICTOR_DU(Constants.PRODUCTNAME_BDUXXX),
+    VICTOR_PP1(Constants.PRODUCTNAME_BPPXXX),
+    VICTOR_PP2(Constants.PRODUCTNAME_BPPXXX),
+    BCT(Constants.PRODUCTNAME_BCT100),
+    BAS100(Constants.PRODUCTNAME_BBA100),
+    BCS250(Constants.PRODUCTNAME_BCS250),
+    ESHIFT(Constants.PRODUCTNAME_ESHIFT);
+    
+    private final String productName;
+    
+    EcuType(String productName) {
+      this.productName = productName;
+    }
+    
+    public String getProductName() {
+      return this.productName;
+    }
+    
+    public boolean isDriveUnit() {
+      return (this == VICTOR_DU || this == CLASSIC_DU);
+    }
+    
+    public boolean isBattery1() {
+      return (this == VICTOR_PP1 || this == CLASSIC_PP);
+    }
+    
+    public boolean isBattery() {
+      return (isBattery1() || this == VICTOR_PP2);
+    }
+    
+    public boolean isVictorBattery() {
+      return (this == VICTOR_PP1 || this == VICTOR_PP2);
+    }
+    
+    public boolean isGatewayEcu() {
+      return (this == BUI21X || this == BUI25X || this == BUI270 || this == BUI275 || this == BUI330 || this == BUI350 || this == COBI || this == BCT);
+    }
+  }
+  
+  public enum SystemType {
+    NONE, CLASSIC_PLUS, VICTOR;
+    
+    public boolean isClassicPlus() {
+      return (this == CLASSIC_PLUS);
+    }
+    
+    public boolean isVictor() {
+      return (this == VICTOR);
+    }
+  }
+  
+  public enum HidDevice {
+    NONE((short)0, 0),
+    BUI21X_FBL((short)385, 3000),
+    BUI21X_APP((short)386, 300),
+    BUI25X_FBL((short)340, 3000),
+    BUI25X_APP((short)341, 300),
+    BUI270_FBL((short)342, 3000),
+    BUI270_APP((short)343, 300),
+    BUI270_STO((short)373, 3000),
+    BUI275_FBL((short)390, 3000),
+    BUI275_APP((short)392, 300),
+    BUI275_STO((short)391, 3000),
+    BUI330_FBL((short)402, 3000),
+    BUI330_APP((short)403, 300),
+    BUI350_FBL((short)420, 3000),
+    BUI350_APP((short)419, 600),
+    COBI_EAIR_FBL((short)441, 3000),
+    COBI_EAIR_APP((short)440, 300),
+    BCT_FBL((short)395, 3000),
+    BCT_APP((short)396, 500);
+    
+    private final short pid;
+    
+    private final short vid;
+    
+    private final int timeoutUsb;
+    
+    HidDevice(short pid, int timeout) {
+      this.pid = pid;
+      this.vid = 4236;
+      this.timeoutUsb = timeout;
+    }
+    
+    public short getPid() {
+      return this.pid;
+    }
+    
+    public short getVid() {
+      return this.vid;
+    }
+    
+    public int getTimeoutUsb() {
+      return this.timeoutUsb;
+    }
+    
+    public static HidDevice fromPid(short pid) {
+      for (HidDevice value : values()) {
+        if (value.getPid() == pid)
+          return value; 
+      } 
+      return null;
+    }
+    
+    public boolean isBuiInApplicationMode() {
+      return (name().startsWith("BUI") && name().endsWith("APP"));
+    }
+    
+    public boolean isNyon() {
+      return (this == BUI270_APP || this == BUI275_APP);
+    }
+    
+    public boolean isBui35x() {
+      return (this == BUI350_APP);
+    }
+    
+    public boolean isApplicationMode() {
+      return name().endsWith("APP");
+    }
+    
+    public boolean isBootloaderMode() {
+      return name().endsWith("FBL");
+    }
+  }
+  
+  public enum AccessLevel {
+    LEVEL_0, IBD, OEM, BOSCH, LEVEL_4, LEVEL_5, LEVEL_6;
+  }
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/ebike/common/configuration/DuIdentification.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class DuIdentification extends EcuIdentification {
+  private static final Logger LOGGER = LoggerFactory.getLogger(DuIdentification.class);
+  
+  private ComplexResponse bikeId = new ComplexResponse("");
+  
+  private BikeType bikeType = BikeType.UNDEFINED;
+  
+  private ProductLine productLine = ProductLine.NONE;
+  
+  private ComplexResponse applicationId = new ComplexResponse("");
+  
+  private ComplexResponse gkType = new ComplexResponse("");
+  
+  private ComplexResponse confRights = new ComplexResponse("");
+  
+  private ComplexResponse walkAssistState = new ComplexResponse("");
+  
+  private ComplexResponse maxAssistenceSpeed = new ComplexResponse("0");
+  
+  private ComplexResponse hmiLessSystem = new ComplexResponse("");
+  
+  public void clear() {
+    this.gkType = new ComplexResponse("");
+    this.confRights = new ComplexResponse("");
+    this.walkAssistState = new ComplexResponse("");
+    this.maxAssistenceSpeed = new ComplexResponse("0");
+    this.bikeId = new ComplexResponse("");
+    this.productLine = ProductLine.NONE;
+    this.bikeType = BikeType.UNDEFINED;
+    this.applicationId = new ComplexResponse("");
+    this.hmiLessSystem = new ComplexResponse("");
+    super.clear();
+  }
+  
+  public void setGkType(ComplexResponse value) {
+    if (value != null)
+      this.gkType = value; 
+  }
+  
+  public void setIbdConfigurationRights(ComplexResponse value) {
+    if (value != null)
+      this.confRights = value; 
+  }
+  
+  public void setWalkAssistState(ComplexResponse value) {
+    if (value != null)
+      this.walkAssistState = value; 
+  }
+  
+  public void setMaxAssistanceSpeed(ComplexResponse value) {
+    if (value != null)
+      this.maxAssistenceSpeed = value; 
+  }
+  
+  public ComplexResponse getGkType() {
+    return this.gkType;
+  }
+  
+  public String getIbdConfigurationRights() {
+    return this.confRights.isPositive() ? this.confRights.toString() : "";
+  }
+  
+  public ComplexResponse getWalkAssistState() {
+    return this.walkAssistState;
+  }
+  
+  public int getMaxAssistanceSpeed() {
+    try {
+      return (int)Double.parseDouble(this.maxAssistenceSpeed.getString());
+    } catch (ComplexResponse.DataAccessException|NumberFormatException ex) {
+      LOGGER.error("Error parsing maximum assistance speed response", (Throwable)ex);
+      return 0;
+    } 
+  }
+  
+  public ComplexResponse getBikeId() {
+    return this.bikeId;
+  }
+  
+  public void setBikeId(ComplexResponse bikeId) {
+    this.bikeId = bikeId;
+  }
+  
+  public BikeType getBikeType() {
+    return this.bikeType;
+  }
+  
+  public void setBikeType(BikeType bikeType) {
+    this.bikeType = bikeType;
+  }
+  
+  public ProductLine getProductLine() {
+    return this.productLine;
+  }
+  
+  public void setProductLine(ProductLine productLine) {
+    this.productLine = productLine;
+  }
+  
+  public ComplexResponse getApplicationId() {
+    return this.applicationId;
+  }
+  
+  public void setApplicationId(ComplexResponse applicationId) {
+    this.applicationId = applicationId;
+  }
+  
+  public ComplexResponse getHmiLessSystem() {
+    return this.hmiLessSystem;
+  }
+  
+  public void setHmiLessSystem(ComplexResponse hmiLessSystem) {
+    this.hmiLessSystem = hmiLessSystem;
+  }
+}
+
+
+========================================================================================================================
+ITEM 18: com/gigatronik/ebike/common/configuration/EcuIdentification.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration;
+
+import org.apache.commons.lang3.StringUtils;
+
+public class EcuIdentification {
+  private ComponentType componentType = ComponentType.NONE;
+  
+  private ComplexResponse swVersion = new ComplexResponse("");
+  
+  private ComplexResponse swVariant = new ComplexResponse("");
+  
+  private ComplexResponse hwVersion = new ComplexResponse("");
+  
+  private ComplexResponse hwVariant = new ComplexResponse("");
+  
+  private ComplexResponse partNumber = new ComplexResponse("");
+  
+  private ComplexResponse productCode = new ComplexResponse("");
+  
+  private ComplexResponse serialNumber = new ComplexResponse("");
+  
+  private ComplexResponse sampleSoftware = new ComplexResponse("");
+  
+  private Constants.EcuMode mode = Constants.EcuMode.NONE;
+  
+  public synchronized void clear() {
+    this.componentType = ComponentType.NONE;
+    this.swVersion = new ComplexResponse("");
+    this.hwVersion = new ComplexResponse("");
+    this.hwVariant = new ComplexResponse("");
+    this.swVariant = new ComplexResponse("");
+    this.partNumber = new ComplexResponse("");
+    this.productCode = new ComplexResponse("");
+    this.serialNumber = new ComplexResponse("");
+    this.sampleSoftware = new ComplexResponse("");
+    this.mode = Constants.EcuMode.NONE;
+  }
+  
+  public synchronized void setComponentType(ComponentType value) {
+    if (value != null)
+      this.componentType = value; 
+  }
+  
+  public synchronized void setSwVersion(ComplexResponse value) {
+    if (value != null)
+      this.swVersion = value; 
+  }
+  
+  public synchronized void setSwVariant(ComplexResponse value) {
+    if (value != null)
+      this.swVariant = value; 
+  }
+  
+  public synchronized void setHwVersion(ComplexResponse value) {
+    if (value != null)
+      this.hwVersion = value; 
+  }
+  
+  public synchronized void setHwVariant(ComplexResponse value) {
+    if (value != null)
+      this.hwVariant = value; 
+  }
+  
+  public synchronized void setPartNumber(ComplexResponse value) {
+    if (value != null)
+      this.partNumber = value; 
+  }
+  
+  public synchronized void setProductCode(ComplexResponse value) {
+    if (value != null)
+      this.productCode = value; 
+  }
+  
+  public synchronized void setSerialNumber(ComplexResponse value) {
+    if (value != null)
+      this.serialNumber = value; 
+  }
+  
+  public synchronized void setSampleSoftware(ComplexResponse value) {
+    if (value != null)
+      this.sampleSoftware = value; 
+  }
+  
+  public synchronized void setMode(Constants.EcuMode value) {
+    if (value != null)
+      this.mode = value; 
+  }
+  
+  public synchronized ComponentType getComponentType() {
+    return this.componentType;
+  }
+  
+  public synchronized String getSwVersion() {
+    return this.swVersion.isPositive() ? this.swVersion.toString() : "";
+  }
+  
+  public synchronized ComplexResponse getSwVersionResponse() {
+    return this.swVersion;
+  }
+  
+  public synchronized String getHwVersion() {
+    return this.hwVersion.isPositive() ? this.hwVersion.toString() : "";
+  }
+  
+  public synchronized ComplexResponse getHwVersionResponse() {
+    return this.hwVersion;
+  }
+  
+  public synchronized String getSwVariant() {
+    return this.swVariant.isPositive() ? this.swVariant.toString() : "";
+  }
+  
+  public synchronized ComplexResponse getSwVariantResponse() {
+    return this.swVariant;
+  }
+  
+  public synchronized String getHwVariant() {
+    return this.hwVariant.isPositive() ? this.hwVariant.toString() : "";
+  }
+  
+  public synchronized ComplexResponse getHwVariantResponse() {
+    return this.hwVariant;
+  }
+  
+  public synchronized String getPartNumber() {
+    return this.partNumber.isPositive() ? this.partNumber.toString() : "";
+  }
+  
+  public synchronized ComplexResponse getPartNumberResponse() {
+    return this.partNumber;
+  }
+  
+  public synchronized String getProductCode() {
+    return this.productCode.isPositive() ? this.productCode.toString() : "";
+  }
+  
+  public synchronized ComplexResponse getProductCodeResponse() {
+    return this.productCode;
+  }
+  
+  public synchronized String getSerialNumber() {
+    return this.serialNumber.isPositive() ? this.serialNumber.toString() : "";
+  }
+  
+  public synchronized ComplexResponse getSerialNumberResponse() {
+    return this.serialNumber;
+  }
+  
+  public synchronized ComplexResponse getSampleSoftwareResponse() {
+    return this.sampleSoftware;
+  }
+  
+  public synchronized Constants.EcuMode getMode() {
+    return this.mode;
+  }
+  
+  public synchronized boolean isConnected() {
+    return (this.mode != Constants.EcuMode.NONE);
+  }
+  
+  public synchronized boolean isBootLoader() {
+    return (this.mode == Constants.EcuMode.FBL || this.mode == Constants.EcuMode.MASS_STORAGE || this.mode == Constants.EcuMode.PROGRAMMING);
+  }
+  
+  public synchronized boolean isApplication() {
+    return (this.mode == Constants.EcuMode.APP || this.mode == Constants.EcuMode.BCT_MEASUREMENT);
+  }
+  
+  public synchronized boolean isValid() {
+    return (this.componentType != ComponentType.NONE && 
+      this.hwVariant.isPositive() && 
+      this.swVariant.isPositive() && 
+      this.hwVersion.isPositive() && 
+      this.swVersion.isPositive() && 
+      this.partNumber.isPositive() && 
+      this.serialNumber.isPositive());
+  }
+  
+  public synchronized boolean isHwSample() {
+    String partNo = getPartNumber();
+    if (partNo.length() == 12)
+      return !StringUtils.endsWithAny(partNo, "00", "\000\000"); 
+    return false;
+  }
+  
+  public synchronized boolean isSwSample() {
+    return this.sampleSoftware.isPositive() ? StringUtils.equalsIgnoreCase(this.sampleSoftware.toString(), "TRUE") : false;
+  }
+}
+
+
+========================================================================================================================
+ITEM 19: com/gigatronik/ebike/common/configuration/EshiftIdentification.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration;
+
+import org.apache.commons.lang3.StringUtils;
+
+public class EshiftIdentification extends EcuIdentification {
+  public static final String VENDOR_ID_SHIMANO = "SHIMANO";
+  
+  public static final String VENDOR_ID_ROHLOFF = "ROHLOFF";
+  
+  public static final String PRODUCT_ID_ROHLOFF = "1";
+  
+  private static final String[] PRODUCT_ID_SHIMANO = new String[] { "0", "1", "unknown" };
+  
+  private static final String AUTO_GEAR_ENABLED_ODX_VALUE = "TRUE";
+  
+  private ComplexResponse productId = new ComplexResponse("");
+  
+  private ComplexResponse vendorId = new ComplexResponse("");
+  
+  private ComplexResponse autoGearState = new ComplexResponse("");
+  
+  private GearPropertiesReceived gearPropertiesReceived = GearPropertiesReceived.FALSE;
+  
+  public enum GearPropertiesReceived {
+    TRUE_AVAILABLE, TRUE_NOT_AVAILABLE, FALSE;
+  }
+  
+  public void clear() {
+    this.productId = new ComplexResponse("");
+    this.vendorId = new ComplexResponse("");
+    this.autoGearState = new ComplexResponse("");
+    this.gearPropertiesReceived = GearPropertiesReceived.FALSE;
+    super.clear();
+  }
+  
+  public void setVendorId(ComplexResponse value) {
+    if (value != null)
+      this.vendorId = value; 
+  }
+  
+  public void setProductId(ComplexResponse value) {
+    if (value != null)
+      this.productId = value; 
+  }
+  
+  public void setAutoGearState(ComplexResponse value) {
+    if (value != null)
+      this.autoGearState = value; 
+  }
+  
+  public void setGearPropertiesReceived(GearPropertiesReceived value) {
+    if (value != null)
+      this.gearPropertiesReceived = value; 
+  }
+  
+  public String getVendorId() {
+    return this.vendorId.isPositive() ? this.vendorId.toString() : "";
+  }
+  
+  public ComplexResponse getVendorIdResponse() {
+    return this.vendorId;
+  }
+  
+  public String getProductId() {
+    return this.productId.isPositive() ? this.productId.toString() : "";
+  }
+  
+  public ComplexResponse getProductIdResponse() {
+    return this.productId;
+  }
+  
+  public String getAutoGearState() {
+    return this.autoGearState.isPositive() ? this.autoGearState.toString() : "";
+  }
+  
+  public ComplexResponse getAutoGearStateResponse() {
+    return this.autoGearState;
+  }
+  
+  public GearPropertiesReceived getGearPropertiesReceived() {
+    return this.gearPropertiesReceived;
+  }
+  
+  public boolean isAutoDownShiftSupported() {
+    boolean matchingVendorShimano = (StringUtils.equals(getVendorId(), "SHIMANO") && (StringUtils.isBlank(getProductId()) || StringUtils.equalsAny(getProductId(), PRODUCT_ID_SHIMANO)));
+    boolean matchingVendorRohloff = (StringUtils.equals(getVendorId(), "ROHLOFF") && StringUtils.equals(getProductId(), "1"));
+    return (matchingVendorShimano || matchingVendorRohloff);
+  }
+  
+  public synchronized boolean isConnected() {
+    return StringUtils.equals(getAutoGearState(), "TRUE");
+  }
+}
+
+
+========================================================================================================================
+ITEM 20: com/gigatronik/ebike/common/configuration/HmiIdentification.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration;
+
+import com.gigatronik.dart2.framework.util.Version;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class HmiIdentification extends EcuIdentification {
+  private static final Version KIOX_MIN_VERSION_CONFIGURATION_PARAMETERS = new Version(new Integer[] { 1, 2, 0, 1 });
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(HmiIdentification.class);
+  
+  private ComplexResponse frontendSwVersion = new ComplexResponse("");
+  
+  private ComplexResponse mapVersionRequired = new ComplexResponse("");
+  
+  public void clear() {
+    this.frontendSwVersion = new ComplexResponse("");
+    this.mapVersionRequired = new ComplexResponse("");
+    super.clear();
+  }
+  
+  public void setFrontendSwVersion(ComplexResponse value) {
+    if (value != null)
+      this.frontendSwVersion = value; 
+  }
+  
+  public void setMapVersionRequired(ComplexResponse value) {
+    if (value != null)
+      this.mapVersionRequired = value; 
+  }
+  
+  public String getFrontendSwVersion() {
+    return this.frontendSwVersion.isPositive() ? this.frontendSwVersion.toString() : "";
+  }
+  
+  public ComplexResponse getFrontendSwVersionResponse() {
+    return this.frontendSwVersion;
+  }
+  
+  public String getMapVersionRequired() {
+    return this.mapVersionRequired.isPositive() ? this.mapVersionRequired.toString() : "";
+  }
+  
+  public ComplexResponse getMapVersionRequiredResponse() {
+    return this.mapVersionRequired;
+  }
+  
+  public boolean isNewGenerationKiox() {
+    try {
+      return (getComponentType().equals(ComponentType.COMP_BUI330) && getSwVersionResponse().getVersion().compareTo(KIOX_MIN_VERSION_CONFIGURATION_PARAMETERS) >= 0);
+    } catch (ComplexResponse.DataAccessException e) {
+      LOGGER.warn("We cannot retrieve the Kiox version, fallback to first generation");
+      return false;
+    } 
+  }
+  
+  public boolean isDisplayLanguageConfigurable() {
+    switch (getComponentType()) {
+      case COMP_BUI330:
+        return isNewGenerationKiox();
+      case COMP_BUI250:
+      case COMP_BUI251:
+      case COMP_BUI255:
+      case COMP_BUI350:
+        return true;
+    } 
+    return false;
+  }
+  
+  public boolean isDistanceUnitConfigurable() {
+    switch (getComponentType()) {
+      case COMP_BUI330:
+        return isNewGenerationKiox();
+      case COMP_BUI250:
+      case COMP_BUI251:
+      case COMP_BUI255:
+      case COMP_BUI350:
+      case COMP_BUI210:
+      case COMP_BUI215:
+        return true;
+    } 
+    return false;
+  }
+}
+
+
+========================================================================================================================
+ITEM 21: com/gigatronik/ebike/common/configuration/impl/BikeIdentificationImpl.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration.impl;
+
+import com.gigatronik.ebike.common.configuration.BikeIdentification;
+import com.gigatronik.ebike.common.configuration.BikeType;
+import com.gigatronik.ebike.common.configuration.BmsIdentification;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.ComponentType;
+import com.gigatronik.ebike.common.configuration.Constants;
+import com.gigatronik.ebike.common.configuration.DuIdentification;
+import com.gigatronik.ebike.common.configuration.EcuIdentification;
+import com.gigatronik.ebike.common.configuration.EshiftIdentification;
+import com.gigatronik.ebike.common.configuration.HmiIdentification;
+import com.gigatronik.ebike.common.configuration.ProductLine;
+import java.util.ArrayList;
+import java.util.List;
+
+public class BikeIdentificationImpl implements BikeIdentification {
+  private final HmiIdentification hmiIdentification = new HmiIdentification();
+  
+  private final DuIdentification duIdentification = new DuIdentification();
+  
+  private final BmsIdentification bms1Identification = new BmsIdentification();
+  
+  private final BmsIdentification bms2Identification = new BmsIdentification();
+  
+  private final EshiftIdentification eShiftIdentification = new EshiftIdentification();
+  
+  private final EcuIdentification bctIdentification = new HmiIdentification();
+  
+  private final EcuIdentification absIdentification = new EcuIdentification();
+  
+  private final EcuIdentification bcsIdentification = new EcuIdentification();
+  
+  public void clearIdentification() {
+    this.hmiIdentification.clear();
+    clearBctIdentification();
+    clearDuIdentification();
+    clearBms1Identification();
+    clearBms2Identification();
+    clearAbsIdentification();
+    clearBcsIdentification();
+  }
+  
+  protected void clearBctIdentification() {
+    this.bctIdentification.clear();
+  }
+  
+  public void clearDuIdentification() {
+    this.duIdentification.clear();
+    this.eShiftIdentification.clear();
+  }
+  
+  public void clearBms1Identification() {
+    this.bms1Identification.clear();
+  }
+  
+  public void clearBms2Identification() {
+    this.bms2Identification.clear();
+  }
+  
+  public void clearAbsIdentification() {
+    this.absIdentification.clear();
+  }
+  
+  public void clearBcsIdentification() {
+    this.bcsIdentification.clear();
+  }
+  
+  public HmiIdentification getHmiIdentification() {
+    return this.hmiIdentification;
+  }
+  
+  public DuIdentification getDuIdentification() {
+    return this.duIdentification;
+  }
+  
+  public BmsIdentification getBms1Identification() {
+    return this.bms1Identification;
+  }
+  
+  public BmsIdentification getBms2Identification() {
+    return this.bms2Identification;
+  }
+  
+  public EshiftIdentification getEShiftIdentification() {
+    return this.eShiftIdentification;
+  }
+  
+  public EcuIdentification getBctIdentification() {
+    return this.bctIdentification;
+  }
+  
+  public EcuIdentification getAbsIdentification() {
+    return this.absIdentification;
+  }
+  
+  public EcuIdentification getBcsIdentification() {
+    return this.bcsIdentification;
+  }
+  
+  public Constants.SystemType getSystemType() {
+    if (this.bms1Identification.getComponentType().isBBP1xx() || this.duIdentification.getComponentType().isBDU1xx())
+      return Constants.SystemType.CLASSIC_PLUS; 
+    return Constants.SystemType.VICTOR;
+  }
+  
+  protected void setHmiLessSystem(ComplexResponse value) {
+    if (value != null)
+      this.duIdentification.setHmiLessSystem(value); 
+  }
+  
+  public String getBikeId() {
+    return this.duIdentification.getBikeId().isPositive() ? this.duIdentification.getBikeId().toString() : "";
+  }
+  
+  public void setBikeId(ComplexResponse value) {
+    if (value != null)
+      this.duIdentification.setBikeId(value); 
+  }
+  
+  public ComplexResponse getBikeIdResponse() {
+    return this.duIdentification.getBikeId();
+  }
+  
+  public String getBikeType() {
+    return this.duIdentification.getBikeType().getXmlAttribute();
+  }
+  
+  protected void setBikeType(BikeType value) {
+    if (value != null)
+      this.duIdentification.setBikeType(value); 
+  }
+  
+  public String getBikeTypeDisplayName() {
+    return this.duIdentification.getBikeType().getDisplayName();
+  }
+  
+  public ProductLine getProductLine() {
+    return this.duIdentification.getProductLine();
+  }
+  
+  protected void setProductLine(ProductLine value) {
+    if (value != null)
+      this.duIdentification.setProductLine(value); 
+  }
+  
+  public String getProductLineDisplayName() {
+    return this.duIdentification.getProductLine().getDisplayNameWithCompType(this.duIdentification.getComponentType().getName());
+  }
+  
+  public String getApplicationId() {
+    return this.duIdentification.getApplicationId().isPositive() ? this.duIdentification.getApplicationId().toString() : "";
+  }
+  
+  protected void setApplicationId(ComplexResponse value) {
+    if (value != null)
+      this.duIdentification.setApplicationId(value); 
+  }
+  
+  public ComplexResponse getApplicationIdResponse() {
+    return this.duIdentification.getApplicationId();
+  }
+  
+  public String isHmiLessSystem() {
+    return this.duIdentification.getHmiLessSystem().isPositive() ? this.duIdentification.getHmiLessSystem().toString() : "";
+  }
+  
+  public ComplexResponse getHmiLessSystemResponse() {
+    return this.duIdentification.getHmiLessSystem();
+  }
+  
+  public boolean isHmiConnected() {
+    return this.hmiIdentification.isConnected();
+  }
+  
+  public List<ComponentType> getAllConnectedComponentTypes() {
+    List<ComponentType> connectedComponents = new ArrayList<>();
+    connectedComponents.add(this.hmiIdentification.getComponentType());
+    connectedComponents.add(this.duIdentification.getComponentType());
+    connectedComponents.add(this.bms1Identification.getComponentType());
+    connectedComponents.add(this.bms2Identification.getComponentType());
+    connectedComponents.add(this.eShiftIdentification.getComponentType());
+    connectedComponents.add(this.bctIdentification.getComponentType());
+    connectedComponents.add(this.absIdentification.getComponentType());
+    connectedComponents.add(this.bcsIdentification.getComponentType());
+    connectedComponents.removeIf(t -> (t == ComponentType.NONE));
+    return connectedComponents;
+  }
+  
+  public boolean isBctConnected() {
+    return this.bctIdentification.isConnected();
+  }
+  
+  public boolean isDuConnected() {
+    return this.duIdentification.isConnected();
+  }
+  
+  public boolean isBms1Connected() {
+    return this.bms1Identification.isConnected();
+  }
+  
+  public boolean isBms2Connected() {
+    return this.bms2Identification.isConnected();
+  }
+  
+  public boolean isAbsConnected() {
+    return this.absIdentification.isConnected();
+  }
+  
+  public boolean isBcsConnected() {
+    return this.bcsIdentification.isConnected();
+  }
+  
+  public boolean isEshiftConnected() {
+    return this.eShiftIdentification.isConnected();
+  }
+  
+  public boolean isAutoDownShiftSupported() {
+    return (isEshiftConnected() && this.eShiftIdentification.isAutoDownShiftSupported());
+  }
+  
+  public boolean isShiftDetectionSupported() {
+    return (this.duIdentification.getProductLine() == ProductLine.X_LINE && this.duIdentification.getBikeType() == BikeType.PEDELEC);
+  }
+  
+  public boolean isWalkAssistSupported() {
+    return (this.duIdentification.getBikeType() != BikeType.SPEED && !this.duIdentification.getGkType().toString().equals("Glockenkern nicht gehaertet"));
+  }
+  
+  public boolean isHmiStandalone() {
+    return (isHmiConnected() && !isBms1Connected() && !isBms2Connected() && !isDuConnected() && !isBctConnected());
+  }
+  
+  public boolean isDriveOffSupported() {
+    switch (this.duIdentification.getBikeType()) {
+      case SPEED:
+        return this.duIdentification.getProductLine().isGen2();
+      case CLASSIC_PLUS:
+        return (this.duIdentification.getMaxAssistanceSpeed() > 28);
+    } 
+    return false;
+  }
+}
+
+
+========================================================================================================================
+ITEM 22: com/gigatronik/ebike/common/configuration/NegativeResponse.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration;
+
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+import org.apache.commons.lang3.StringUtils;
+
+public enum NegativeResponse {
+  GENERAL("0x10", "n/a", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  NOT_SUPPORTED_11("0x11", "n/a", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  NOT_SUPPORTED_12("0x12", "n/a", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  MESSAGE_LENGTH_FORMAT_INCORRECT("0x13", "Incorrect message length or invalid format", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  NOT_SUPPORTED_7F("0x1F", "n/a", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  BUSY_REPEAT_REQUEST("0x21", "n/a", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  CONDITIONS_NOT_CORRECT("0x22", "Conditions not correct", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  REQUEST_SEQUENCE_ERROR("0x24", "n/a", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  REQUEST_OUT_OF_RANGE("0x31", "Request out of range", "Servicetab.ValueNotAvailable"),
+  SECURITY_ACCES_DENIED("0x33", "Security access denied", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  INVALID_KEY("0x35", "n/a", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  EXCEED_ATTEMPTS("0x36", "n/a", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  BUSY_RESPONSE_PENDING("0x78", "n/a", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  NOT_SUPPORTED_7E("0x7E", "Subfunction not supported in active session", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  UNSPECIFIED("", "n/a", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  TIMEOUT("TimeoutP2", "n/a", "EBikeServiceTab.NEGATIVE_RESPONSE"),
+  PARAMETER_OUT_OF_RANGE("ParameterNotFound", "n/a", "EBikeServiceTab.NEGATIVE_RESPONSE");
+  
+  private static final Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  private final String errorCode;
+  
+  private final String errorOdxText;
+  
+  private final String errorServiceTabText;
+  
+  NegativeResponse(String errorCode, String errorOdxText, String errorServiceTabText) {
+    this.errorCode = errorCode;
+    this.errorOdxText = errorOdxText;
+    this.errorServiceTabText = errorServiceTabText;
+  }
+  
+  public String getErrorCode() {
+    return this.errorCode;
+  }
+  
+  public String getErrorText() {
+    return BUNDLE.getString(this.errorServiceTabText);
+  }
+  
+  public String getErrorTextKey() {
+    return this.errorServiceTabText;
+  }
+  
+  public static NegativeResponse getNegativeResponseByErrorCode(String code) {
+    if (StringUtils.isBlank(code))
+      return UNSPECIFIED; 
+    for (NegativeResponse value : values()) {
+      if (value.errorCode.equals(code))
+        return value; 
+    } 
+    return UNSPECIFIED;
+  }
+  
+  public static NegativeResponse getNegativeResponseByErrorCode(byte code) {
+    String errorString = String.format("0x%02X", code);
+    return getNegativeResponseByErrorCode(errorString);
+  }
+  
+  public static NegativeResponse getNegativeResponseByErrorText(String odxErrorText) {
+    if (StringUtils.isBlank(odxErrorText))
+      return UNSPECIFIED; 
+    for (NegativeResponse value : values()) {
+      if (value.errorOdxText.equals(odxErrorText))
+        return value; 
+    } 
+    return UNSPECIFIED;
+  }
+}
+
+
+========================================================================================================================
+ITEM 23: com/gigatronik/ebike/common/configuration/Parameter.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration;
+
+public class Parameter {
+  private final String name;
+  
+  private final String value;
+  
+  private final String unit;
+  
+  public Parameter(String name, String value, String unit) {
+    this.name = (name != null) ? name : "";
+    this.value = (value != null) ? value : "";
+    this.unit = (unit != null) ? unit : "";
+  }
+  
+  public Parameter(String name, String value) {
+    this.name = (name != null) ? name : "";
+    this.value = (value != null) ? value : "";
+    this.unit = "";
+  }
+  
+  public String getName() {
+    return this.name;
+  }
+  
+  public String getValue() {
+    return this.value;
+  }
+  
+  public String getUnit() {
+    return this.unit;
+  }
+  
+  public String toString() {
+    return this.name + " = " + this.name + this.value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 24: com/gigatronik/ebike/common/configuration/ProductLine.java
+========================================================================================================================
+package com.gigatronik.ebike.common.configuration;
+
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public enum ProductLine {
+  NONE("", ""),
+  CLASSIC_PLUS("PRDL_CLASSIC_PLUS", "EBikeApplication.productLine.classicPlus"),
+  ACTIVE("PRDL_COMFORT_LINE", "EBikeApplication.productLine.active"),
+  PERFORMANCE("PRDL_PERFORMANCE_LINE", "EBikeApplication.productLine.performance"),
+  X_LINE("PRDL_X_LINE", "EBikeApplication.productLine.xLine.cx"),
+  ACTIVE2("PRDL_ACTIVE40_GEN3", "EBikeApplication.productLine.active"),
+  ACTIVE_PLUS("PRDL_ACTIVE50_GEN3", "EBikeApplication.productLine.activePlus"),
+  GEN3_PERFORMANCE("PRDL_PERFORMANCE_GEN3_LINE", "EBikeApplication.productLine.performance"),
+  GEN4_PERFORMANCE_CX("PRDL_X_GEN4_LINE", "EBikeApplication.productLine.xLine.cx"),
+  GEN4_PERFORMANCE("PRDL_PERFORMANCE_GEN4_LINE", "EBikeApplication.productLine.performance");
+  
+  private static final Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(ProductLine.class);
+  
+  private final String odxName;
+  
+  private final String displayName;
+  
+  ProductLine(String odxName, String name) {
+    this.odxName = odxName;
+    this.displayName = name;
+  }
+  
+  public String getOdxName() {
+    return this.odxName;
+  }
+  
+  public String getDisplayName() {
+    return StringUtils.isNotBlank(this.displayName) ? BUNDLE.getString(this.displayName) : "";
+  }
+  
+  public String getDisplayNameWithGenCompType() {
+    String compType = "";
+    if (isGen1())
+      return getDisplayName(); 
+    if (isGen2()) {
+      compType = "BDU2xx";
+    } else if (isGen3()) {
+      compType = "BDU3xx";
+    } else if (isGen4()) {
+      compType = "BDU4xx";
+    } 
+    return StringUtils.isBlank(compType) ? "" : String.format("%s %s", getDisplayName(), compType);
+  }
+  
+  public String getDisplayNameWithCompType(String compType) {
+    return StringUtils.isBlank(compType) ? "" : String.format("%s %s", getDisplayName(), compType);
+  }
+  
+  public static ProductLine fromOdxName(String odxName) {
+    if (StringUtils.isNotBlank(odxName))
+      for (ProductLine pLine : values()) {
+        if (StringUtils.equals(odxName, pLine.getOdxName()))
+          return pLine; 
+      }  
+    return NONE;
+  }
+  
+  public static ProductLine fromDisplayNameWithCompType(String displayName) {
+    if (StringUtils.isBlank(displayName)) {
+      LOGGER.error("Cannot parse empty string or null to product line");
+      return NONE;
+    } 
+    int indexWhitespace = displayName.lastIndexOf(' ');
+    if (indexWhitespace < 0)
+      return CLASSIC_PLUS; 
+    String compTypeName = displayName.substring(indexWhitespace + 1);
+    String prodLineName = displayName.substring(0, indexWhitespace);
+    if (StringUtils.isNotBlank(prodLineName) && StringUtils.isNotBlank(compTypeName))
+      for (ProductLine pLine : values()) {
+        if (pLine != NONE && prodLineName.equals(pLine.getDisplayName()) && isSameGeneration(pLine, compTypeName))
+          return pLine; 
+      }  
+    return NONE;
+  }
+  
+  private static boolean isSameGeneration(ProductLine prodLine, String compType) {
+    return (prodLine.isGen1() || (prodLine.isGen2() && compType.startsWith("BDU2")) || (prodLine.isGen3() && compType.startsWith("BDU3")) || (prodLine.isGen4() && compType.startsWith("BDU4")));
+  }
+  
+  public boolean isGen1() {
+    return (this == CLASSIC_PLUS);
+  }
+  
+  public boolean isGen2() {
+    return (name().startsWith("GEN2_") || this == ACTIVE || this == PERFORMANCE || this == X_LINE);
+  }
+  
+  public boolean isGen3() {
+    return (name().startsWith("GEN3_") || this == ACTIVE_PLUS || this == ACTIVE2);
+  }
+  
+  public boolean isGen4() {
+    return name().startsWith("GEN4_");
+  }
+}
+
+
+========================================================================================================================
+ITEM 25: com/gigatronik/ebike/common/util/BoschConstants.java
+========================================================================================================================
+package com.gigatronik.ebike.common.util;
+
+public final class BoschConstants {
+  public static final String TEMPORARY_FILE_PREFIX = "Ebike_tmp";
+  
+  public static final String PARA_BUI270_SPLASH_SCREEN = "bui270-splash-screen";
+  
+  public static final String PARA_BUI275_SPLASH_SCREEN = "bui275-splash-screen";
+  
+  public static final String PARA_BUI270_MAP = "bui270-map";
+  
+  public static final String PARA_BUI275_MAP = "bui275-map";
+  
+  public static final String PARA_NYON_STANDARD_VARIANT = "STANDARD";
+  
+  public static final String PARA_BAS_STANDARD_VARIANT_INFO = "BAS_STANDARD_VARIANT_INFO";
+  
+  public static final String PARA_BAS_TYPE = "bas-variant-info";
+  
+  public enum SwType {
+    SW_TYPE_CFF2_APP("app"),
+    SW_TYPE_CFF2_SWIL_DRV("flash-drv"),
+    SW_TYPE_CFF2_APP_FRONTEND("frontend-app"),
+    SW_TYPE_CFF2_APP_BACKEND("backend-app"),
+    SW_TYPE_CFF2_APP_PARAM("du-appl-para");
+    
+    private String containerSymbol;
+    
+    SwType(String containerSymbol) {
+      this.containerSymbol = containerSymbol;
+    }
+    
+    public String getContainerSymbol() {
+      return this.containerSymbol;
+    }
+  }
+}
+
+
+========================================================================================================================
+ITEM 26: com/gigatronik/ebike/common/util/BoschHelper.java
+========================================================================================================================
+package com.gigatronik.ebike.common.util;
+
+import com.gigatronik.ebike.common.configuration.BikeType;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.math.BigInteger;
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class BoschHelper {
+  private static final Logger LOGGER = LoggerFactory.getLogger(BoschHelper.class);
+  
+  public static String customizePartNumberCustomer(String partNumberCustomer) {
+    try {
+      return hex2str(partNumberCustomer, 12);
+    } catch (NumberFormatException ex) {
+      return "";
+    } 
+  }
+  
+  public static String customizePartNumberCustomerWrite(String partNumberCustomer) {
+    try {
+      String partNumber = String.format("%012x", new BigInteger(partNumberCustomer.getBytes()));
+      for (int i = partNumber.length(); i < 24; i++)
+        partNumber = partNumber.concat("0"); 
+      return "0x" + partNumber;
+    } catch (NumberFormatException ex) {
+      return "";
+    } 
+  }
+  
+  public static byte[] concatByteArrays(byte[] by1, byte[] by2) {
+    byte[] by = new byte[by1.length + by2.length];
+    System.arraycopy(by1, 0, by, 0, by1.length);
+    System.arraycopy(by2, 0, by, by1.length, by2.length);
+    return by;
+  }
+  
+  public static String customizeBikeType(String bikeTypeValue) {
+    String result = bikeTypeValue;
+    BikeType bikeType = BikeType.getValueByXmlAttribute(bikeTypeValue);
+    if (bikeType != BikeType.UNDEFINED)
+      result = bikeType.getDisplayName(); 
+    return result;
+  }
+  
+  public static byte[] hexStringToByteArray(String hex) {
+    if (hex.startsWith("0x"))
+      hex = hex.substring(2); 
+    try {
+      return Hex.decodeHex(hex.toCharArray());
+    } catch (DecoderException e) {
+      throw new NumberFormatException(e.getMessage());
+    } 
+  }
+  
+  static String hex2str(String hex, int offset) {
+    hex = hex.replace("0x", "");
+    byte[] swVerECU = new byte[offset / 2];
+    for (int i = 0; i < offset; i += 2) {
+      String in = hex.substring(i, i + 2);
+      swVerECU[i / 2] = (byte)Integer.parseInt(in, 16);
+    } 
+    return new String(swVerECU);
+  }
+  
+  public static int hex2int(String hex) {
+    return Integer.parseInt(hex.replace("0x", ""), 16);
+  }
+  
+  public static int byteArrayToInteger(byte[] by) {
+    if (by == null)
+      return 0; 
+    int iSize = 4;
+    int iVal = 0;
+    if (by.length < iSize)
+      iSize = by.length; 
+    for (int i = 0; i < iSize; i++)
+      iVal = (iVal << 8) + (by[i] & 0xFF); 
+    return iVal;
+  }
+  
+  public static byte[] integerToByteArray(int value) {
+    byte[] by = new byte[4];
+    for (int i = 0; i < 4; i++) {
+      int shift = i << 3;
+      by[3 - i] = (byte)((value & 255 << shift) >>> shift);
+    } 
+    return by;
+  }
+  
+  public static byte[] readBinaryData(String fileName) {
+    try {
+      return FileUtils.readFileToByteArray(new File(fileName));
+    } catch (FileNotFoundException e) {
+      LOGGER.error("File not found: {}", fileName, e);
+    } catch (IOException e) {
+      LOGGER.error("Error reading BinaryData from {}", fileName, e);
+    } 
+    return new byte[0];
+  }
+}
+
+
+========================================================================================================================
+ITEM 27: com/gigatronik/ebike/common/util/ChecksumCalculator.java
+========================================================================================================================
+package com.gigatronik.ebike.common.util;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ChecksumCalculator {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ChecksumCalculator.class);
+  
+  public static String calculateAbsVariantIdChecksum(String abVariantId) {
+    try {
+      int value = Integer.parseInt(abVariantId);
+      if (value > 255)
+        return null; 
+      return Integer.toHexString(flipBits(value, 8)).toUpperCase();
+    } catch (NumberFormatException e) {
+      LOGGER.error("Error calculating abs variant id checksum for {}", abVariantId, e);
+      return null;
+    } 
+  }
+  
+  public static String calculateWheelSizeChecksum(String wheelSize) {
+    try {
+      int value = Integer.parseInt(wheelSize);
+      if (value > 65535)
+        return null; 
+      return Integer.toHexString(flipBits(value, 16)).toUpperCase();
+    } catch (NumberFormatException e) {
+      LOGGER.error("Error calculating wheel size checksum for {}", wheelSize, e);
+      return null;
+    } 
+  }
+  
+  private static int flipBits(int n, int k) {
+    int mask = (1 << k) - 1;
+    return n ^ mask;
+  }
+}
+
+
+========================================================================================================================
+ITEM 28: com/gigatronik/ebike/common/util/ConfigurationHelper.java
+========================================================================================================================
+package com.gigatronik.ebike.common.util;
+
+import com.gigatronik.ebike.common.configuration.Constants;
+
+public class ConfigurationHelper {
+  public static Constants.EcuType getEcuTypeFromDevice(Constants.HidDevice device) {
+    Constants.EcuType type = Constants.EcuType.NONE;
+    switch (device) {
+      case BUI21X_APP:
+      case BUI21X_FBL:
+        type = Constants.EcuType.BUI21X;
+        break;
+      case BUI25X_APP:
+      case BUI25X_FBL:
+        type = Constants.EcuType.BUI25X;
+        break;
+      case BUI270_APP:
+      case BUI270_FBL:
+      case BUI270_STO:
+        type = Constants.EcuType.BUI270;
+        break;
+      case BUI275_APP:
+      case BUI275_FBL:
+      case BUI275_STO:
+        type = Constants.EcuType.BUI275;
+        break;
+      case BUI330_APP:
+      case BUI330_FBL:
+        type = Constants.EcuType.BUI330;
+        break;
+      case BUI350_APP:
+      case BUI350_FBL:
+        type = Constants.EcuType.BUI350;
+        break;
+      case BCT_APP:
+      case BCT_FBL:
+        type = Constants.EcuType.BCT;
+        break;
+      case COBI_EAIR_APP:
+      case COBI_EAIR_FBL:
+        type = Constants.EcuType.COBI;
+        break;
+    } 
+    return type;
+  }
+  
+  public static Constants.EcuMode getEcuModeFromDevice(Constants.HidDevice device) {
+    Constants.EcuMode mode = Constants.EcuMode.NONE;
+    switch (device) {
+      case BUI21X_APP:
+      case BUI25X_APP:
+      case BUI270_APP:
+      case BUI275_APP:
+      case BUI330_APP:
+      case BUI350_APP:
+      case BCT_APP:
+      case COBI_EAIR_APP:
+        mode = Constants.EcuMode.APP;
+        break;
+      case BUI21X_FBL:
+      case BUI25X_FBL:
+      case BUI270_FBL:
+      case BUI275_FBL:
+      case BUI330_FBL:
+      case BUI350_FBL:
+      case BCT_FBL:
+      case COBI_EAIR_FBL:
+        mode = Constants.EcuMode.FBL;
+        break;
+      case BUI270_STO:
+      case BUI275_STO:
+        mode = Constants.EcuMode.MASS_STORAGE;
+        break;
+    } 
+    return mode;
+  }
+}
+
+
+========================================================================================================================
+ITEM 29: com/gigatronik/ebike/common/util/ConverterUtils.java
+========================================================================================================================
+package com.gigatronik.ebike.common.util;
+
+public class ConverterUtils {
+  public static boolean isDouble(String str) {
+    if (str == null)
+      return false; 
+    int length = str.length();
+    if (length == 0)
+      return false; 
+    int i = 0;
+    if (str.charAt(0) == '-') {
+      if (length == 1)
+        return false; 
+      i++;
+    } 
+    int integerPartSize = 0;
+    int exponentPartSize = -1;
+    while (i < length) {
+      char c = str.charAt(i);
+      if (c < '0' || c > '9') {
+        if (c == '.' && integerPartSize > 0 && exponentPartSize == -1) {
+          exponentPartSize = 0;
+        } else {
+          return false;
+        } 
+      } else if (exponentPartSize > -1) {
+        exponentPartSize++;
+      } else {
+        integerPartSize++;
+      } 
+      i++;
+    } 
+    if ((str.charAt(0) == '0' && i > 1 && exponentPartSize < 1) || exponentPartSize == 0 || 
+      str.charAt(length - 1) == '.')
+      return false; 
+    return true;
+  }
+  
+  public static boolean isInteger(String str) {
+    if (str == null)
+      return false; 
+    int length = str.length();
+    if (length == 0)
+      return false; 
+    int i = 0;
+    if (str.charAt(0) == '-') {
+      if (length == 1)
+        return false; 
+      i++;
+    } 
+    while (i < length) {
+      char c = str.charAt(i);
+      if (c < '0' || c > '9')
+        return false; 
+      i++;
+    } 
+    return true;
+  }
+}
+
+
+========================================================================================================================
+ITEM 30: com/gigatronik/ebike/common/util/FileIOUtil.java
+========================================================================================================================
+package com.gigatronik.ebike.common.util;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Enumeration;
+import java.util.Objects;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import org.apache.commons.compress.archivers.ArchiveException;
+import org.apache.commons.compress.archivers.ArchiveStreamFactory;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.utils.IOUtils;
+import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class FileIOUtil {
+  private static final Logger LOGGER = LoggerFactory.getLogger(FileIOUtil.class);
+  
+  private static final int MAX_BUFFER = 4096;
+  
+  private static final File TEMPORARY_DIRECTORY = new File(System.getProperty("java.io.tmpdir"));
+  
+  public static String unzipWithValidation(File fSourceZip) throws IOException {
+    try (ZipFile zipFile = new ZipFile(fSourceZip)) {
+      File tempdirectory = getJavaTmpDirectory();
+      String fileDirectory = tempdirectory.getPath();
+      String upzippedPath = fileDirectory + fileDirectory + File.separator + "Unzipped";
+      File tempDir = new File(upzippedPath);
+      tempDir.mkdir();
+      Enumeration<? extends ZipEntry> enumZipEntries = zipFile.entries();
+      while (enumZipEntries.hasMoreElements()) {
+        ZipEntry entry = enumZipEntries.nextElement();
+        File destinationFilePath = new File(upzippedPath, entry.getName());
+        destinationFilePath.getParentFile().mkdirs();
+        if (!entry.isDirectory() || !destinationFilePath.exists() || !destinationFilePath.getName().equals(entry.getName()) || destinationFilePath.length() != entry.getSize() || 
+          destinationFilePath.lastModified() != entry.getTime()) {
+          try(InputStream is = zipFile.getInputStream(entry); FileOutputStream fos = new FileOutputStream(destinationFilePath)) {
+            IOUtils.copy(is, fos, 4096);
+            fos.flush();
+          } 
+          if (!destinationFilePath.setLastModified(entry.getTime()))
+            LOGGER.warn("The modified date in {} has not been changed!", destinationFilePath); 
+        } 
+      } 
+      return upzippedPath;
+    } 
+  }
+  
+  private static void unTar(File inputFile, File outputDir) throws IOException, ArchiveException {
+    try (TarArchiveInputStream tarInputStream = (TarArchiveInputStream)new ArchiveStreamFactory().createArchiveInputStream("tar", new FileInputStream(inputFile))) {
+      TarArchiveEntry entry;
+      while ((entry = (TarArchiveEntry)tarInputStream.getNextEntry()) != null) {
+        File outputFile = new File(outputDir, entry.getName());
+        if (entry.isDirectory()) {
+          if (!outputFile.exists() && !outputFile.mkdirs())
+            throw new IllegalStateException(String.format("Couldn't create directory %s.", outputFile.getAbsolutePath())); 
+          continue;
+        } 
+        try (OutputStream outputFileStream = new FileOutputStream(outputFile)) {
+          IOUtils.copy((InputStream)tarInputStream, outputFileStream);
+          outputFileStream.flush();
+        } 
+      } 
+    } 
+  }
+  
+  public static void unTar(String inputFileName) throws IOException, ArchiveException {
+    File tarFile = new File(inputFileName);
+    File outputDir = tarFile.getParentFile();
+    unTar(tarFile, outputDir);
+  }
+  
+  public static void deleteDirectoryOnExit(String path) {
+    deleteDirectoryOnExit(new File(path));
+  }
+  
+  private static void deleteDirectoryOnExit(File file) {
+    try {
+      FileUtils.forceDeleteOnExit(file);
+    } catch (IOException e) {
+      LOGGER.warn("Error scheduling directory to be deleted: {}", file.getPath());
+    } 
+  }
+  
+  public static void markTmpFilesForDeletion() {
+    try {
+      File tmpDirectory = getJavaTmpDirectory();
+      for (File file : Objects.<File[]>requireNonNull(tmpDirectory.listFiles())) {
+        if (file.getName().endsWith("Unzipped") || file.getName().startsWith("NanoHTTPD") || file.getName().startsWith("LargeContainer") || 
+          file.getName().startsWith("Ebike_tmp"))
+          deleteDirectoryOnExit(file); 
+      } 
+    } catch (RuntimeException e) {
+      LOGGER.error("Violation in the access to the Temporal Files. No file will be marked to be deleted.", (Throwable)e);
+    } 
+  }
+  
+  public static File getJavaTmpDirectory() {
+    return TEMPORARY_DIRECTORY;
+  }
+}
+
+
+========================================================================================================================
+ITEM 31: com/gigatronik/ebike/common/util/HeapSpaceInfo.java
+========================================================================================================================
+package com.gigatronik.ebike.common.util;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class HeapSpaceInfo {
+  private static final Logger LOGGER = LoggerFactory.getLogger(HeapSpaceInfo.class);
+  
+  private static final double MB = 1048576.0D;
+  
+  public static void logHeapSpaceInfo() {
+    LOGGER.info(getHeapSpaceLogInfo());
+  }
+  
+  public static String getHeapSpaceLogInfo() {
+    Runtime runtime = Runtime.getRuntime();
+    double freeMemory = (double)runtime.freeMemory() / 1048576.0D;
+    double totalMemory = (double)runtime.totalMemory() / 1048576.0D;
+    double maxMemory = (double)runtime.maxMemory() / 1048576.0D;
+    double usedMemory = (double)(runtime.totalMemory() - runtime.freeMemory()) / 1048576.0D;
+    return String.format("HEAP_INFO[MB] UsedMemory: %.1f, FreeMemory: %.1f, TotalMemory: %.1f, MaxMemory: %.1f", usedMemory, freeMemory, totalMemory, maxMemory);
+  }
+}
+
+
+========================================================================================================================
+ITEM 32: com/gigatronik/ebike/common/util/ManufactureDateHelper.java
+========================================================================================================================
+package com.gigatronik.ebike.common.util;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class ManufactureDateHelper {
+  private static HashMap<String, String> manufactureDateMap = new HashMap<>();
+  
+  static {
+    manufactureDateMap.put("200701", "781");
+    manufactureDateMap.put("200702", "782");
+    manufactureDateMap.put("200703", "783");
+    manufactureDateMap.put("200704", "784");
+    manufactureDateMap.put("200705", "785");
+    manufactureDateMap.put("200706", "786");
+    manufactureDateMap.put("200707", "787");
+    manufactureDateMap.put("200708", "788");
+    manufactureDateMap.put("200709", "789");
+    manufactureDateMap.put("200710", "790");
+    manufactureDateMap.put("200711", "791");
+    manufactureDateMap.put("200712", "792");
+    manufactureDateMap.put("200801", "881");
+    manufactureDateMap.put("200802", "882");
+    manufactureDateMap.put("200803", "883");
+    manufactureDateMap.put("200804", "884");
+    manufactureDateMap.put("200805", "885");
+    manufactureDateMap.put("200806", "886");
+    manufactureDateMap.put("200807", "887");
+    manufactureDateMap.put("200808", "888");
+    manufactureDateMap.put("200809", "889");
+    manufactureDateMap.put("200810", "890");
+    manufactureDateMap.put("200811", "891");
+    manufactureDateMap.put("200812", "892");
+    manufactureDateMap.put("200901", "981");
+    manufactureDateMap.put("200902", "982");
+    manufactureDateMap.put("200903", "983");
+    manufactureDateMap.put("200904", "984");
+    manufactureDateMap.put("200905", "985");
+    manufactureDateMap.put("200906", "986");
+    manufactureDateMap.put("200907", "987");
+    manufactureDateMap.put("200908", "988");
+    manufactureDateMap.put("200909", "989");
+    manufactureDateMap.put("200910", "990");
+    manufactureDateMap.put("200911", "991");
+    manufactureDateMap.put("200912", "992");
+    manufactureDateMap.put("201001", "001");
+    manufactureDateMap.put("201002", "002");
+    manufactureDateMap.put("201003", "003");
+    manufactureDateMap.put("201004", "004");
+    manufactureDateMap.put("201005", "005");
+    manufactureDateMap.put("201006", "006");
+    manufactureDateMap.put("201007", "007");
+    manufactureDateMap.put("201008", "008");
+    manufactureDateMap.put("201009", "009");
+    manufactureDateMap.put("201010", "010");
+    manufactureDateMap.put("201011", "011");
+    manufactureDateMap.put("201012", "012");
+    manufactureDateMap.put("201101", "101");
+    manufactureDateMap.put("201102", "102");
+    manufactureDateMap.put("201103", "103");
+    manufactureDateMap.put("201104", "104");
+    manufactureDateMap.put("201105", "105");
+    manufactureDateMap.put("201106", "106");
+    manufactureDateMap.put("201107", "107");
+    manufactureDateMap.put("201108", "108");
+    manufactureDateMap.put("201109", "109");
+    manufactureDateMap.put("201110", "110");
+    manufactureDateMap.put("201111", "111");
+    manufactureDateMap.put("201112", "112");
+    manufactureDateMap.put("201201", "201");
+    manufactureDateMap.put("201202", "202");
+    manufactureDateMap.put("201203", "203");
+    manufactureDateMap.put("201204", "204");
+    manufactureDateMap.put("201205", "205");
+    manufactureDateMap.put("201206", "206");
+    manufactureDateMap.put("201207", "207");
+    manufactureDateMap.put("201208", "208");
+    manufactureDateMap.put("201209", "209");
+    manufactureDateMap.put("201210", "210");
+    manufactureDateMap.put("201211", "211");
+    manufactureDateMap.put("201212", "212");
+    manufactureDateMap.put("201301", "301");
+    manufactureDateMap.put("201302", "302");
+    manufactureDateMap.put("201303", "303");
+    manufactureDateMap.put("201304", "304");
+    manufactureDateMap.put("201305", "305");
+    manufactureDateMap.put("201306", "306");
+    manufactureDateMap.put("201307", "307");
+    manufactureDateMap.put("201308", "308");
+    manufactureDateMap.put("201309", "309");
+    manufactureDateMap.put("201310", "310");
+    manufactureDateMap.put("201311", "311");
+    manufactureDateMap.put("201312", "312");
+    manufactureDateMap.put("201401", "417");
+    manufactureDateMap.put("201402", "418");
+    manufactureDateMap.put("201403", "419");
+    manufactureDateMap.put("201404", "420");
+    manufactureDateMap.put("201405", "453");
+    manufactureDateMap.put("201406", "454");
+    manufactureDateMap.put("201407", "455");
+    manufactureDateMap.put("201408", "456");
+    manufactureDateMap.put("201409", "457");
+    manufactureDateMap.put("201410", "458");
+    manufactureDateMap.put("201411", "459");
+    manufactureDateMap.put("201412", "460");
+    manufactureDateMap.put("201501", "517");
+    manufactureDateMap.put("201502", "518");
+    manufactureDateMap.put("201503", "519");
+    manufactureDateMap.put("201504", "520");
+    manufactureDateMap.put("201505", "553");
+    manufactureDateMap.put("201506", "554");
+    manufactureDateMap.put("201507", "555");
+    manufactureDateMap.put("201508", "556");
+    manufactureDateMap.put("201509", "557");
+    manufactureDateMap.put("201510", "558");
+    manufactureDateMap.put("201511", "559");
+    manufactureDateMap.put("201512", "560");
+    manufactureDateMap.put("201601", "617");
+    manufactureDateMap.put("201602", "618");
+    manufactureDateMap.put("201603", "619");
+    manufactureDateMap.put("201604", "620");
+    manufactureDateMap.put("201605", "653");
+    manufactureDateMap.put("201606", "654");
+    manufactureDateMap.put("201607", "655");
+    manufactureDateMap.put("201608", "656");
+    manufactureDateMap.put("201609", "657");
+    manufactureDateMap.put("201610", "658");
+    manufactureDateMap.put("201611", "659");
+    manufactureDateMap.put("201612", "660");
+    manufactureDateMap.put("201701", "717");
+    manufactureDateMap.put("201702", "718");
+    manufactureDateMap.put("201703", "719");
+    manufactureDateMap.put("201704", "720");
+    manufactureDateMap.put("201705", "753");
+    manufactureDateMap.put("201706", "754");
+    manufactureDateMap.put("201707", "755");
+    manufactureDateMap.put("201708", "756");
+    manufactureDateMap.put("201709", "757");
+    manufactureDateMap.put("201710", "758");
+    manufactureDateMap.put("201711", "759");
+    manufactureDateMap.put("201712", "760");
+    manufactureDateMap.put("201801", "817");
+    manufactureDateMap.put("201802", "818");
+    manufactureDateMap.put("201803", "819");
+    manufactureDateMap.put("201804", "820");
+    manufactureDateMap.put("201805", "853");
+    manufactureDateMap.put("201806", "854");
+    manufactureDateMap.put("201807", "855");
+    manufactureDateMap.put("201808", "856");
+    manufactureDateMap.put("201809", "857");
+    manufactureDateMap.put("201810", "858");
+    manufactureDateMap.put("201811", "859");
+    manufactureDateMap.put("201812", "860");
+    manufactureDateMap.put("201901", "917");
+    manufactureDateMap.put("201902", "918");
+    manufactureDateMap.put("201903", "919");
+    manufactureDateMap.put("201904", "920");
+    manufactureDateMap.put("201905", "953");
+    manufactureDateMap.put("201906", "954");
+    manufactureDateMap.put("201907", "955");
+    manufactureDateMap.put("201908", "956");
+    manufactureDateMap.put("201909", "957");
+    manufactureDateMap.put("201910", "958");
+    manufactureDateMap.put("201911", "959");
+    manufactureDateMap.put("201912", "960");
+    manufactureDateMap.put("202001", "037");
+    manufactureDateMap.put("202002", "038");
+    manufactureDateMap.put("202003", "039");
+    manufactureDateMap.put("202004", "040");
+    manufactureDateMap.put("202005", "073");
+    manufactureDateMap.put("202006", "074");
+    manufactureDateMap.put("202007", "075");
+    manufactureDateMap.put("202008", "076");
+    manufactureDateMap.put("202009", "077");
+    manufactureDateMap.put("202010", "078");
+    manufactureDateMap.put("202011", "079");
+    manufactureDateMap.put("202012", "080");
+    manufactureDateMap.put("202101", "137");
+    manufactureDateMap.put("202102", "138");
+    manufactureDateMap.put("202103", "139");
+    manufactureDateMap.put("202104", "140");
+    manufactureDateMap.put("202105", "173");
+    manufactureDateMap.put("202106", "174");
+    manufactureDateMap.put("202107", "175");
+    manufactureDateMap.put("202108", "176");
+    manufactureDateMap.put("202109", "177");
+    manufactureDateMap.put("202110", "178");
+    manufactureDateMap.put("202111", "179");
+    manufactureDateMap.put("202112", "180");
+    manufactureDateMap.put("202201", "237");
+    manufactureDateMap.put("202202", "238");
+    manufactureDateMap.put("202203", "239");
+    manufactureDateMap.put("202204", "240");
+    manufactureDateMap.put("202205", "273");
+    manufactureDateMap.put("202206", "274");
+    manufactureDateMap.put("202207", "275");
+    manufactureDateMap.put("202208", "276");
+    manufactureDateMap.put("202209", "277");
+    manufactureDateMap.put("202210", "278");
+    manufactureDateMap.put("202211", "279");
+    manufactureDateMap.put("202212", "280");
+    manufactureDateMap.put("202301", "337");
+    manufactureDateMap.put("202302", "338");
+    manufactureDateMap.put("202303", "339");
+    manufactureDateMap.put("202304", "340");
+    manufactureDateMap.put("202305", "373");
+    manufactureDateMap.put("202306", "374");
+    manufactureDateMap.put("202307", "375");
+    manufactureDateMap.put("202308", "376");
+    manufactureDateMap.put("202309", "377");
+    manufactureDateMap.put("202310", "378");
+    manufactureDateMap.put("202311", "379");
+    manufactureDateMap.put("202312", "380");
+    manufactureDateMap.put("202401", "437");
+    manufactureDateMap.put("202402", "438");
+    manufactureDateMap.put("202403", "439");
+    manufactureDateMap.put("202404", "440");
+    manufactureDateMap.put("202405", "473");
+    manufactureDateMap.put("202406", "474");
+    manufactureDateMap.put("202407", "475");
+    manufactureDateMap.put("202408", "476");
+    manufactureDateMap.put("202409", "477");
+    manufactureDateMap.put("202410", "478");
+    manufactureDateMap.put("202411", "479");
+    manufactureDateMap.put("202412", "480");
+    manufactureDateMap.put("202501", "537");
+    manufactureDateMap.put("202502", "538");
+    manufactureDateMap.put("202503", "539");
+    manufactureDateMap.put("202504", "540");
+    manufactureDateMap.put("202505", "573");
+    manufactureDateMap.put("202506", "574");
+    manufactureDateMap.put("202507", "575");
+    manufactureDateMap.put("202508", "576");
+    manufactureDateMap.put("202509", "577");
+    manufactureDateMap.put("202510", "578");
+    manufactureDateMap.put("202511", "579");
+    manufactureDateMap.put("202512", "580");
+    manufactureDateMap.put("202601", "637");
+    manufactureDateMap.put("202602", "638");
+    manufactureDateMap.put("202603", "639");
+    manufactureDateMap.put("202604", "640");
+    manufactureDateMap.put("202605", "673");
+    manufactureDateMap.put("202606", "674");
+    manufactureDateMap.put("202607", "675");
+    manufactureDateMap.put("202608", "676");
+    manufactureDateMap.put("202609", "677");
+    manufactureDateMap.put("202610", "678");
+    manufactureDateMap.put("202611", "679");
+    manufactureDateMap.put("202612", "680");
+    manufactureDateMap.put("202701", "737");
+    manufactureDateMap.put("202702", "738");
+    manufactureDateMap.put("202703", "739");
+    manufactureDateMap.put("202704", "740");
+    manufactureDateMap.put("202705", "773");
+    manufactureDateMap.put("202706", "774");
+    manufactureDateMap.put("202707", "775");
+    manufactureDateMap.put("202708", "776");
+    manufactureDateMap.put("202709", "777");
+    manufactureDateMap.put("202710", "778");
+    manufactureDateMap.put("202711", "779");
+    manufactureDateMap.put("202712", "780");
+    manufactureDateMap.put("202801", "837");
+    manufactureDateMap.put("202802", "838");
+    manufactureDateMap.put("202803", "839");
+    manufactureDateMap.put("202804", "840");
+    manufactureDateMap.put("202805", "873");
+    manufactureDateMap.put("202806", "874");
+    manufactureDateMap.put("202807", "875");
+    manufactureDateMap.put("202808", "876");
+    manufactureDateMap.put("202809", "877");
+    manufactureDateMap.put("202810", "878");
+    manufactureDateMap.put("202811", "879");
+    manufactureDateMap.put("202812", "880");
+    manufactureDateMap.put("202901", "937");
+    manufactureDateMap.put("202902", "938");
+    manufactureDateMap.put("202903", "939");
+    manufactureDateMap.put("202904", "940");
+    manufactureDateMap.put("202905", "973");
+    manufactureDateMap.put("202906", "974");
+    manufactureDateMap.put("202907", "975");
+    manufactureDateMap.put("202908", "976");
+    manufactureDateMap.put("202909", "977");
+    manufactureDateMap.put("202910", "978");
+    manufactureDateMap.put("202911", "979");
+    manufactureDateMap.put("202912", "980");
+    manufactureDateMap.put("203001", "0A1");
+    manufactureDateMap.put("203002", "0A2");
+    manufactureDateMap.put("203003", "0A3");
+    manufactureDateMap.put("203004", "0A4");
+    manufactureDateMap.put("203005", "0A5");
+    manufactureDateMap.put("203006", "0A6");
+    manufactureDateMap.put("203007", "0A7");
+    manufactureDateMap.put("203008", "0A8");
+    manufactureDateMap.put("203009", "0A9");
+    manufactureDateMap.put("203010", "0AA");
+    manufactureDateMap.put("203011", "0AB");
+    manufactureDateMap.put("203012", "0AC");
+    manufactureDateMap.put("203101", "1A1");
+    manufactureDateMap.put("203102", "1A2");
+    manufactureDateMap.put("203103", "1A3");
+    manufactureDateMap.put("203104", "1A4");
+    manufactureDateMap.put("203105", "1A5");
+    manufactureDateMap.put("203106", "1A6");
+    manufactureDateMap.put("203107", "1A7");
+    manufactureDateMap.put("203108", "1A8");
+    manufactureDateMap.put("203109", "1A9");
+    manufactureDateMap.put("203110", "1AA");
+    manufactureDateMap.put("203111", "1AB");
+    manufactureDateMap.put("203112", "1AC");
+    manufactureDateMap.put("203201", "2A1");
+    manufactureDateMap.put("203202", "2A2");
+    manufactureDateMap.put("203203", "2A3");
+    manufactureDateMap.put("203204", "2A4");
+    manufactureDateMap.put("203205", "2A5");
+    manufactureDateMap.put("203206", "2A6");
+    manufactureDateMap.put("203207", "2A7");
+    manufactureDateMap.put("203208", "2A8");
+    manufactureDateMap.put("203209", "2A9");
+    manufactureDateMap.put("203210", "2AA");
+    manufactureDateMap.put("203211", "2AB");
+    manufactureDateMap.put("203212", "2AC");
+    manufactureDateMap.put("203301", "3A1");
+    manufactureDateMap.put("203302", "3A2");
+    manufactureDateMap.put("203303", "3A3");
+    manufactureDateMap.put("203304", "3A4");
+    manufactureDateMap.put("203305", "3A5");
+    manufactureDateMap.put("203306", "3A6");
+    manufactureDateMap.put("203307", "3A7");
+    manufactureDateMap.put("203308", "3A8");
+    manufactureDateMap.put("203309", "3A9");
+    manufactureDateMap.put("203310", "3AA");
+    manufactureDateMap.put("203311", "3AB");
+    manufactureDateMap.put("203312", "3AC");
+    manufactureDateMap.put("203401", "4A1");
+    manufactureDateMap.put("203402", "4A2");
+    manufactureDateMap.put("203403", "4A3");
+    manufactureDateMap.put("203404", "4A4");
+    manufactureDateMap.put("203405", "4A5");
+    manufactureDateMap.put("203406", "4A6");
+    manufactureDateMap.put("203407", "4A7");
+    manufactureDateMap.put("203408", "4A8");
+    manufactureDateMap.put("203409", "4A9");
+    manufactureDateMap.put("203410", "4AA");
+    manufactureDateMap.put("203411", "4AB");
+    manufactureDateMap.put("203412", "4AC");
+    manufactureDateMap.put("203501", "5A1");
+    manufactureDateMap.put("203502", "5A2");
+    manufactureDateMap.put("203503", "5A3");
+    manufactureDateMap.put("203504", "5A4");
+    manufactureDateMap.put("203505", "5A5");
+    manufactureDateMap.put("203506", "5A6");
+    manufactureDateMap.put("203507", "5A7");
+    manufactureDateMap.put("203508", "5A8");
+    manufactureDateMap.put("203509", "5A9");
+    manufactureDateMap.put("203510", "5AA");
+    manufactureDateMap.put("203511", "5AB");
+    manufactureDateMap.put("203512", "5AC");
+    manufactureDateMap.put("203601", "6A1");
+    manufactureDateMap.put("203602", "6A2");
+    manufactureDateMap.put("203603", "6A3");
+    manufactureDateMap.put("203604", "6A4");
+    manufactureDateMap.put("203605", "6A5");
+    manufactureDateMap.put("203606", "6A6");
+    manufactureDateMap.put("203607", "6A7");
+    manufactureDateMap.put("203608", "6A8");
+    manufactureDateMap.put("203609", "6A9");
+    manufactureDateMap.put("203610", "6AA");
+    manufactureDateMap.put("203611", "6AB");
+    manufactureDateMap.put("203612", "6AC");
+    manufactureDateMap.put("203701", "7A1");
+    manufactureDateMap.put("203702", "7A2");
+    manufactureDateMap.put("203703", "7A3");
+    manufactureDateMap.put("203704", "7A4");
+    manufactureDateMap.put("203705", "7A5");
+    manufactureDateMap.put("203706", "7A6");
+    manufactureDateMap.put("203707", "7A7");
+    manufactureDateMap.put("203708", "7A8");
+    manufactureDateMap.put("203709", "7A9");
+    manufactureDateMap.put("203710", "7AA");
+    manufactureDateMap.put("203711", "7AB");
+    manufactureDateMap.put("203712", "7AC");
+    manufactureDateMap.put("203801", "8A1");
+    manufactureDateMap.put("203802", "8A2");
+    manufactureDateMap.put("203803", "8A3");
+    manufactureDateMap.put("203804", "8A4");
+    manufactureDateMap.put("203805", "8A5");
+    manufactureDateMap.put("203806", "8A6");
+    manufactureDateMap.put("203807", "8A7");
+    manufactureDateMap.put("203808", "8A8");
+    manufactureDateMap.put("203809", "8A9");
+    manufactureDateMap.put("203810", "8AA");
+    manufactureDateMap.put("203811", "8AB");
+    manufactureDateMap.put("203812", "8AC");
+    manufactureDateMap.put("203901", "9A1");
+    manufactureDateMap.put("203902", "9A2");
+    manufactureDateMap.put("203903", "9A3");
+    manufactureDateMap.put("203904", "9A4");
+    manufactureDateMap.put("203905", "9A5");
+    manufactureDateMap.put("203906", "9A6");
+    manufactureDateMap.put("203907", "9A7");
+    manufactureDateMap.put("203908", "9A8");
+    manufactureDateMap.put("203909", "9A9");
+    manufactureDateMap.put("203910", "9AA");
+    manufactureDateMap.put("203911", "9AB");
+    manufactureDateMap.put("203912", "9AC");
+    manufactureDateMap.put("204001", "0B1");
+    manufactureDateMap.put("204002", "0B2");
+    manufactureDateMap.put("204003", "0B3");
+    manufactureDateMap.put("204004", "0B4");
+    manufactureDateMap.put("204005", "0B5");
+    manufactureDateMap.put("204006", "0B6");
+    manufactureDateMap.put("204007", "0B7");
+    manufactureDateMap.put("204008", "0B8");
+    manufactureDateMap.put("204009", "0B9");
+    manufactureDateMap.put("204010", "0BA");
+    manufactureDateMap.put("204011", "0BB");
+    manufactureDateMap.put("204012", "0BC");
+    manufactureDateMap.put("204101", "1B1");
+    manufactureDateMap.put("204102", "1B2");
+    manufactureDateMap.put("204103", "1B3");
+    manufactureDateMap.put("204104", "1B4");
+    manufactureDateMap.put("204105", "1B5");
+    manufactureDateMap.put("204106", "1B6");
+    manufactureDateMap.put("204107", "1B7");
+    manufactureDateMap.put("204108", "1B8");
+    manufactureDateMap.put("204109", "1B9");
+    manufactureDateMap.put("204110", "1BA");
+    manufactureDateMap.put("204111", "1BB");
+    manufactureDateMap.put("204112", "1BC");
+    manufactureDateMap.put("204201", "2B1");
+    manufactureDateMap.put("204202", "2B2");
+    manufactureDateMap.put("204203", "2B3");
+    manufactureDateMap.put("204204", "2B4");
+    manufactureDateMap.put("204205", "2B5");
+    manufactureDateMap.put("204206", "2B6");
+    manufactureDateMap.put("204207", "2B7");
+    manufactureDateMap.put("204208", "2B8");
+    manufactureDateMap.put("204209", "2B9");
+    manufactureDateMap.put("204210", "2BA");
+    manufactureDateMap.put("204211", "2BB");
+    manufactureDateMap.put("204212", "2BC");
+    manufactureDateMap.put("204301", "3B1");
+    manufactureDateMap.put("204302", "3B2");
+    manufactureDateMap.put("204303", "3B3");
+    manufactureDateMap.put("204304", "3B4");
+    manufactureDateMap.put("204305", "3B5");
+    manufactureDateMap.put("204306", "3B6");
+    manufactureDateMap.put("204307", "3B7");
+    manufactureDateMap.put("204308", "3B8");
+    manufactureDateMap.put("204309", "3B9");
+    manufactureDateMap.put("204310", "3BA");
+    manufactureDateMap.put("204311", "3BB");
+    manufactureDateMap.put("204312", "3BC");
+    manufactureDateMap.put("204401", "4B1");
+    manufactureDateMap.put("204402", "4B2");
+    manufactureDateMap.put("204403", "4B3");
+    manufactureDateMap.put("204404", "4B4");
+    manufactureDateMap.put("204405", "4B5");
+    manufactureDateMap.put("204406", "4B6");
+    manufactureDateMap.put("204407", "4B7");
+    manufactureDateMap.put("204408", "4B8");
+    manufactureDateMap.put("204409", "4B9");
+    manufactureDateMap.put("204410", "4BA");
+    manufactureDateMap.put("204411", "4BB");
+    manufactureDateMap.put("204412", "4BC");
+    manufactureDateMap.put("204501", "5B1");
+    manufactureDateMap.put("204502", "5B2");
+    manufactureDateMap.put("204503", "5B3");
+    manufactureDateMap.put("204504", "5B4");
+    manufactureDateMap.put("204505", "5B5");
+    manufactureDateMap.put("204506", "5B6");
+    manufactureDateMap.put("204507", "5B7");
+    manufactureDateMap.put("204508", "5B8");
+    manufactureDateMap.put("204509", "5B9");
+    manufactureDateMap.put("204510", "5BA");
+    manufactureDateMap.put("204511", "5BB");
+    manufactureDateMap.put("204512", "5BC");
+    manufactureDateMap.put("204601", "6B1");
+    manufactureDateMap.put("204602", "6B2");
+    manufactureDateMap.put("204603", "6B3");
+    manufactureDateMap.put("204604", "6B4");
+    manufactureDateMap.put("204605", "6B5");
+    manufactureDateMap.put("204606", "6B6");
+    manufactureDateMap.put("204607", "6B7");
+    manufactureDateMap.put("204608", "6B8");
+    manufactureDateMap.put("204609", "6B9");
+    manufactureDateMap.put("204610", "6BA");
+    manufactureDateMap.put("204611", "6BB");
+    manufactureDateMap.put("204612", "6BC");
+    manufactureDateMap.put("204701", "7B1");
+    manufactureDateMap.put("204702", "7B2");
+    manufactureDateMap.put("204703", "7B3");
+    manufactureDateMap.put("204704", "7B4");
+    manufactureDateMap.put("204705", "7B5");
+    manufactureDateMap.put("204706", "7B6");
+    manufactureDateMap.put("204707", "7B7");
+    manufactureDateMap.put("204708", "7B8");
+    manufactureDateMap.put("204709", "7B9");
+    manufactureDateMap.put("204710", "7BA");
+    manufactureDateMap.put("204711", "7BB");
+    manufactureDateMap.put("204712", "7BC");
+    manufactureDateMap.put("204801", "8B1");
+    manufactureDateMap.put("204802", "8B2");
+    manufactureDateMap.put("204803", "8B3");
+    manufactureDateMap.put("204804", "8B4");
+    manufactureDateMap.put("204805", "8B5");
+    manufactureDateMap.put("204806", "8B6");
+    manufactureDateMap.put("204807", "8B7");
+    manufactureDateMap.put("204808", "8B8");
+    manufactureDateMap.put("204809", "8B9");
+    manufactureDateMap.put("204810", "8BA");
+    manufactureDateMap.put("204811", "8BB");
+    manufactureDateMap.put("204812", "8BC");
+    manufactureDateMap.put("204901", "9B1");
+    manufactureDateMap.put("204902", "9B2");
+    manufactureDateMap.put("204903", "9B3");
+    manufactureDateMap.put("204904", "9B4");
+    manufactureDateMap.put("204905", "9B5");
+    manufactureDateMap.put("204906", "9B6");
+    manufactureDateMap.put("204907", "9B7");
+    manufactureDateMap.put("204908", "9B8");
+    manufactureDateMap.put("204909", "9B9");
+    manufactureDateMap.put("204910", "9BA");
+    manufactureDateMap.put("204911", "9BB");
+    manufactureDateMap.put("204912", "9BC");
+  }
+  
+  public static String codeManufactureDate(String decodedDate) {
+    if (decodedDate != null) {
+      String codedDate = manufactureDateMap.get(decodedDate.replaceAll("-", "").substring(0, 6));
+      if (codedDate != null)
+        return codedDate; 
+    } 
+    return "000";
+  }
+  
+  public static String decodedManufactureDate(String encodedDate) {
+    for (Map.Entry<String, String> entry : manufactureDateMap.entrySet()) {
+      if (encodedDate.equals(entry.getValue()))
+        return entry.getKey(); 
+    } 
+    return encodedDate;
+  }
+}
+
+
+========================================================================================================================
+ITEM 33: com/gigatronik/ebike/common/util/PnTableWithChart.java
+========================================================================================================================
+package com.gigatronik.ebike.common.util;
+
+import javax.swing.table.TableModel;
+
+public interface PnTableWithChart {
+  TableModel getTableModel();
+  
+  int getRowCount();
+  
+  Object getValueAt(int paramInt1, int paramInt2);
+}
+
+
+========================================================================================================================
+ITEM 34: com/gigatronik/ebike/common/util/SerialNumberHelper.java
+========================================================================================================================
+package com.gigatronik.ebike.common.util;
+
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class SerialNumberHelper {
+  private static final int YEAR_07 = 7;
+  
+  private static final int YEAR_10 = 10;
+  
+  private static final int YEAR_14 = 14;
+  
+  private static final int YEAR_20 = 20;
+  
+  private static final int YEAR_30 = 30;
+  
+  private static final int YEAR_90 = 90;
+  
+  private static final int YEAR_MULTIPLIER = 100;
+  
+  private static final int MONTH_DECISION = 5;
+  
+  private static final int MONTH_OFFSET_16 = 16;
+  
+  private static final int MONTH_OFFSET_48 = 48;
+  
+  private static final int MONTH_OFFSET_36 = 36;
+  
+  private static final int MONTH_OFFSET_68 = 68;
+  
+  private static final int MONTH_OFFSET_80 = 80;
+  
+  private static final String HEX_PREFIX = "0x";
+  
+  private static final int DATE_YYMM_APRIL2014 = 1404;
+  
+  private static final int DATE_YYMM_JULY2015 = 1507;
+  
+  private static final int DU_HEX_STRING_LEN_CLASSIC = 24;
+  
+  private static final int DU_HEX_STRING_LEN_VICTOR = 26;
+  
+  private static final int DU_PRODUCTION_PLANT_START = 0;
+  
+  private static final int DU_TESTER_START = 3;
+  
+  private static final int DU_DAILY_COUNTER_START = 7;
+  
+  private static final int DU_DATE_DAY_START = 11;
+  
+  private static final int DU_DATE_YEAR_START = 15;
+  
+  private static final int DU_PRODUCTION_PLANT_START_CLASSIC = 1;
+  
+  private static final int DU_TESTER_START_CLASSIC = 4;
+  
+  private static final int DU_DAILY_COUNTER_START_CLASSIC = 8;
+  
+  private static final int DU_DATE_DAY_START_CLASSIC = 12;
+  
+  private static final int DU_DATE_YEAR_START_CLASSIC = 16;
+  
+  private static final int BAPA_HEX_STRING_LEN = 24;
+  
+  private static final int BAPA_PRODUCTION_PLANT_START = 0;
+  
+  private static final int BAPA_TESTER_START = 4;
+  
+  private static final int BAPA_DAILY_COUNTER_START = 8;
+  
+  private static final int BAPA_DATE_DAY_START = 12;
+  
+  private static final int BAPA_DATE_MONTH_START = 14;
+  
+  private static final int BAPA_DATE_YEAR_START = 16;
+  
+  private static final int BUI27X_HEX_STRING_LEN = 11;
+  
+  private static final int BUI27X_DATE_YEAR_START = 0;
+  
+  private static final int BUI27X_DAILY_COUNTER_START = 5;
+  
+  private static final int BUI27X_PRODUCT_LINE_START = 9;
+  
+  private static final int BUI27X_NOT_USED_START = 11;
+  
+  private static final int BAS_HEX_STRING_LEN = 24;
+  
+  private static final int BAS_START_TO_WRITE = 0;
+  
+  private static final int BAS_STOP_TO_WRITE = 24;
+  
+  private static final int BCT_HEX_STRING_LEN = 26;
+  
+  private static final int BCT_TESTER_START = 4;
+  
+  private static final int BCT_DAILY_COUNTER_START = 8;
+  
+  private static final int BCT_DATE_DAY_START = 12;
+  
+  private static final int BCT_DATE_YEAR_START = 16;
+  
+  private static final int ESHIFT_SHIMANO_HEX_STRING_LEN = 12;
+  
+  private static final int ESHIFT_SHIMANO_START_TO_WRITE = 0;
+  
+  private static final int ESHIFT_SHIMANO_STOP_TO_WRITE = 12;
+  
+  private static final int ESHIFT_HEX_STRING_LEN = 8;
+  
+  private static final int ESHIFT_START_TO_WRITE = 0;
+  
+  private static final int ESHIFT_STOP_TO_WRITE = 8;
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(SerialNumberHelper.class);
+  
+  public static String getSerialnumberDuVictor(String hexSerialNumber) {
+    String serialNumber = StringUtils.replace(hexSerialNumber, "0x", "");
+    try {
+      if (StringUtils.length(serialNumber) >= 26) {
+        StringBuilder serialNoBuilder = new StringBuilder();
+        serialNoBuilder.append(cryptDateDUymmdd(serialNumber.substring(11, 17)))
+          .append(" ")
+          
+          .append(serialNumber.substring(7, 11))
+          
+          .append(getProductlineDuVictor(serialNumber));
+        return serialNoBuilder.toString();
+      } 
+    } catch (NumberFormatException e) {
+      LOGGER.error("Error parsing serial number {}", serialNumber, e);
+    } 
+    return serialNumber;
+  }
+  
+  public static String getSerialnumberDuClassic(String hexSerialNumber) {
+    String serialNumber = StringUtils.replace(hexSerialNumber, "0x", "");
+    try {
+      if (StringUtils.length(serialNumber) >= 24) {
+        StringBuilder serialNoBuilder = new StringBuilder();
+        serialNoBuilder.append(cryptDateDUymmdd(serialNumber.substring(12, 18)))
+          .append(" ")
+          
+          .append(serialNumber.substring(8, 12))
+          
+          .append(getProductlineDuClassic(serialNumber));
+        return serialNoBuilder.toString();
+      } 
+    } catch (NumberFormatException e) {
+      LOGGER.error("Error parsing serial number {}", serialNumber, e);
+    } 
+    return serialNumber;
+  }
+  
+  private static String getProductlineDuVictor(String serialNumber) {
+    if (StringUtils.equals(serialNumber.substring(0, 3), "300")) {
+      int tester = Integer.parseInt(serialNumber.substring(3, 7), 10);
+      switch (tester) {
+        case 5039:
+          return " 1";
+        case 5043:
+          return " 2";
+        case 5047:
+          return " 3";
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+        case 8:
+        case 9:
+          return String.format(" %s", tester);
+      } 
+    } 
+    return "";
+  }
+  
+  private static String getProductlineDuClassic(String serialNumber) {
+    int tester;
+    switch (serialNumber.substring(1, 4)) {
+      case "944":
+      case "030":
+      case "300":
+        tester = Integer.parseInt(serialNumber.substring(4, 8), 10);
+        switch (tester) {
+          case 5039:
+            return " 1";
+          case 5043:
+            return " 2";
+          case 5047:
+            return " 3";
+          case 1:
+          case 2:
+          case 3:
+          case 4:
+          case 5:
+          case 6:
+          case 7:
+          case 8:
+          case 9:
+            return String.format(" %s", tester);
+        } 
+        break;
+      case "250":
+      case "217":
+        return " 9";
+      case "365":
+        return " 8";
+    } 
+    return "";
+  }
+  
+  public static String getSerialnumberBaPaClassic(String hexSerialNumber) {
+    String serialNumber = StringUtils.replace(hexSerialNumber, "0x", "");
+    try {
+      if (StringUtils.length(serialNumber) >= 24) {
+        StringBuilder serialNoBuilder = new StringBuilder();
+        serialNoBuilder.append(cryptDateYmmdd(serialNumber.substring(12, 18)))
+          .append(" ")
+          
+          .append(serialNumber.substring(8, 12));
+        int productPlant = Integer.parseInt(serialNumber.substring(0, 4), 10);
+        int tester = Integer.parseInt(serialNumber.substring(4, 8), 10);
+        String productLine = getProductlineBaPaClassic(productPlant, tester);
+        if (StringUtils.isNotBlank(productLine))
+          serialNoBuilder.append(" ")
+            .append(productLine); 
+        return serialNoBuilder.toString();
+      } 
+    } catch (NumberFormatException e) {
+      LOGGER.error("Error parsing serial number {}", serialNumber, e);
+    } 
+    return serialNumber;
+  }
+  
+  public static String getSerialnumberBaPaVictor(String hexSerialNumber) {
+    String serialNumber = StringUtils.replace(hexSerialNumber, "0x", "");
+    try {
+      if (StringUtils.length(serialNumber) >= 24) {
+        StringBuilder serialNoBuilder = new StringBuilder();
+        serialNoBuilder.append(cryptDateYmmdd(serialNumber.substring(12, 18)))
+          .append(" ")
+          
+          .append(serialNumber.substring(8, 12));
+        int productPlant = Integer.parseInt(serialNumber.substring(0, 4), 10);
+        int tester = Integer.parseInt(serialNumber.substring(4, 8), 10);
+        int date = Integer.parseInt(serialNumber.substring(16, 18) + serialNumber.substring(16, 18));
+        String productLine = getProductlineBaPaVictor(productPlant, tester, date);
+        if (StringUtils.isNotBlank(productLine))
+          serialNoBuilder.append(" ")
+            .append(productLine); 
+        return serialNoBuilder.toString();
+      } 
+    } catch (NumberFormatException e) {
+      LOGGER.error("Error parsing serial number {}", serialNumber, e);
+    } 
+    return serialNumber;
+  }
+  
+  public static ComplexResponse getSerialnumberBui21x(ComplexResponse hexSerialNumber) {
+    return getSerialnumberBui27x(hexSerialNumber);
+  }
+  
+  public static ComplexResponse getSerialnumberBui33x(ComplexResponse hexSerialNumber) {
+    return getSerialnumberBui27x(hexSerialNumber);
+  }
+  
+  public static ComplexResponse getSerialnumberBui27x(ComplexResponse hexSerialNumber) {
+    if (hexSerialNumber == null || !hexSerialNumber.isPositive())
+      return hexSerialNumber; 
+    String serialNumber = StringUtils.replace(hexSerialNumber.toString(), "0x", "");
+    if (StringUtils.length(serialNumber) >= 11) {
+      StringBuilder serialNoBuilder = new StringBuilder();
+      serialNoBuilder.append(serialNumber.substring(0, 5)).append(" ")
+        
+        .append(serialNumber.substring(5, 9))
+        .append(" ")
+        
+        .append(serialNumber.substring(9, 11));
+      return new ComplexResponse(serialNoBuilder.toString());
+    } 
+    return new ComplexResponse(serialNumber);
+  }
+  
+  public static ComplexResponse getSerialnumberBui25x(ComplexResponse hexSerialNumber) {
+    if (hexSerialNumber == null || !hexSerialNumber.isPositive())
+      return hexSerialNumber; 
+    if (!StringUtils.startsWith(hexSerialNumber.toString(), "0x"))
+      return new ComplexResponse("0x" + hexSerialNumber); 
+    return hexSerialNumber;
+  }
+  
+  public static ComplexResponse getSerialnumberBas100(ComplexResponse hexSerialNumber) {
+    if (hexSerialNumber != null && hexSerialNumber.isPositive()) {
+      String serialNumber = StringUtils.removeStart(hexSerialNumber.toString(), "0x");
+      if (StringUtils.length(serialNumber) >= 24)
+        return new ComplexResponse(StringUtils.substring(serialNumber, 0, 24)); 
+    } 
+    return hexSerialNumber;
+  }
+  
+  public static ComplexResponse getSerialnumberBct(ComplexResponse hexSerialNumber) {
+    if (hexSerialNumber == null || !hexSerialNumber.isPositive())
+      return hexSerialNumber; 
+    String serialNumber = StringUtils.replace(hexSerialNumber.toString(), "0x", "");
+    try {
+      if (StringUtils.length(serialNumber) >= 26) {
+        StringBuilder serialNoBuilder = new StringBuilder();
+        serialNoBuilder.append(cryptDateYmmdd(serialNumber.substring(12, 18)))
+          .append(" ")
+          
+          .append(serialNumber.substring(8, 12))
+          .append(" ")
+          
+          .append(serialNumber.substring(4, 8));
+        return new ComplexResponse(serialNoBuilder.toString());
+      } 
+    } catch (NumberFormatException e) {
+      LOGGER.error("Error parsing serial number {}", serialNumber, e);
+    } 
+    return new ComplexResponse(serialNumber);
+  }
+  
+  public static String getSerialnumberEShiftShimano(String hexSerialNumber) {
+    String serialNumber = StringUtils.replace(hexSerialNumber, "0x", "");
+    serialNumber = StringUtils.replace(serialNumber, " ", "");
+    if (StringUtils.length(serialNumber) >= 12) {
+      serialNumber = StringUtils.lowerCase(serialNumber);
+      return StringUtils.substring(serialNumber, 0, 12);
+    } 
+    return hexSerialNumber;
+  }
+  
+  public static String getSerialnumberEShiftGeneral(String hexSerialNumber) {
+    String serialNumber = StringUtils.replace(hexSerialNumber, "0x", "");
+    serialNumber = StringUtils.replace(serialNumber, " ", "");
+    if (StringUtils.length(serialNumber) >= 8) {
+      serialNumber = StringUtils.substring(serialNumber, 0, 8);
+      try {
+        return Integer.toString(Integer.parseInt(serialNumber, 16), 10);
+      } catch (NumberFormatException e) {
+        return hexSerialNumber;
+      } 
+    } 
+    return hexSerialNumber;
+  }
+  
+  private static String getProductlineBaPaClassic(int productPlant, int tester) {
+    String productline = "";
+    if (productPlant == 944 && tester == 5011) {
+      productline = "1";
+    } else if (productPlant == 0 && tester == 5011) {
+      productline = "2";
+    } else if (productPlant == 944 && tester == 5044) {
+      productline = "3";
+    } 
+    return productline;
+  }
+  
+  private static String getProductlineBaPaVictor(int productPlant, int tester, int dateYymm) {
+    String productline = "";
+    switch (productPlant) {
+      case 0:
+        productline = getProductlineForPlant0(tester, dateYymm);
+        break;
+      case 944:
+        if (dateYymm < 1404) {
+          productline = "1";
+          break;
+        } 
+        if (dateYymm < 1507)
+          productline = "01"; 
+        break;
+      case 7971:
+        if (dateYymm >= 1507)
+          productline = getProductlineForPlant7971(tester); 
+        break;
+    } 
+    return productline;
+  }
+  
+  private static String getProductlineForPlant7971(int tester) {
+    String productline = "";
+    switch (tester) {
+      case 10:
+      case 20:
+      case 30:
+      case 40:
+      case 50:
+      case 60:
+      case 70:
+        productline = String.format("1%d", tester / 10);
+        break;
+    } 
+    return productline;
+  }
+  
+  private static String getProductlineForPlant0(int tester, int dateYymm) {
+    String productline = "";
+    switch (tester) {
+      case 5011:
+        if (dateYymm < 1404) {
+          productline = "2";
+          break;
+        } 
+        if (dateYymm < 1507)
+          productline = "02"; 
+        break;
+      case 5044:
+        if (dateYymm < 1404) {
+          productline = "3";
+          break;
+        } 
+        if (dateYymm < 1507)
+          productline = "03"; 
+        break;
+      case 10:
+        productline = (dateYymm < 1404) ? "4" : "04";
+        break;
+      case 20:
+      case 30:
+        productline = (dateYymm >= 1507) ? String.format("0%d", tester / 10) : "";
+        break;
+      case 40:
+      case 50:
+      case 60:
+      case 70:
+      case 80:
+        productline = (dateYymm >= 1507) ? String.format("0%d", tester / 10 + 1) : "";
+        break;
+    } 
+    return productline;
+  }
+  
+  private static String cryptDateYmmdd(String dateDdmmyy) {
+    if (StringUtils.length(dateDdmmyy) >= 6) {
+      int date;
+      int year = Integer.parseInt(dateDdmmyy.substring(4, 6), 10);
+      int month = Integer.parseInt(dateDdmmyy.substring(2, 4), 10);
+      if (year < 10) {
+        date = year * 100 + month + 80;
+      } else if (year < 14) {
+        date = (year - 10) * 100 + month;
+      } else if (year < 20) {
+        date = (year - 10) * 100;
+        if (month < 5) {
+          date = date + month + 16;
+        } else {
+          date = date + month + 48;
+        } 
+      } else {
+        date = (year - 20) * 100;
+        if (month < 5) {
+          date = date + month + 36;
+        } else {
+          date = date + month + 68;
+        } 
+      } 
+      String code = String.format("%03d", date);
+      return code + code;
+    } 
+    return null;
+  }
+  
+  private static String cryptDateDUymmdd(String dateDdmmyy) {
+    int year = Integer.parseInt(dateDdmmyy.substring(4, 6), 10);
+    int month = Integer.parseInt(dateDdmmyy.substring(2, 4), 10);
+    int date = 0;
+    if (year >= 7 && year < 10) {
+      date = year * 100 + 80 + month;
+    } else if (year >= 10 && year < 14) {
+      date = (year - 10) * 100 + month;
+    } else if (year >= 14 && year < 20) {
+      date = (year - 10) * 100;
+      date += ((month < 5) ? 16 : 48) + month;
+    } else if (year >= 20 && year < 30) {
+      date = (year - 20) * 100;
+      date += ((month < 5) ? 36 : 68) + month;
+    } else if (year >= 30 && year < 90) {
+      char[] yearCharArray = Integer.toString(year).toCharArray();
+      int secondDigit = Character.getNumericValue(yearCharArray[0]) + 7;
+      String yearMonth = "" + yearCharArray[1] + yearCharArray[1] + Integer.toHexString(secondDigit);
+      return yearMonth.toUpperCase() + yearMonth.toUpperCase();
+    } 
+    String code = String.format("%03d", date);
+    return code + code;
+  }
+}
+
+
+========================================================================================================================
+ITEM 35: com/gigatronik/ebike/common/util/UtilConstants.java
+========================================================================================================================
+package com.gigatronik.ebike.common.util;
+
+public interface UtilConstants {
+  public static final String IBD = "IBD";
+  
+  public static final String OEM = "OEM";
+  
+  public static final String SW_TYPE_APP = "App";
+  
+  public static final String SW_TYPE_PARA = "Para";
+  
+  public static final String SW_TYPE_SWIL_DRV = "SWIL_Drv";
+  
+  public static final int ACCESS_LEVEL_0 = 0;
+  
+  public static final int ACCESS_LEVEL_1 = 1;
+  
+  public static final int ACCESS_LEVEL_2 = 2;
+  
+  public static final int ACCESS_LEVEL_3 = 3;
+  
+  public static final String TIMEOUT_RESPONSE = "TIMEOUT";
+  
+  public enum ComState {
+    UNKNOWN, OFFLINE, ONLINE, ONLINE_FBL, ONLINE_APP;
+  }
+}
+

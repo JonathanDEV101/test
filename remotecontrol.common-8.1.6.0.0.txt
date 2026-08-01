@@ -1,0 +1,1247 @@
+JAR: remotecontrol.common-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\remotecontrol.common-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/dart2/bosch/remote/common/dto/ClientPropertiesFactory.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto;
+
+import java.util.HashMap;
+import java.util.Map;
+import javax.swing.UIManager;
+
+public final class ClientPropertiesFactory {
+  public static final String FIELD_CLIENT_ID = "clientID";
+  
+  public static final String FIELD_USER_LEVEL = "userLevel";
+  
+  public static final String FIELD_APPLICATIONVERSION = "application.version";
+  
+  public static final String FIELD_SUNARCHDATAMODEL = "sun.arch.data.model";
+  
+  public static final String FIELD_JAVAVERSION = "java.version";
+  
+  public static final String FIELD_LOOKANDFEEL = "lookandfeel";
+  
+  public static final String FIELD_OSARCHITECTURE = "os.architecture";
+  
+  public static final String FIELD_OSNAME = "os.name";
+  
+  public static final String FIELD_CLIENT_CONFIG = "client.config";
+  
+  public static final String FIELD_CLIENT_CONFIG_IMAGE_COMPRESSION = "imgCompression";
+  
+  public static final String FIELD_CLIENT_CONFIG_FULL_IMAGE_INTERVAL = "fullImgInterval";
+  
+  public static final String FIELD_CLIENT_CONFIG_PART_IMAGE_INTERVAL = "partialImgInterval";
+  
+  public static final String FIELD_CLIENT_CONFIG_SCALE_MODE = "scaleMode";
+  
+  public static Map<String, String> getClientProperties(String clientId, String tokenId, String userLevel, String appVersion) {
+    Map<String, String> result = new HashMap<>();
+    result.put("clientID", clientId);
+    result.put("userLevel", userLevel);
+    result.put("os.name", System.getProperty("os.name"));
+    result.put("os.architecture", System.getProperty("os.arch"));
+    result.put("lookandfeel", UIManager.getLookAndFeel().getName());
+    result.put("java.version", System.getProperty("java.version"));
+    result.put("sun.arch.data.model", System.getProperty("sun.arch.data.model"));
+    result.put("application.version", appVersion);
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/dart2/bosch/remote/common/dto/MapperFactory.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto;
+
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.awt.Point;
+import java.awt.Rectangle;
+
+public abstract class MapperFactory {
+  abstract class AwtPointMixin {
+    @JsonProperty("x")
+    public int x;
+    
+    @JsonProperty("y")
+    public int y;
+  }
+  
+  abstract class AwtRectangleMixin {
+    @JsonProperty("x")
+    public int x;
+    
+    @JsonProperty("y")
+    public int y;
+    
+    @JsonProperty("width")
+    public int width;
+    
+    @JsonProperty("height")
+    public int height;
+  }
+  
+  public static ObjectMapper newMapper() {
+    ObjectMapper result = new ObjectMapper();
+    result.setVisibilityChecker(result.getSerializationConfig().getDefaultVisibilityChecker().withFieldVisibility(JsonAutoDetect.Visibility.ANY)
+        .withGetterVisibility(JsonAutoDetect.Visibility.NONE).withSetterVisibility(JsonAutoDetect.Visibility.NONE).withCreatorVisibility(JsonAutoDetect.Visibility.NONE)
+        .withIsGetterVisibility(JsonAutoDetect.Visibility.NONE));
+    result.addMixInAnnotations(Rectangle.class, AwtRectangleMixin.class);
+    result.addMixInAnnotations(Point.class, AwtPointMixin.class);
+    return result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/dart2/bosch/remote/common/dto/v1/ConfigUpdateDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+import java.util.Map;
+
+@JsonSubTypes({@JsonSubTypes.Type(ConfigUpdateDtoImpl.class)})
+public interface ConfigUpdateDto extends Dto {
+  @JsonProperty("__persist")
+  Map<String, String> getPersistenceInfo();
+  
+  @JsonProperty("__persist")
+  void setPersistenceInfo(Map<String, String> paramMap);
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/dart2/bosch/remote/common/dto/v1/ConfigUpdateDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import java.util.Map;
+
+public class ConfigUpdateDtoImpl implements ConfigUpdateDto {
+  private Map<String, String> persistenceInfo;
+  
+  public Map<String, String> getPersistenceInfo() {
+    return this.persistenceInfo;
+  }
+  
+  public void setPersistenceInfo(Map<String, String> persistenceInfo) {
+    this.persistenceInfo = persistenceInfo;
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/dart2/bosch/remote/common/dto/v1/ConnectRequestDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+import java.util.Map;
+
+@JsonSubTypes({@JsonSubTypes.Type(ConnectRequestDtoImpl.class)})
+public interface ConnectRequestDto extends Dto {
+  @JsonProperty("__persist")
+  Map<String, String> getPersistenceInfo();
+  
+  @JsonProperty("__persist")
+  void setPersistenceInfo(Map<String, String> paramMap);
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/dart2/bosch/remote/common/dto/v1/ConnectRequestDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import java.util.Map;
+
+public class ConnectRequestDtoImpl implements ConnectRequestDto {
+  Map<String, String> persistenceInfo;
+  
+  public Map<String, String> getPersistenceInfo() {
+    return this.persistenceInfo;
+  }
+  
+  public void setPersistenceInfo(Map<String, String> persistenceInfo) {
+    this.persistenceInfo = persistenceInfo;
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/dart2/bosch/remote/common/dto/v1/ConnectResponseDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+import java.awt.Rectangle;
+import java.util.Map;
+
+@Object({@com.fasterxml.jackson.annotation.JsonSubTypes.Type(ConnectResponseDtoImpl.class)})
+public interface ConnectResponseDto extends Dto {
+  @JsonProperty("__persist")
+  Map<String, String> getPersistenceInfo();
+  
+  @JsonProperty("__persist")
+  void setPersistenceInfo(Map<String, String> paramMap);
+  
+  @JsonProperty("response")
+  boolean getResponse();
+  
+  @JsonProperty("response")
+  void setResponse(boolean paramBoolean);
+  
+  @JsonGetter("screens")
+  Rectangle[] getScreens();
+  
+  @JsonGetter("oses")
+  OperatingSystem getOperatingSystem();
+  
+  @JsonSetter("oses")
+  void setOperatingSystem(OperatingSystem paramOperatingSystem);
+  
+  @JsonGetter("ibd")
+  boolean isIbdDongle();
+  
+  @JsonSetter("ibd")
+  void setIbdDongle(boolean paramBoolean);
+  
+  @JsonSetter("screens")
+  void setScreens(Rectangle[] paramArrayOfRectangle);
+  
+  @JsonSetter("modifiers")
+  void setModifiers(Map<Integer, Boolean> paramMap);
+  
+  @JsonGetter("modifiers")
+  Map<Integer, Boolean> getModifiers();
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/dart2/bosch/remote/common/dto/v1/ConnectResponseDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import java.awt.Rectangle;
+import java.util.Map;
+
+public class ConnectResponseDtoImpl implements ConnectResponseDto {
+  private boolean response;
+  
+  private Rectangle[] screens;
+  
+  private OperatingSystem operatingSystem;
+  
+  private Map<String, String> persistenceInfo;
+  
+  private boolean ibdMode = true;
+  
+  private Map<Integer, Boolean> modifiers;
+  
+  public Map<String, String> getPersistenceInfo() {
+    return this.persistenceInfo;
+  }
+  
+  public void setPersistenceInfo(Map<String, String> persistenceInfo) {
+    this.persistenceInfo = persistenceInfo;
+  }
+  
+  public Rectangle[] getScreens() {
+    return this.screens;
+  }
+  
+  public void setScreens(Rectangle[] screens) {
+    this.screens = screens;
+  }
+  
+  public OperatingSystem getOperatingSystem() {
+    return this.operatingSystem;
+  }
+  
+  public void setOperatingSystem(OperatingSystem operatingSystem) {
+    this.operatingSystem = operatingSystem;
+  }
+  
+  public boolean getResponse() {
+    return this.response;
+  }
+  
+  public void setResponse(boolean response) {
+    this.response = response;
+  }
+  
+  public String toString() {
+    return "session accepted = " + this.response;
+  }
+  
+  public Map<Integer, Boolean> getModifiers() {
+    return this.modifiers;
+  }
+  
+  public void setModifiers(Map<Integer, Boolean> modifiers) {
+    this.modifiers = modifiers;
+  }
+  
+  public boolean isIbdDongle() {
+    return this.ibdMode;
+  }
+  
+  public void setIbdDongle(boolean ibdMode) {
+    this.ibdMode = ibdMode;
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/dart2/bosch/remote/common/dto/v1/DisconnectDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+import java.util.Map;
+
+@JsonSubTypes({@JsonSubTypes.Type(DisconnectDtoImpl.class)})
+public interface DisconnectDto extends Dto {
+  @JsonProperty("__persist")
+  Map<String, String> getPersistenceInfo();
+  
+  @JsonProperty("__persist")
+  void setPersistenceInfo(Map<String, String> paramMap);
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/dart2/bosch/remote/common/dto/v1/DisconnectDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import java.util.Map;
+
+public class DisconnectDtoImpl implements DisconnectDto {
+  private Map<String, String> persistenceInfo;
+  
+  public Map<String, String> getPersistenceInfo() {
+    return this.persistenceInfo;
+  }
+  
+  public void setPersistenceInfo(Map<String, String> persistenceInfo) {
+    this.persistenceInfo = persistenceInfo;
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleAvailableRequestDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+
+@JsonSubTypes({@JsonSubTypes.Type(DongleAvailableRequestDtoImpl.class)})
+public interface DongleAvailableRequestDto extends DongleDto {}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleAvailableRequestDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public class DongleAvailableRequestDtoImpl extends DongleDtoImpl implements DongleAvailableRequestDto {}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleAvailableResponseDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+
+@JsonSubTypes({@JsonSubTypes.Type(DongleAvailableResponseDtoImpl.class)})
+public interface DongleAvailableResponseDto extends DongleDto {
+  @JsonSetter("available")
+  void setAvailable(boolean paramBoolean);
+  
+  @JsonGetter("available")
+  boolean isAvailable();
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleAvailableResponseDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public class DongleAvailableResponseDtoImpl extends DongleDtoImpl implements DongleAvailableResponseDto {
+  private boolean available;
+  
+  public void setAvailable(boolean available) {
+    this.available = available;
+  }
+  
+  public boolean isAvailable() {
+    return this.available;
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleDecryptRequestDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+import java.util.Map;
+
+@JsonSubTypes({@JsonSubTypes.Type(DongleDecryptRequestDtoImpl.class)})
+public interface DongleDecryptRequestDto extends DongleDto {
+  @JsonSetter("algorithm")
+  void setAlgorithm(String paramString);
+  
+  @JsonGetter("algorithm")
+  String getAlgorithm();
+  
+  @JsonSetter("data")
+  void setData(String paramString);
+  
+  @JsonGetter("data")
+  String getData();
+  
+  @JsonSetter("properties")
+  void setProperties(Map<String, Object> paramMap);
+  
+  @JsonGetter("properties")
+  Map<String, Object> getProperties();
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleDecryptRequestDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import java.util.Map;
+
+public class DongleDecryptRequestDtoImpl extends DongleDtoImpl implements DongleDecryptRequestDto {
+  private String algorithm;
+  
+  private String data;
+  
+  private Map<String, Object> properties;
+  
+  public void setAlgorithm(String algo) {
+    this.algorithm = algo;
+  }
+  
+  public String getAlgorithm() {
+    return this.algorithm;
+  }
+  
+  public void setData(String data) {
+    this.data = data;
+  }
+  
+  public String getData() {
+    return this.data;
+  }
+  
+  public void setProperties(Map<String, Object> props) {
+    this.properties = props;
+  }
+  
+  public Map<String, Object> getProperties() {
+    return this.properties;
+  }
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleDecryptResponseDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+
+@JsonSubTypes({@JsonSubTypes.Type(DongleDecryptResponseDtoImpl.class)})
+public interface DongleDecryptResponseDto extends DongleDto {
+  @JsonGetter("result")
+  String getResult();
+  
+  @JsonSetter("result")
+  void setResult(String paramString);
+}
+
+
+========================================================================================================================
+ITEM 18: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleDecryptResponseDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public class DongleDecryptResponseDtoImpl extends DongleDtoImpl implements DongleDecryptResponseDto {
+  private String result;
+  
+  public String getResult() {
+    return this.result;
+  }
+  
+  public void setResult(String result) {
+    this.result = result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 19: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import java.util.UUID;
+
+public interface DongleDto extends Dto {
+  @JsonGetter("id")
+  UUID getId();
+  
+  @JsonSetter("id")
+  void setId(UUID paramUUID);
+}
+
+
+========================================================================================================================
+ITEM 20: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import java.util.UUID;
+
+public class DongleDtoImpl implements DongleDto {
+  private UUID id = UUID.randomUUID();
+  
+  @JsonGetter("id")
+  public UUID getId() {
+    return this.id;
+  }
+  
+  @JsonSetter("id")
+  public void setId(UUID id) {
+    this.id = id;
+  }
+}
+
+
+========================================================================================================================
+ITEM 21: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleEncryptRequestDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+import java.util.Map;
+
+@JsonSubTypes({@JsonSubTypes.Type(DongleEncryptRequestDtoImpl.class)})
+public interface DongleEncryptRequestDto extends DongleDto {
+  @JsonSetter("algorithm")
+  void setAlgorithm(String paramString);
+  
+  @JsonGetter("algorithm")
+  String getAlgorithm();
+  
+  @JsonSetter("data")
+  void setData(String paramString);
+  
+  @JsonGetter("data")
+  String getData();
+  
+  @JsonSetter("properties")
+  void setProperties(Map<String, Object> paramMap);
+  
+  @JsonGetter("properties")
+  Map<String, Object> getProperties();
+}
+
+
+========================================================================================================================
+ITEM 22: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleEncryptRequestDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import java.util.Map;
+
+public class DongleEncryptRequestDtoImpl extends DongleDtoImpl implements DongleEncryptRequestDto {
+  private String algorithm;
+  
+  private String data;
+  
+  private Map<String, Object> properties;
+  
+  public void setAlgorithm(String algo) {
+    this.algorithm = algo;
+  }
+  
+  public String getAlgorithm() {
+    return this.algorithm;
+  }
+  
+  public void setData(String data) {
+    this.data = data;
+  }
+  
+  public String getData() {
+    return this.data;
+  }
+  
+  public void setProperties(Map<String, Object> props) {
+    this.properties = props;
+  }
+  
+  public Map<String, Object> getProperties() {
+    return this.properties;
+  }
+}
+
+
+========================================================================================================================
+ITEM 23: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleEncryptResponseDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+
+@JsonSubTypes({@JsonSubTypes.Type(DongleEncryptResponseDtoImpl.class)})
+public interface DongleEncryptResponseDto extends DongleDto {
+  @JsonGetter("result")
+  String getResult();
+  
+  @JsonSetter("result")
+  void setResult(String paramString);
+}
+
+
+========================================================================================================================
+ITEM 24: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleEncryptResponseDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public class DongleEncryptResponseDtoImpl extends DongleDtoImpl implements DongleEncryptResponseDto {
+  private String result;
+  
+  public String getResult() {
+    return this.result;
+  }
+  
+  public void setResult(String result) {
+    this.result = result;
+  }
+}
+
+
+========================================================================================================================
+ITEM 25: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleIdRequestDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+
+@JsonSubTypes({@JsonSubTypes.Type(DongleIdRequestDtoImpl.class)})
+public interface DongleIdRequestDto extends DongleDto {}
+
+
+========================================================================================================================
+ITEM 26: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleIdRequestDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public class DongleIdRequestDtoImpl extends DongleDtoImpl implements DongleIdRequestDto {}
+
+
+========================================================================================================================
+ITEM 27: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleIdResponseDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+
+@JsonSubTypes({@JsonSubTypes.Type(DongleIdResponseDtoImpl.class)})
+public interface DongleIdResponseDto extends DongleDto {
+  @JsonSetter("dongleId")
+  void setDongleId(String paramString);
+  
+  @JsonGetter("dongleId")
+  String getDongleId();
+}
+
+
+========================================================================================================================
+ITEM 28: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleIdResponseDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public class DongleIdResponseDtoImpl extends DongleDtoImpl implements DongleIdResponseDto {
+  private String dongleId;
+  
+  public void setDongleId(String id) {
+    this.dongleId = id;
+  }
+  
+  public String getDongleId() {
+    return this.dongleId;
+  }
+}
+
+
+========================================================================================================================
+ITEM 29: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleInitDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+
+@JsonSubTypes({@JsonSubTypes.Type(DongleInitDtoImpl.class)})
+public interface DongleInitDto extends Dto {}
+
+
+========================================================================================================================
+ITEM 30: com/gigatronik/dart2/bosch/remote/common/dto/v1/DongleInitDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public class DongleInitDtoImpl extends DongleDtoImpl implements DongleInitDto {}
+
+
+========================================================================================================================
+ITEM 31: com/gigatronik/dart2/bosch/remote/common/dto/v1/DonglePropertiesRequestDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+
+@JsonSubTypes({@JsonSubTypes.Type(DonglePropertiesRequestDtoImpl.class)})
+public interface DonglePropertiesRequestDto extends DongleDto {}
+
+
+========================================================================================================================
+ITEM 32: com/gigatronik/dart2/bosch/remote/common/dto/v1/DonglePropertiesRequestDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public class DonglePropertiesRequestDtoImpl extends DongleDtoImpl implements DonglePropertiesRequestDto {}
+
+
+========================================================================================================================
+ITEM 33: com/gigatronik/dart2/bosch/remote/common/dto/v1/DonglePropertiesResponseDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+import java.util.Map;
+
+@JsonSubTypes({@JsonSubTypes.Type(DonglePropertiesResponseDtoImpl.class)})
+public interface DonglePropertiesResponseDto extends DongleDto {
+  @JsonSetter("properties")
+  void setProperties(Map<String, String> paramMap);
+  
+  @JsonGetter("properties")
+  Map<String, String> getProperties();
+}
+
+
+========================================================================================================================
+ITEM 34: com/gigatronik/dart2/bosch/remote/common/dto/v1/DonglePropertiesResponseDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import java.util.Map;
+
+public class DonglePropertiesResponseDtoImpl extends DongleDtoImpl implements DonglePropertiesResponseDto {
+  private Map<String, String> properties;
+  
+  public void setProperties(Map<String, String> props) {
+    this.properties = props;
+  }
+  
+  public Map<String, String> getProperties() {
+    return this.properties;
+  }
+}
+
+
+========================================================================================================================
+ITEM 35: com/gigatronik/dart2/bosch/remote/common/dto/v1/Dto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
+@JsonSubTypes({@Object(SettingsDtoImpl.class), @JsonSubTypes.Type(ConnectRequestDto.class), @JsonSubTypes.Type(ConnectResponseDtoImpl.class), @JsonSubTypes.Type(KeyEventDtoImpl.class), @JsonSubTypes.Type(MouseEventDto.class), @JsonSubTypes.Type(MouseWheelDto.class), @JsonSubTypes.Type(ScreenChangeDto.class), @JsonSubTypes.Type(DongleDto.class), @JsonSubTypes.Type(DongleAvailableRequestDto.class), @JsonSubTypes.Type(DongleAvailableResponseDto.class), @JsonSubTypes.Type(DongleDecryptRequestDto.class), @JsonSubTypes.Type(DongleDecryptResponseDto.class), @JsonSubTypes.Type(DongleEncryptRequestDto.class), @JsonSubTypes.Type(DongleEncryptResponseDto.class), @JsonSubTypes.Type(DongleIdRequestDto.class), @JsonSubTypes.Type(DongleIdResponseDto.class), @JsonSubTypes.Type(DongleInitDto.class), @JsonSubTypes.Type(DonglePropertiesRequestDto.class), @JsonSubTypes.Type(DonglePropertiesResponseDto.class), @JsonSubTypes.Type(ConfigUpdateDto.class), @JsonSubTypes.Type(DisconnectDto.class), @JsonSubTypes.Type(PingResponseDto.class)})
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "_type")
+public interface Dto {}
+
+
+========================================================================================================================
+ITEM 36: com/gigatronik/dart2/bosch/remote/common/dto/v1/KeyEventDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+
+@JsonSubTypes({@JsonSubTypes.Type(KeyEventDtoImpl.class)})
+public interface KeyEventDto extends Dto {
+  @JsonGetter("modifier")
+  int getModifier();
+  
+  @JsonGetter("key")
+  int getKey();
+  
+  @JsonGetter("action")
+  int getAction();
+  
+  @JsonSetter("action")
+  void setAction(int paramInt);
+  
+  @JsonSetter("key")
+  void setKey(int paramInt);
+  
+  @JsonSetter("modifier")
+  void setModifier(int paramInt);
+}
+
+
+========================================================================================================================
+ITEM 37: com/gigatronik/dart2/bosch/remote/common/dto/v1/KeyEventDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public class KeyEventDtoImpl implements KeyEventDto {
+  private int action;
+  
+  private int modifier;
+  
+  private int key;
+  
+  public int getAction() {
+    return this.action;
+  }
+  
+  public void setAction(int action) {
+    this.action = action;
+  }
+  
+  public int getModifier() {
+    return this.modifier;
+  }
+  
+  public void setModifier(int modifier) {
+    this.modifier = modifier;
+  }
+  
+  public int getKey() {
+    return this.key;
+  }
+  
+  public void setKey(int key) {
+    this.key = key;
+  }
+}
+
+
+========================================================================================================================
+ITEM 38: com/gigatronik/dart2/bosch/remote/common/dto/v1/MouseEventDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+import java.awt.Point;
+
+@JsonSubTypes({@JsonSubTypes.Type(MouseEventDtoImpl.class)})
+public interface MouseEventDto extends Dto {
+  @JsonGetter("event")
+  int getEvent();
+  
+  @JsonGetter("position")
+  Point getPosition();
+  
+  @JsonSetter("event")
+  void setEvent(int paramInt);
+  
+  @JsonSetter("position")
+  void setPosition(Point paramPoint);
+  
+  @JsonGetter("button")
+  int getButton();
+  
+  @JsonSetter("button")
+  void setButton(int paramInt);
+  
+  @JsonSetter("cursor")
+  void setCursorType(int paramInt);
+  
+  @JsonGetter("cursor")
+  int getCursorType();
+}
+
+
+========================================================================================================================
+ITEM 39: com/gigatronik/dart2/bosch/remote/common/dto/v1/MouseEventDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import java.awt.Point;
+
+public class MouseEventDtoImpl implements MouseEventDto {
+  private int event;
+  
+  private Point position;
+  
+  private int button;
+  
+  private int cursorType;
+  
+  public int getEvent() {
+    return this.event;
+  }
+  
+  public void setEvent(int event) {
+    this.event = event;
+  }
+  
+  public Point getPosition() {
+    return this.position;
+  }
+  
+  public void setPosition(Point position) {
+    this.position = position;
+  }
+  
+  public int getButton() {
+    return this.button;
+  }
+  
+  public void setButton(int button) {
+    this.button = button;
+  }
+  
+  public void setCursorType(int type) {
+    this.cursorType = type;
+  }
+  
+  public int getCursorType() {
+    return this.cursorType;
+  }
+}
+
+
+========================================================================================================================
+ITEM 40: com/gigatronik/dart2/bosch/remote/common/dto/v1/MouseWheelDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+
+@JsonSubTypes({@JsonSubTypes.Type(MouseWheelDtoImpl.class)})
+public interface MouseWheelDto extends Dto {
+  @JsonGetter("rotation")
+  int getWheelRotation();
+  
+  @JsonSetter("rotation")
+  void setWheelRotation(int paramInt);
+}
+
+
+========================================================================================================================
+ITEM 41: com/gigatronik/dart2/bosch/remote/common/dto/v1/MouseWheelDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public class MouseWheelDtoImpl implements MouseWheelDto {
+  private int rotation;
+  
+  public int getWheelRotation() {
+    return this.rotation;
+  }
+  
+  public void setWheelRotation(int rotation) {
+    this.rotation = rotation;
+  }
+}
+
+
+========================================================================================================================
+ITEM 42: com/gigatronik/dart2/bosch/remote/common/dto/v1/OperatingSystem.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public enum OperatingSystem {
+  WINDOWS;
+  
+  private static String key = System.getProperty("os.name").substring(0, 1).toLowerCase();
+  
+  private static OperatingSystem remoteOS;
+  
+  public static OperatingSystem getLocal() {
+    return WINDOWS;
+  }
+  
+  public static void setRemote(OperatingSystem os) {
+    remoteOS = os;
+  }
+  
+  public static OperatingSystem getRemote() {
+    return remoteOS;
+  }
+}
+
+
+========================================================================================================================
+ITEM 43: com/gigatronik/dart2/bosch/remote/common/dto/v1/PingRequestDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+
+@JsonSubTypes({@JsonSubTypes.Type(PingRequestDtoImpl.class)})
+public interface PingRequestDto extends Dto {}
+
+
+========================================================================================================================
+ITEM 44: com/gigatronik/dart2/bosch/remote/common/dto/v1/PingRequestDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public class PingRequestDtoImpl implements PingRequestDto {}
+
+
+========================================================================================================================
+ITEM 45: com/gigatronik/dart2/bosch/remote/common/dto/v1/PingResponseDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+
+@JsonSubTypes({@JsonSubTypes.Type(PingResponseDtoImpl.class)})
+public interface PingResponseDto extends Dto {}
+
+
+========================================================================================================================
+ITEM 46: com/gigatronik/dart2/bosch/remote/common/dto/v1/PingResponseDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public class PingResponseDtoImpl implements PingResponseDto {}
+
+
+========================================================================================================================
+ITEM 47: com/gigatronik/dart2/bosch/remote/common/dto/v1/ScreenChangeDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+import java.awt.Rectangle;
+
+@JsonSubTypes({@JsonSubTypes.Type(ScreenChangeDtoImpl.class)})
+public interface ScreenChangeDto extends Dto {
+  @JsonGetter("id")
+  int getID();
+  
+  @JsonSetter("id")
+  void setID(int paramInt);
+  
+  @JsonGetter("area")
+  Rectangle getArea();
+  
+  @JsonGetter("image")
+  byte[] getImage();
+  
+  @JsonGetter("screenId")
+  int getScreenID();
+  
+  @JsonSetter("image")
+  void setImage(byte[] paramArrayOfbyte);
+  
+  @JsonSetter("screenId")
+  void setScreenID(int paramInt);
+  
+  @JsonSetter("area")
+  void setArea(Rectangle paramRectangle);
+}
+
+
+========================================================================================================================
+ITEM 48: com/gigatronik/dart2/bosch/remote/common/dto/v1/ScreenChangeDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import java.awt.Rectangle;
+
+public class ScreenChangeDtoImpl implements ScreenChangeDto {
+  private int id;
+  
+  private int screenID;
+  
+  private byte[] image;
+  
+  private Rectangle area;
+  
+  public int getScreenID() {
+    return this.screenID;
+  }
+  
+  public void setScreenID(int screenID) {
+    this.screenID = screenID;
+  }
+  
+  public byte[] getImage() {
+    return this.image;
+  }
+  
+  public void setImage(byte[] image) {
+    this.image = image;
+  }
+  
+  public Rectangle getArea() {
+    return this.area;
+  }
+  
+  public void setArea(Rectangle area) {
+    this.area = area;
+  }
+  
+  public int getID() {
+    return this.id;
+  }
+  
+  public void setID(int id) {
+    this.id = id;
+  }
+}
+
+
+========================================================================================================================
+ITEM 49: com/gigatronik/dart2/bosch/remote/common/dto/v1/SettingsDto.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+
+@JsonSubTypes({@JsonSubTypes.Type(SettingsDtoImpl.class)})
+public interface SettingsDto extends Dto {
+  @JsonGetter("serviceClientDongleActive")
+  boolean isServiceclientDongleActive();
+  
+  @JsonGetter("inputLocked")
+  boolean isInputLocked();
+  
+  @JsonSetter("serviceClientDongleActive")
+  void setServiceclientDongleActive(boolean paramBoolean);
+  
+  @JsonSetter("inputLocked")
+  void setInputLocked(boolean paramBoolean);
+  
+  @JsonGetter("displayedScreen")
+  int getDisplayedScreen();
+  
+  @JsonSetter("displayedScreen")
+  void setDisplayedScreen(int paramInt);
+}
+
+
+========================================================================================================================
+ITEM 50: com/gigatronik/dart2/bosch/remote/common/dto/v1/SettingsDtoImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.remote.common.dto.v1;
+
+public class SettingsDtoImpl implements SettingsDto {
+  private boolean serviceClientDongleActive = false;
+  
+  private boolean inputLocked = false;
+  
+  private int displayedScreen = 1;
+  
+  public boolean isInputLocked() {
+    return this.inputLocked;
+  }
+  
+  public void setServiceclientDongleActive(boolean active) {
+    this.serviceClientDongleActive = active;
+  }
+  
+  public void setInputLocked(boolean locked) {
+    this.inputLocked = locked;
+  }
+  
+  public boolean isServiceclientDongleActive() {
+    return this.serviceClientDongleActive;
+  }
+  
+  public String toString() {
+    return "locked: " + this.inputLocked + ", remote dongle used: " + this.serviceClientDongleActive + ", screen displayed: " + this.displayedScreen;
+  }
+  
+  public int getDisplayedScreen() {
+    return this.displayedScreen;
+  }
+  
+  public void setDisplayedScreen(int id) {
+    this.displayedScreen = id;
+  }
+}
+

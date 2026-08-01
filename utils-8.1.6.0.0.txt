@@ -1,0 +1,1474 @@
+JAR: utils-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\utils-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/bosch/utils/BoschDiagConstants.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+public final class BoschDiagConstants {
+  public static final String DU_APP_PARA_ID_DUMMY_VICTOR = "111111";
+  
+  public static final String DU_APP_PARA_ID_DUMMY_NOT_READABLE_VICTOR = "000000";
+  
+  public static final String DU_APP_PARA_ID_DUMMY_CLASSIC_PLUS = "000001";
+  
+  public static final String MFG_FLASH_SCRIPT = "ucl2_update_full.xml";
+  
+  public static final String MFG_FLASH_SCRIPT_RESET = "ucl2_update_erase_all.xml";
+  
+  public static final String MFG_FLASH_SCRIPT_SPLASHSCREEN = "ucl2_update_splash.xml";
+  
+  public static final String MFG_FLASH_SCRIPT_MAP = "ucl2_update_map_only.xml";
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/bosch/utils/ConverterUtil.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+import java.util.Arrays;
+import java.util.List;
+import javax.measure.converter.UnitConverter;
+import javax.measure.unit.NonSI;
+import javax.measure.unit.SI;
+import javax.measure.unit.Unit;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ConverterUtil {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ConverterUtil.class);
+  
+  public static final double MILE_IN_KILOMETER = 1.609344D;
+  
+  public static final String DEFAULT_LOG_TEXT_NUMBER_FORMAT_EXCEPTION = "NumberFormatException: ";
+  
+  public static double kilometerToMileWithoutRounding(double km) {
+    return km / 1.609344D;
+  }
+  
+  public static double kilometerToMile(double km) {
+    return (double)Math.round(km / 1.609344D * 100.0D) / 100.0D;
+  }
+  
+  public static double mileToKilometer(double mile) {
+    return (double)Math.round(mile * 1.609344D * 100.0D) / 100.0D;
+  }
+  
+  public static double mileToKilometerWithoutRounding(double mile) {
+    return mile * 1.609344D;
+  }
+  
+  public static double celciusToFahrenheit(double celcius) {
+    return (double)Math.round((celcius * 9.0D / 5.0D + 32.0D) * 100.0D) / 100.0D;
+  }
+  
+  public static double fahrenheitToCelcius(double fahrenheit) {
+    return (double)Math.round((fahrenheit - 32.0D) * 5.0D / 9.0D * 100.0D) / 100.0D;
+  }
+  
+  public static double meterToFoot(double meter) {
+    return (double)Math.round(meter * 3.28084D * 100.0D) / 100.0D;
+  }
+  
+  public static double footToMeter(double foot) {
+    return (double)Math.round(foot * 0.3048D * 100.0D) / 100.0D;
+  }
+  
+  public static double millimeterToInch(double mm) {
+    UnitConverter c = SI.MILLI((Unit)SI.METRE).getConverterTo(NonSI.INCH);
+    return (double)Math.round(100.0D * c.convert(mm)) / 100.0D;
+  }
+  
+  public static double inchToMillimeter(double inch) {
+    UnitConverter c = NonSI.INCH.getConverterTo(SI.MILLI((Unit)SI.METRE));
+    return (double)Math.round(c.convert(inch));
+  }
+  
+  public static String hexToASCII(String hexValue) {
+    StringBuilder output = new StringBuilder("");
+    int start = 0;
+    if (hexValue.startsWith("0x"))
+      start = 2; 
+    int len = hexValue.length();
+    for (int i = start; i < len; i += 2) {
+      String str = hexValue.substring(i, i + 2);
+      char asciiCode = (char)Integer.parseInt(str, 16);
+      if (asciiCode != '\000') {
+        output.append(asciiCode);
+      } else {
+        break;
+      } 
+    } 
+    return output.toString();
+  }
+  
+  public static String asciiToHex(String asciiValue) {
+    char[] chars = asciiValue.toCharArray();
+    StringBuilder hex = new StringBuilder();
+    for (int i = 0; i < chars.length; i++)
+      hex.append(Integer.toHexString(chars[i])); 
+    return hex.toString();
+  }
+  
+  public static String asciiToHex(String asciiValue, int byteLen) {
+    char[] chars = asciiValue.toCharArray();
+    StringBuilder hex = new StringBuilder();
+    int i = 0;
+    while (i < chars.length)
+      hex.append(Integer.toHexString(chars[i++])); 
+    while (i++ < byteLen)
+      hex.append("00"); 
+    return hex.toString();
+  }
+  
+  public static int hexToInt(String hexValue) {
+    String hexValueWithoutPrefix = hexValue;
+    if (hexValue.startsWith("0x"))
+      hexValueWithoutPrefix = hexValue.substring(2); 
+    return Integer.parseInt(hexValueWithoutPrefix, 16);
+  }
+  
+  public static String intToHex(String intValue) {
+    if (StringUtils.isNotBlank(intValue))
+      return String.format("%x", Integer.parseInt(intValue, 10)); 
+    return "";
+  }
+  
+  public static String[] dateStringToDateArray(String date) {
+    if (StringUtils.isNotBlank(date) && date.contains("-"))
+      try {
+        String[] dates = date.split("-");
+        if (dates.length == 3) {
+          int year = Integer.parseInt(dates[0]);
+          if (year >= 2000)
+            year -= 2000; 
+          int month = Integer.parseInt(dates[1]);
+          int day = Integer.parseInt(dates[2]);
+          dates[0] = String.valueOf(year);
+          dates[1] = String.valueOf(month);
+          dates[2] = String.valueOf(day);
+          return dates;
+        } 
+      } catch (NumberFormatException ex) {
+        LOGGER.error("Failed to process date='' to String[]", date, ex);
+      }  
+    return null;
+  }
+  
+  public static String dateArrayToDateString(String[] date) {
+    if (date != null && date.length >= 3)
+      try {
+        int year = Integer.parseInt(date[0]);
+        if (year >= 2000)
+          year -= 2000; 
+        int month = Integer.parseInt(date[1]);
+        int day = Integer.parseInt(date[2]);
+        return String.format("20%02d-%02d-%02d", year, month, day);
+      } catch (NumberFormatException e) {
+        LOGGER.error("NumberFormatException: " + e);
+      }  
+    return null;
+  }
+  
+  public static String dateListToDateString(List<String> dates) {
+    if (dates != null && dates.size() >= 3)
+      try {
+        int year = Integer.parseInt(dates.get(0));
+        if (year >= 2000)
+          year -= 2000; 
+        int month = Integer.parseInt(dates.get(1));
+        int day = Integer.parseInt(dates.get(2));
+        return String.format("20%02d-%02d-%02d", year, month, day);
+      } catch (NumberFormatException e) {
+        LOGGER.error("NumberFormatException: " + e);
+      }  
+    return null;
+  }
+  
+  public static String versionArrayToVersionString(String[] versions) {
+    if (versions != null && versions.length >= 4)
+      return String.format("%s.%s.%s.%s", versions[0], versions[1], versions[2], versions[3]); 
+    return null;
+  }
+  
+  public static String versionListToVersionString(List<String> versions) {
+    if (versions != null && versions.size() >= 4)
+      return String.format("%s.%s.%s.%s", versions.get(0), versions.get(1), versions.get(2), versions.get(3)); 
+    return null;
+  }
+  
+  public static String versionHexToVersionString(String version) {
+    if (version != null)
+      try {
+        String versionWihtoutPrefix = version.replace("0x", "");
+        return String.format("%d.%d.%d.%d", Integer.parseInt(versionWihtoutPrefix.substring(0, 2), 16), Integer.parseInt(versionWihtoutPrefix.substring(2, 4), 16), 
+            Integer.parseInt(versionWihtoutPrefix.substring(4, 6), 16), Integer.parseInt(versionWihtoutPrefix.substring(6, 8), 16));
+      } catch (NumberFormatException e) {
+        LOGGER.error("NumberFormatException: " + e);
+      }  
+    return null;
+  }
+  
+  public static String asciiToNullTerminatedString(String ascii) {
+    if (ascii != null) {
+      byte[] bytes = ascii.getBytes();
+      int len = 0;
+      for (byte b : bytes) {
+        if (b == 0)
+          break; 
+        len++;
+      } 
+      byte[] rslt = Arrays.copyOf(bytes, len);
+      return new String(rslt);
+    } 
+    return "";
+  }
+  
+  private static double saveConvert(Object valueToConvert) {
+    String value = String.valueOf(valueToConvert);
+    double valueDouble = 0.0D;
+    if (StringUtils.isNotBlank(value))
+      try {
+        valueDouble = Double.parseDouble(value.split(" ")[0]);
+      } catch (NumberFormatException e) {
+        LOGGER.error("NumberFormatException: " + e);
+      }  
+    return valueDouble;
+  }
+  
+  public static String convertDistance(Object valueToConvert, ConverterUtilAction action) {
+    if (valueToConvert == null || action == null)
+      return ""; 
+    double convertedValue = saveConvert(valueToConvert);
+    switch (action) {
+      case CONVERT_TO_STANDARD:
+        return UnitFormatUtil.formatToKilometer(Double.valueOf(mileToKilometer(convertedValue)));
+      case CONVERT_TO_NON_STANDARD:
+        return UnitFormatUtil.formatToMiles(Double.valueOf(kilometerToMile(convertedValue)));
+      case ONLY_FORMAT_TO_STANDARD:
+        return UnitFormatUtil.formatToKilometer(Double.valueOf(convertedValue));
+      case ONLY_FORMAT_TO_NON_STANDARD:
+        return UnitFormatUtil.formatToMiles(Double.valueOf(convertedValue));
+    } 
+    return valueToConvert.toString();
+  }
+  
+  public static String convertTemperature(Object valueToConvert, ConverterUtilAction action) {
+    if (valueToConvert == null || action == null)
+      return ""; 
+    double convertedValue = saveConvert(valueToConvert);
+    switch (action) {
+      case CONVERT_TO_STANDARD:
+        return UnitFormatUtil.formatToCelsius(Double.valueOf(fahrenheitToCelcius(convertedValue)));
+      case CONVERT_TO_NON_STANDARD:
+        return UnitFormatUtil.formatToFahrenheit(Double.valueOf(celciusToFahrenheit(convertedValue)));
+      case ONLY_FORMAT_TO_STANDARD:
+        return UnitFormatUtil.formatToCelsius(Double.valueOf(convertedValue));
+      case ONLY_FORMAT_TO_NON_STANDARD:
+        return UnitFormatUtil.formatToFahrenheit(Double.valueOf(convertedValue));
+    } 
+    return valueToConvert.toString();
+  }
+  
+  public static String convertCircumference(Object valueToConvert, ConverterUtilAction action) {
+    if (valueToConvert == null || action == null)
+      return ""; 
+    double convertedValue = saveConvert(valueToConvert);
+    switch (action) {
+      case CONVERT_TO_STANDARD:
+        return UnitFormatUtil.formatToMillimeter(Double.valueOf(inchToMillimeter(convertedValue)));
+      case CONVERT_TO_NON_STANDARD:
+        return UnitFormatUtil.formatToInch(Double.valueOf(millimeterToInch(convertedValue)));
+      case ONLY_FORMAT_TO_STANDARD:
+        return UnitFormatUtil.formatToMillimeter(Double.valueOf(convertedValue));
+      case ONLY_FORMAT_TO_NON_STANDARD:
+        return UnitFormatUtil.formatToInch(Double.valueOf(convertedValue));
+    } 
+    return valueToConvert.toString();
+  }
+  
+  public static String convertSpeed(Object valueToConvert, ConverterUtilAction action) {
+    if (valueToConvert == null || action == null)
+      return ""; 
+    double convertedValue = saveConvert(valueToConvert);
+    switch (action) {
+      case CONVERT_TO_STANDARD:
+        return UnitFormatUtil.formatToKMH(Double.valueOf(mileToKilometer(convertedValue)));
+      case CONVERT_TO_NON_STANDARD:
+        return UnitFormatUtil.formatToMPH(Double.valueOf(kilometerToMile(convertedValue)));
+      case ONLY_FORMAT_TO_STANDARD:
+        return UnitFormatUtil.formatToKMH(Double.valueOf(convertedValue));
+      case ONLY_FORMAT_TO_NON_STANDARD:
+        return UnitFormatUtil.formatToMPH(Double.valueOf(convertedValue));
+    } 
+    return valueToConvert.toString();
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/bosch/utils/ConverterUtilAction.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+public enum ConverterUtilAction {
+  CONVERT_TO_STANDARD, CONVERT_TO_NON_STANDARD, ONLY_FORMAT_TO_STANDARD, ONLY_FORMAT_TO_NON_STANDARD;
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/bosch/utils/JAXBCustomCharacterEscapeHandler.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+import com.sun.xml.bind.marshaller.CharacterEscapeHandler;
+import java.io.IOException;
+import java.io.Writer;
+
+public class JAXBCustomCharacterEscapeHandler implements CharacterEscapeHandler {
+  public void escape(char[] ch, int start, int length, boolean isAttVal, Writer out) throws IOException {
+    int limit = start + length;
+    for (int i = start; i < limit; i++) {
+      char c = ch[i];
+      if (c == '&' || c == '<' || c == '>' || c == '\r' || (c == '\n' && isAttVal) || (c == '"' && isAttVal)) {
+        if (i != start)
+          out.write(ch, start, i - start); 
+        start = i + 1;
+        switch (ch[i]) {
+          case '&':
+            out.write("&amp;");
+            break;
+          case '<':
+            out.write("&lt;");
+            break;
+          case '>':
+            out.write("&gt;");
+            break;
+          case '"':
+            out.write("&quot;");
+            break;
+          case '\n':
+          case '\r':
+            out.write("&#x");
+            out.write(Integer.toHexString(c).toUpperCase());
+            out.write(59);
+            break;
+          default:
+            throw new IllegalArgumentException("Cannot escape: '" + c + "'");
+        } 
+      } 
+    } 
+    if (start != limit)
+      out.write(ch, start, limit - start); 
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/bosch/utils/LogfileUtils.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+import java.io.File;
+import java.io.FileFilter;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Date;
+import java.util.Iterator;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.AgeFileFilter;
+import org.apache.commons.io.filefilter.AndFileFilter;
+import org.apache.commons.io.filefilter.FileFilterUtils;
+import org.apache.commons.io.filefilter.IOFileFilter;
+import org.apache.commons.io.filefilter.SuffixFileFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class LogfileUtils {
+  private static final Logger LOGGER = LoggerFactory.getLogger(LogfileUtils.class);
+  
+  public static void deleteFilesOlderThanDays(String path, int days) {
+    File directory = new File(path);
+    if (directory.exists()) {
+      IOFileFilter filter = createLogFilesOlderThanDaysFilter(days);
+      deleteFilesInFolder(directory, filter);
+      File[] subDirectories = directory.listFiles((FileFilter)FileFilterUtils.directoryFileFilter());
+      if (subDirectories != null)
+        for (File subDirectory : subDirectories) {
+          if (subDirectory.getAbsolutePath().endsWith("setup")) {
+            deleteOldSetupLogFiles(subDirectory.getAbsolutePath());
+          } else {
+            deleteFilesOlderThanDays(subDirectory.getAbsolutePath(), days);
+          } 
+        }  
+    } 
+  }
+  
+  private static void deleteOldSetupLogFiles(String path) {
+    File directory = new File(path);
+    if (directory.exists()) {
+      SuffixFileFilter filter = new SuffixFileFilter("txt");
+      deleteFilesInFolder(directory, filter);
+    } 
+  }
+  
+  private static void deleteFilesInFolder(File dir, IOFileFilter filter) {
+    Iterator<File> filesToDelete = FileUtils.iterateFiles(dir, filter, null);
+    while (filesToDelete.hasNext()) {
+      File fileToDelete = filesToDelete.next();
+      LOGGER.info("Deleting file: {}", fileToDelete);
+      if (!fileToDelete.delete())
+        LOGGER.error("Could not delete file '{}'", fileToDelete); 
+    } 
+  }
+  
+  private static IOFileFilter createLogFilesOlderThanDaysFilter(int thresholdDays) {
+    Date thresholdDate = createThresholdDate(thresholdDays);
+    AndFileFilter filter = new AndFileFilter();
+    filter.addFileFilter(new AgeFileFilter(thresholdDate));
+    filter.addFileFilter(new SuffixFileFilter("log"));
+    return filter;
+  }
+  
+  private static Date createThresholdDate(int thresholdDays) {
+    LocalDate thresholdLocalDate = LocalDate.now().minusDays((long)thresholdDays);
+    return Date.from(thresholdLocalDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/bosch/utils/PathLimitFormatter.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class PathLimitFormatter {
+  static final int MAX_CHARACTERS_MESSAGE = 100;
+  
+  public static String formatPathMessages(String bundledMessage, String attachedText) {
+    String message = String.format(bundledMessage, attachedText);
+    int lineBreak = message.indexOf('\n');
+    if (lineBreak > -1) {
+      String firstLine = message.substring(0, lineBreak);
+      String secondLine = message.substring(lineBreak);
+      List<String> list = formatPath(secondLine);
+      return firstLine.concat(String.join("\n", list));
+    } 
+    List<String> messageTokens = formatPath(message);
+    return String.join("\n", messageTokens);
+  }
+  
+  private static List<String> formatPath(String pathLine) {
+    List<String> messageTokens = new ArrayList<>();
+    int index = 0;
+    boolean insidePath = false;
+    boolean isModified = false;
+    while (index < pathLine.length()) {
+      pathLine = pathLine.substring(index);
+      int checkMaxPos = Math.min(100, pathLine.length());
+      int nextSlash = pathLine.lastIndexOf('\\', checkMaxPos);
+      int nextBreakSymbol = Math.max(nextSlash, pathLine.lastIndexOf(' ', checkMaxPos));
+      int maximumLength = Math.min(100, (nextBreakSymbol > -1) ? nextBreakSymbol : 100);
+      int breakPoint = Math.min(maximumLength, pathLine.length());
+      if (pathLine.length() <= 100)
+        breakPoint = pathLine.length(); 
+      String toAdd = pathLine.substring(0, (breakPoint != pathLine.length()) ? (breakPoint + 1) : breakPoint);
+      if (toAdd.indexOf('(') > -1 && toAdd.indexOf(')') < 0) {
+        messageTokens.add(toAdd.concat("..."));
+        insidePath = true;
+        isModified = true;
+      } 
+      if (toAdd.indexOf(')') > -1) {
+        messageTokens.add("...".concat(toAdd));
+        insidePath = false;
+        isModified = true;
+      } 
+      if (insidePath && !isModified) {
+        toAdd = toAdd.concat("...");
+        messageTokens.add("...".concat(toAdd));
+      } else if (!isModified) {
+        messageTokens.add(toAdd);
+      } 
+      isModified = false;
+      index = breakPoint + 1;
+    } 
+    return messageTokens;
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/bosch/utils/process/Execution.java
+========================================================================================================================
+package com.gigatronik.bosch.utils.process;
+
+public class Execution {
+  private final int exitCode;
+  
+  private final String out;
+  
+  private final String err;
+  
+  Execution(int exitCode, String out, String err) {
+    this.exitCode = exitCode;
+    this.out = out;
+    this.err = err;
+  }
+  
+  public int getExitCode() {
+    return this.exitCode;
+  }
+  
+  public String getOut() {
+    return this.out;
+  }
+  
+  public String getErr() {
+    return this.err;
+  }
+  
+  public String toString() {
+    return "exitCode=" + this.exitCode + (
+      (this.out == null) ? "" : (", out='" + this.out + "'")) + (
+      (this.err == null) ? "" : (", err='" + this.err + "'"));
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/bosch/utils/process/ProcessUtil.java
+========================================================================================================================
+package com.gigatronik.bosch.utils.process;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ProcessUtil {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ProcessUtil.class);
+  
+  public Execution execute(long timeout, String... command) throws IOException {
+    try {
+      String logInfo = String.format("Execute: '%s' with timeout of '%d' ms", command, timeout);
+      LOGGER.info(logInfo);
+      Process process = new ProcessBuilder(command).start();
+      if (process.waitFor(timeout, TimeUnit.MILLISECONDS)) {
+        Execution execution = new Execution(process.exitValue(), 
+            IOUtils.toString(process.getInputStream()), 
+            IOUtils.toString(process.getErrorStream()));
+        logInfo = String.format("Executed with result: '%s'", execution.toString());
+        LOGGER.info(logInfo);
+        return execution;
+      } 
+      LOGGER.info("Timeout in execution");
+      int outAvailable = process.getInputStream().available();
+      byte[] outBuffer = new byte[outAvailable];
+      IOUtils.read(process.getInputStream(), outBuffer, 0, outAvailable);
+      int errAvailable = process.getErrorStream().available();
+      byte[] errBuffer = new byte[errAvailable];
+      IOUtils.read(process.getErrorStream(), errBuffer, 0, errAvailable);
+      return new Execution(-1000, 
+          IOUtils.toString(outBuffer, "UTF-8"), 
+          IOUtils.toString(errBuffer, "UTF-8"));
+    } catch (InterruptedException e) {
+      LOGGER.warn("Thread interrupted during execution.");
+      Thread.currentThread().interrupt();
+    } catch (IOException e) {
+      LOGGER.error("Execution failed", (Throwable)e);
+      throw e;
+    } 
+    throw new IllegalStateException("Thread was interrupted");
+  }
+  
+  public Execution execute(Consumer<InputStream> outConsumer, String... command) throws InterruptedException, IOException {
+    Process process = null;
+    try {
+      LOGGER.trace("Execute: '{}'", (Object[])command);
+      process = new ProcessBuilder(command).start();
+      outConsumer.accept(process.getErrorStream());
+      process.waitFor();
+      return new Execution(process.exitValue(), "", "");
+    } catch (InterruptedException e) {
+      LOGGER.warn("Thread interrupted during execution");
+      if (process.isAlive()) {
+        LOGGER.info("Thread interrupted, quit process...");
+        OutputStream os = process.getOutputStream();
+        os.write(113);
+        os.flush();
+      } 
+      throw e;
+    } catch (IOException e) {
+      LOGGER.error("Execution failed", (Throwable)e);
+      throw e;
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/bosch/utils/SystemInformation.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+import oshi.PlatformEnum;
+import oshi.SystemInfo;
+import oshi.hardware.CentralProcessor;
+import oshi.hardware.GlobalMemory;
+import oshi.hardware.HardwareAbstractionLayer;
+import oshi.hardware.PowerSource;
+
+public class SystemInformation {
+  private static SystemInformation instance = null;
+  
+  private WindowsVersion osVersion = new WindowsVersion();
+  
+  private String processorName;
+  
+  private long physicalMemoryTotalByte;
+  
+  private PowerSource[] powerSources;
+  
+  private void getGeneralInfos() {
+    if (SystemInfo.getCurrentPlatformEnum() != PlatformEnum.UNKNOWN) {
+      SystemInfo systemInfoOshi = new SystemInfo();
+      this.osVersion.populateSystemInfo();
+      HardwareAbstractionLayer hardware = systemInfoOshi.getHardware();
+      CentralProcessor processor = hardware.getProcessor();
+      this.processorName = processor.getName();
+      GlobalMemory memory = hardware.getMemory();
+      this.physicalMemoryTotalByte = memory.getTotal();
+      this.powerSources = hardware.getPowerSources();
+    } else {
+      this.osVersion = null;
+      this.processorName = "";
+      this.physicalMemoryTotalByte = 0L;
+      this.powerSources = null;
+    } 
+  }
+  
+  public static synchronized SystemInformation getInstance() {
+    if (instance == null) {
+      instance = new SystemInformation();
+      instance.getGeneralInfos();
+    } 
+    return instance;
+  }
+  
+  public String getOsName() {
+    return this.osVersion.getOsName();
+  }
+  
+  public String getOsBuildNumber() {
+    return this.osVersion.getOsVersion();
+  }
+  
+  public String getSystemtype() {
+    return this.osVersion.getProcessorArchitecture();
+  }
+  
+  public String getProcessortypeAndRate() {
+    return this.processorName;
+  }
+  
+  public String getPlatform() {
+    if (this.powerSources == null || this.powerSources.length == 0)
+      return "Desktop"; 
+    return "Mobile";
+  }
+  
+  public long getPhysicalMemory() {
+    return this.physicalMemoryTotalByte;
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/bosch/utils/SystemNanoTimeProvider.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+public class SystemNanoTimeProvider implements TimeProvider {
+  public long nanos() {
+    return System.nanoTime();
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/bosch/utils/TimeProvider.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+import java.util.concurrent.TimeUnit;
+
+public interface TimeProvider {
+  long nanos();
+  
+  default long millis() {
+    return TimeUnit.NANOSECONDS.toMillis(nanos());
+  }
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/bosch/utils/TokenConstants.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+public final class TokenConstants {
+  public static final String AES = "aes";
+  
+  public static final String RSA = "rsa";
+  
+  public static final String KEY_SLOT = "key slot";
+  
+  public static final String USER_LEVEL = "User level";
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/bosch/utils/ui/AwtMouseInterface.java
+========================================================================================================================
+package com.gigatronik.bosch.utils.ui;
+
+import java.awt.MouseInfo;
+import java.awt.Point;
+import java.awt.Robot;
+
+public class AwtMouseInterface implements MouseInterface {
+  private final Robot robot;
+  
+  public AwtMouseInterface(Robot robot) {
+    this.robot = robot;
+  }
+  
+  public Point getMousePosition() {
+    return MouseInfo.getPointerInfo().getLocation();
+  }
+  
+  public void setMousePosition(Point point) {
+    this.robot.mouseMove(point.x, point.y);
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/bosch/utils/ui/CancelableProgressDialog.java
+========================================================================================================================
+package com.gigatronik.bosch.utils.ui;
+
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+import java.awt.BorderLayout;
+import java.awt.Dialog;
+import java.awt.Dimension;
+import java.awt.EventQueue;
+import java.awt.Frame;
+import java.awt.event.ActionEvent;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JProgressBar;
+import javax.swing.border.EmptyBorder;
+
+public class CancelableProgressDialog extends JDialog {
+  private static final transient Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  private final AtomicBoolean canceledByUser = new AtomicBoolean(false);
+  
+  private final Frame parentFrame;
+  
+  public CancelableProgressDialog(Frame parent, String title, String message) {
+    super(parent);
+    this.parentFrame = parent;
+    createLayout(title, message);
+  }
+  
+  private void createLayout(String title, String message) {
+    setMinimumSize(new Dimension(250, 50));
+    setTitle(title);
+    setResizable(false);
+    setDefaultCloseOperation(0);
+    setModal(true);
+    setModalityType(Dialog.ModalityType.APPLICATION_MODAL);
+    BorderLayout layout = new BorderLayout(10, 10);
+    JPanel pnlContent = new JPanel(layout);
+    pnlContent.setBorder(new EmptyBorder(10, 10, 10, 10));
+    JLabel txt = new JLabel(message);
+    txt.setHorizontalAlignment(0);
+    txt.setBorder(new EmptyBorder(5, 5, 10, 5));
+    pnlContent.add(txt, "North");
+    JProgressBar prgAction = new JProgressBar();
+    prgAction.setFocusable(false);
+    prgAction.setMinimumSize(new Dimension(150, 10));
+    prgAction.setName("prgAction");
+    prgAction.setOpaque(true);
+    prgAction.setVerifyInputWhenFocusTarget(false);
+    prgAction.setIndeterminate(true);
+    pnlContent.add(prgAction, "Center");
+    JButton btnCancel = new JButton(BUNDLE.getString("JOptionPane.Cancel"));
+    btnCancel.setName("btnCancel");
+    btnCancel.addActionListener(e -> {
+          this.canceledByUser.set(true);
+          dispose();
+        });
+    JPanel pnlSouth = new JPanel();
+    pnlSouth.setAlignmentY(1.0F);
+    pnlSouth.add(btnCancel);
+    pnlContent.add(pnlSouth, "South");
+    getContentPane().add(pnlContent);
+    pack();
+  }
+  
+  public void display() {
+    this.canceledByUser.set(false);
+    setLocationRelativeTo(this.parentFrame);
+    EventQueue.invokeLater(() -> setVisible(true));
+  }
+  
+  public void dispose() {
+    EventQueue.invokeLater(() -> super.dispose());
+  }
+  
+  public boolean isCanceledByUser() {
+    return this.canceledByUser.get();
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/bosch/utils/ui/MouseInterface.java
+========================================================================================================================
+package com.gigatronik.bosch.utils.ui;
+
+import java.awt.Point;
+
+public interface MouseInterface {
+  Point getMousePosition();
+  
+  void setMousePosition(Point paramPoint);
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/bosch/utils/UnitFormatUtil.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+
+public class UnitFormatUtil {
+  private static final Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  private static final String CE = "EBikeSettingsTab.Units.CELCIUS.short";
+  
+  private static final String FA = "EBikeSettingsTab.Units.FAHRENHEIT.short";
+  
+  private static final String FE = "EBikeSettingsTab.Units.FEET.short";
+  
+  private static final String IN = "EBikeSettingsTab.Units.INCH.short";
+  
+  private static final String KM = "EBikeSettingsTab.Units.KILOMETER.short";
+  
+  private static final String KMH = "EBikeSettingsTab.Units.KILOMETER_PER_HOUR.short";
+  
+  private static final String ME = "EBikeSettingsTab.Units.METER.short";
+  
+  private static final String MI = "EBikeSettingsTab.Units.MILES.short";
+  
+  private static final String MPH = "EBikeSettingsTab.Units.MILES_PER_HOUR.short";
+  
+  private static final String MM = "EBikeSettingsTab.Units.MILLIMETER.short";
+  
+  public static String formatToMeter(Double meter) {
+    String unit = BUNDLE.getString("EBikeSettingsTab.Units.METER.short");
+    return String.format(unit, meter);
+  }
+  
+  public static String formatToFeet(Double feet) {
+    String unit = BUNDLE.getString("EBikeSettingsTab.Units.FEET.short");
+    return String.format(unit, feet);
+  }
+  
+  public static String formatToKilometer(Double kilometres) {
+    String unit = BUNDLE.getString("EBikeSettingsTab.Units.KILOMETER.short");
+    return String.format(unit, kilometres);
+  }
+  
+  public static String formatToMiles(Double miles) {
+    String unit = BUNDLE.getString("EBikeSettingsTab.Units.MILES.short");
+    return String.format(unit, miles);
+  }
+  
+  public static String formatToCelsius(Double celsius) {
+    String unit = BUNDLE.getString("EBikeSettingsTab.Units.CELCIUS.short");
+    return String.format(unit, celsius);
+  }
+  
+  public static String formatToFahrenheit(Double fahrenheit) {
+    String unit = BUNDLE.getString("EBikeSettingsTab.Units.FAHRENHEIT.short");
+    return String.format(unit, fahrenheit);
+  }
+  
+  public static String formatToMillimeter(Double millimeter) {
+    String unit = BUNDLE.getString("EBikeSettingsTab.Units.MILLIMETER.short");
+    return String.format(unit, millimeter);
+  }
+  
+  public static String formatToInch(Double inch) {
+    String unit = BUNDLE.getString("EBikeSettingsTab.Units.INCH.short");
+    return String.format(unit, inch);
+  }
+  
+  public static String formatToKMH(Double kmh) {
+    String unit = BUNDLE.getString("EBikeSettingsTab.Units.KILOMETER_PER_HOUR.short");
+    return String.format(unit, kmh);
+  }
+  
+  public static String formatToMPH(Double mph) {
+    String unit = BUNDLE.getString("EBikeSettingsTab.Units.MILES_PER_HOUR.short");
+    return String.format(unit, mph);
+  }
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/bosch/utils/UnMarshalJAXB.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.InputStream;
+import java.io.StringWriter;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
+import javax.xml.bind.Unmarshaller;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.Schema;
+import javax.xml.validation.SchemaFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.xml.sax.SAXException;
+
+public class UnMarshalJAXB {
+  private static final Logger LOGGER = LoggerFactory.getLogger(UnMarshalJAXB.class);
+  
+  public static final String CFF2_XSD_NAME = "Container_File_Format_v2_Schema.xsd";
+  
+  public static final String BASVARIANTINFO_XSD_NAME = "Bas_Variant_Info.xsd";
+  
+  public static final String CFF3_XSD_NAME = "Container_File_Format_v3_Schema.xsd";
+  
+  public static final String CRM_XSD_NAME = "eBike_CRM_Schema.xsd";
+  
+  public final SchemaFactory SCHEMA_FACTORY = SchemaFactory.newInstance("http://www.w3.org/2001/XMLSchema");
+  
+  private static final String JAXB_CHARACTER_ESCAPE_HANDLER = "com.sun.xml.bind.marshaller.CharacterEscapeHandler";
+  
+  private static final JAXBCustomCharacterEscapeHandler CHARACTER_ESCAPE_HANDLER = new JAXBCustomCharacterEscapeHandler();
+  
+  public <U> U unmarshalWithoutValidation(U object, ByteArrayInputStream unmarshalStream) throws JAXBException {
+    JAXBContext jc = JAXBContext.newInstance(new Class<?>[] { object.getClass() });
+    Unmarshaller unmarshaller = jc.createUnmarshaller();
+    object = (U)unmarshaller.unmarshal(unmarshalStream);
+    return object;
+  }
+  
+  public <U> U unmarshal(U object, ByteArrayInputStream unmarshalStream, Schema schema) throws JAXBException {
+    if (schema == null) {
+      LOGGER.error("Schema not provided for unmarshalling... Won't do unmarshalling!");
+      return null;
+    } 
+    JAXBContext jc = JAXBContext.newInstance(new Class<?>[] { object.getClass() });
+    Unmarshaller unmarshaller = jc.createUnmarshaller();
+    unmarshaller.setSchema(schema);
+    object = (U)unmarshaller.unmarshal(unmarshalStream);
+    return object;
+  }
+  
+  public <U> U unmarshall(U o, File xml, Schema schema) {
+    if (schema == null) {
+      LOGGER.error("Schema not provided for unmarshalling... Won't do unmarshalling!");
+      return null;
+    } 
+    try {
+      JAXBContext jc = JAXBContext.newInstance(new Class<?>[] { o.getClass() });
+      Unmarshaller u = jc.createUnmarshaller();
+      u.setSchema(schema);
+      o = (U)u.unmarshal(xml);
+      LOGGER.info("File-Import successful of File: {}", xml);
+      return o;
+    } catch (JAXBException e) {
+      LOGGER.error("Unable to read xml-File: {}", xml, e);
+      return null;
+    } 
+  }
+  
+  public Schema getSchema(InputStream is) {
+    try {
+      return this.SCHEMA_FACTORY.newSchema(new StreamSource(is));
+    } catch (SAXException ex) {
+      LOGGER.error("Error loading Schema ", (Throwable)ex);
+      return null;
+    } 
+  }
+  
+  public <Type> String marshallToString(Type objectToMarshall) {
+    return marshallToString(objectToMarshall, null);
+  }
+  
+  public <Type> String marshallToString(Type objectToMarshall, Schema schema) {
+    String xml = null;
+    StringWriter sw = new StringWriter();
+    try {
+      JAXBContext jc = JAXBContext.newInstance(new Class<?>[] { objectToMarshall.getClass() });
+      Marshaller m = jc.createMarshaller();
+      if (schema != null)
+        m.setSchema(schema); 
+      m.setProperty("jaxb.formatted.output", Boolean.TRUE);
+      m.marshal(objectToMarshall, sw);
+      xml = sw.toString();
+      LOGGER.info("cff-creation successful");
+    } catch (JAXBException e) {
+      LOGGER.error("Error in cff-creation", (Throwable)e);
+    } 
+    return xml;
+  }
+  
+  public <U> boolean marshallToFile(U pojo, File file, Schema schema) {
+    if (schema == null) {
+      LOGGER.error("Schema not provided for marshalling... Won't do marshalling!");
+      return false;
+    } 
+    try {
+      JAXBContext jc = JAXBContext.newInstance(new Class<?>[] { pojo.getClass() });
+      Marshaller m = jc.createMarshaller();
+      m.setSchema(schema);
+      m.setProperty("jaxb.formatted.output", Boolean.TRUE);
+      m.marshal(pojo, file);
+      LOGGER.info("marshallToFile successful");
+    } catch (JAXBException e) {
+      LOGGER.error("marshallToFile not successful", (Throwable)e);
+      return false;
+    } 
+    return true;
+  }
+  
+  public <U> boolean marshallToFile(U pojo, JAXBElement<U> root, File file, Schema schema) {
+    if (schema == null) {
+      LOGGER.error("Schema not provided for marshalling... Won't do marshalling!");
+      return false;
+    } 
+    try {
+      Marshaller marshaller = JAXBContext.newInstance(new Class<?>[] { pojo.getClass() }).createMarshaller();
+      marshaller.setProperty("jaxb.formatted.output", Boolean.TRUE);
+      marshaller.setProperty("com.sun.xml.bind.marshaller.CharacterEscapeHandler", CHARACTER_ESCAPE_HANDLER);
+      marshaller.setSchema(schema);
+      marshaller.marshal(root, file);
+      LOGGER.info("marshallToFile successful");
+    } catch (JAXBException e) {
+      LOGGER.error("marshallToFile not successful", (Throwable)e);
+      return false;
+    } 
+    return true;
+  }
+}
+
+
+========================================================================================================================
+ITEM 18: com/gigatronik/bosch/utils/UtilsFactory.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+import com.gigatronik.bosch.utils.ui.AwtMouseInterface;
+import com.gigatronik.bosch.utils.ui.MouseInterface;
+import java.awt.AWTException;
+import java.awt.Robot;
+
+public class UtilsFactory {
+  private static final UtilsFactory INSTANCE = new UtilsFactory();
+  
+  private volatile Robot robot;
+  
+  private volatile MouseInterface mouseInterface;
+  
+  private volatile TimeProvider timeProvider;
+  
+  public static UtilsFactory get() {
+    return INSTANCE;
+  }
+  
+  public Robot robot() throws AWTException {
+    if (this.robot == null)
+      initRobot(); 
+    return this.robot;
+  }
+  
+  public MouseInterface mouseInterface() throws AWTException {
+    if (this.mouseInterface == null)
+      initMouseInterface(robot()); 
+    return this.mouseInterface;
+  }
+  
+  public TimeProvider timeProvider() {
+    if (this.timeProvider == null)
+      initTimeProvider(); 
+    return this.timeProvider;
+  }
+  
+  private synchronized void initRobot() throws AWTException {
+    if (this.robot == null) {
+      Robot r = new Robot();
+      r.setAutoWaitForIdle(false);
+      this.robot = r;
+    } 
+  }
+  
+  private synchronized void initMouseInterface(Robot robot) {
+    if (this.mouseInterface == null)
+      this.mouseInterface = new AwtMouseInterface(robot); 
+  }
+  
+  private synchronized void initTimeProvider() {
+    if (this.timeProvider == null)
+      this.timeProvider = new SystemNanoTimeProvider(); 
+  }
+}
+
+
+========================================================================================================================
+ITEM 19: com/gigatronik/bosch/utils/WindowsVersion.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class WindowsVersion {
+  private static final Logger LOGGER = LoggerFactory.getLogger(WindowsVersion.class);
+  
+  private static final String WINDOWS_CURRENT_VERSION_REGISTRY_KEY = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
+  
+  private static final String PROCESSOR_CURRENT_ARCHITECTURE_REGISTRY_KEY = "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment";
+  
+  private String osName;
+  
+  private String osVersion;
+  
+  private String processorArchitecture;
+  
+  String getOsName() {
+    return this.osName;
+  }
+  
+  String getOsVersion() {
+    return this.osVersion;
+  }
+  
+  String getProcessorArchitecture() {
+    return this.processorArchitecture;
+  }
+  
+  void populateSystemInfo() {
+    try {
+      this.osName = WinRegistry.readString(-2147483646L, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductName").trim();
+      this.osVersion = WinRegistry.readString(-2147483646L, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "CurrentBuild");
+      this.processorArchitecture = WinRegistry.readString(-2147483646L, "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment", "PROCESSOR_ARCHITECTURE");
+    } catch (Exception e) {
+      LOGGER.warn("Problem retrieving information from the Operating System", (Throwable)e);
+    } 
+    formatOsNameAccordingDataMining();
+    formatOsBuildNumberAccordingDatamining();
+    formatProcessorBitnessAccordingDataMining();
+  }
+  
+  private void formatOsNameAccordingDataMining() {
+    if (this.osName != null) {
+      this.osName = this.osName.substring(0, this.osName.lastIndexOf(' '));
+      LOGGER.debug("OS Name retrieved: {}", this.osName);
+    } else {
+      this.osName = "";
+      LOGGER.error("OS Name not found!");
+    } 
+  }
+  
+  private void formatProcessorBitnessAccordingDataMining() {
+    if (this.processorArchitecture != null) {
+      this.processorArchitecture = this.processorArchitecture.equalsIgnoreCase("x86") ? "32" : "64";
+      LOGGER.info("Processor Architecture retrieved: {}", this.processorArchitecture);
+    } else {
+      this.processorArchitecture = "";
+      LOGGER.error("Processor Architecture not found!");
+    } 
+  }
+  
+  private void formatOsBuildNumberAccordingDatamining() {
+    if (this.osVersion != null) {
+      Pattern versionPattern = Pattern.compile("[0-9]+");
+      Matcher versionMatch = versionPattern.matcher(this.osName);
+      versionMatch.find();
+      this.osVersion = versionMatch.group() + " build " + versionMatch.group();
+      LOGGER.info("OS Version retrieved: {}", this.osVersion);
+    } else {
+      this.osVersion = "";
+      LOGGER.error("OS Version not found!");
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 20: com/gigatronik/bosch/utils/WinRegistry.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.prefs.Preferences;
+
+public class WinRegistry {
+  public static final long HKEY_CURRENT_USER = -2147483647L;
+  
+  public static final long HKEY_LOCAL_MACHINE = -2147483646L;
+  
+  static final long REG_SUCCESS = 0L;
+  
+  private static final int KEY_READ = 131097;
+  
+  private static final Preferences userRoot = Preferences.userRoot();
+  
+  private static final Preferences systemRoot = Preferences.systemRoot();
+  
+  private static final Class<? extends Preferences> userClass = (Class)userRoot.getClass();
+  
+  private static final Method regOpenKey;
+  
+  private static final Method regCloseKey;
+  
+  private static final Method regQueryValueEx;
+  
+  static {
+    try {
+      regOpenKey = userClass.getDeclaredMethod("WindowsRegOpenKey", long.class, byte[].class, int.class);
+      regOpenKey.setAccessible(true);
+      regCloseKey = userClass.getDeclaredMethod("WindowsRegCloseKey", long.class);
+      regCloseKey.setAccessible(true);
+      regQueryValueEx = userClass.getDeclaredMethod("WindowsRegQueryValueEx", long.class, byte[].class);
+      regQueryValueEx.setAccessible(true);
+    } catch (Exception e) {
+      throw new WinRegistryMethodAccessException(e.getMessage());
+    } 
+  }
+  
+  public static String readString(long hkey, String key, String valueName) throws InvocationTargetException, IllegalAccessException {
+    if (hkey == -2147483646L)
+      return readString(systemRoot, hkey, key, valueName); 
+    if (hkey == -2147483647L)
+      return readString(userRoot, hkey, key, valueName); 
+    throw new IllegalArgumentException("hkey=" + hkey);
+  }
+  
+  private static String readString(Preferences root, long hkey, String key, String value) throws InvocationTargetException, IllegalAccessException {
+    long[] handles = (long[])regOpenKey.invoke(root, hkey, toByteArray(key), 131097);
+    if (handles[1] != 0L)
+      return null; 
+    byte[] valb = (byte[])regQueryValueEx.invoke(root, handles[0], toByteArray(value));
+    regCloseKey.invoke(root, handles[0]);
+    return (valb != null) ? new String(valb).trim() : null;
+  }
+  
+  private static byte[] toByteArray(String str) {
+    byte[] result = new byte[str.length() + 1];
+    for (int i = 0; i < str.length(); i++)
+      result[i] = (byte)str.charAt(i); 
+    result[str.length()] = 0;
+    return result;
+  }
+  
+  public static class WinRegistryMethodAccessException extends RuntimeException {
+    WinRegistryMethodAccessException(String text) {
+      super("Some problem occurs trying to access to the Registry Methods: " + text);
+    }
+  }
+}
+
+
+========================================================================================================================
+ITEM 21: com/gigatronik/bosch/utils/WinServicesUtil.java
+========================================================================================================================
+package com.gigatronik.bosch.utils;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
+import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class WinServicesUtil {
+  private static final Logger LOGGER = LoggerFactory.getLogger(WinServicesUtil.class);
+  
+  private static final String SC_EXE_PATH = "C:\\Windows\\System32\\sc.exe";
+  
+  private static final String SCHTASKS_EXE_PATH = "schtasks";
+  
+  private static final long SC_TIMEOUT = 5000L;
+  
+  private static final long SCHTASKS_TIMEOUT = 1000L;
+  
+  private static final String SCHEDULED_TASK_NAME = "Bosch - start ";
+  
+  private static final String SC_COMMAND_QUERY = "query";
+  
+  private static final String SC_COMMAND_START = "start";
+  
+  private static final String SC_COMMAND_STOP = "stop";
+  
+  private static final String SERVICE_STATE_RUNNING = "RUNNING";
+  
+  private static final String SERVICE_STATE_STOPPED = "STOPPED";
+  
+  private static final String SERVICE_STATE_START_PENDING = "START_PENDING";
+  
+  private static final String SERVICE_STATE_STOP_PENDING = "STOP_PENDING";
+  
+  public enum ServiceState {
+    RUNNING, STOPPED, START_PENDING, STOP_PENDING, UNKNOWN_STATE, UNKNOWN_SERVICE;
+  }
+  
+  public ServiceState checkService(String serviceName) throws IOException {
+    LOGGER.info("Checking state of service {}...", serviceName);
+    Execution execution = executeSc(serviceName, "query");
+    return getState(serviceName, execution);
+  }
+  
+  public ServiceState startService(String serviceName) throws IOException {
+    LOGGER.debug("Start {} with current rights", serviceName);
+    Execution execution = executeSc(serviceName, "start");
+    if (execution != null && execution.exitCode != 0) {
+      LOGGER.debug("Start {} by scheduled task", serviceName);
+      execution = executeSchtasks(serviceName);
+      if (execution != null && execution.exitCode != 0) {
+        LOGGER.debug("Start {} with administrator rights", serviceName);
+        execution = executeScAsAdministrator(serviceName, "start");
+      } 
+      if (execution != null && execution.exitCode == 0)
+        execution = executeSc(serviceName, "query"); 
+    } 
+    ServiceState state = getState(serviceName, execution);
+    if (state == ServiceState.RUNNING || state == ServiceState.START_PENDING) {
+      LOGGER.info("Service {} started, state={}", serviceName, state);
+    } else {
+      LOGGER.debug("Service {} not started, state={}, execution={}", serviceName, state, execution);
+    } 
+    return state;
+  }
+  
+  public boolean stopService(String serviceName) throws IOException {
+    Execution execution = executeSc(serviceName, "stop");
+    ServiceState state = getState(serviceName, execution);
+    if (execution != null && execution.exitCode == 0 && (state == ServiceState.STOPPED || state == ServiceState.STOP_PENDING)) {
+      LOGGER.info("Service {} stopped. Current state {}", serviceName, state);
+      return true;
+    } 
+    return false;
+  }
+  
+  private Execution executeSchtasks(String serviceName) throws IOException {
+    return execute(1000L, "schtasks", "/run", "/TN", "\"Bosch - start " + serviceName + "\"");
+  }
+  
+  private Execution executeSc(String serviceName, String command) throws IOException {
+    return execute(5000L, "C:\\Windows\\System32\\sc.exe", command, serviceName);
+  }
+  
+  private Execution executeScAsAdministrator(String serviceName, String command) throws IOException {
+    return execute(5000L, "powershell", "Start-Process", "C:\\Windows\\System32\\sc.exe", "-ArgumentList", "'" + command + " " + serviceName + "'", "-WindowStyle", "Hidden", "-Wait", "-verb", "RunAs");
+  }
+  
+  private Execution execute(long timeout, String... command) throws IOException {
+    String commandString = Arrays.toString(command);
+    try {
+      LOGGER.trace("Execute \"{}\", timeout={}", commandString, Long.valueOf(timeout));
+      Process process = new ProcessBuilder(command).start();
+      if (process.waitFor(timeout, TimeUnit.MILLISECONDS)) {
+        Execution execution = new Execution(process.exitValue(), IOUtils.toString(process.getInputStream()), 
+            IOUtils.toString(process.getErrorStream()));
+        LOGGER.trace("Executed \"{}\", execution result={}", commandString, execution);
+        return execution;
+      } 
+      LOGGER.trace("Timeout \"{}\"", commandString);
+      return null;
+    } catch (InterruptedException e) {
+      LOGGER.debug("Thread interrupted during {} execution", (Object[])command);
+      Thread.currentThread().interrupt();
+    } catch (IOException e) {
+      LOGGER.debug("Failed to execute \"{}\"", commandString, e);
+      throw e;
+    } 
+    throw new IllegalStateException("Thread was interrupted");
+  }
+  
+  private ServiceState getState(String serviceName, Execution execution) {
+    if (execution != null && execution.exitCode == 0) {
+      if (!execution.out.contains("STATE"))
+        LOGGER.info("'STATE' of Service '{}' not found in execution response, ignore and check for possible state values", serviceName); 
+      if (execution.out.contains("RUNNING")) {
+        LOGGER.info("Service {} is running", serviceName);
+        return ServiceState.RUNNING;
+      } 
+      if (execution.out.contains("STOPPED")) {
+        LOGGER.info("Service {} is stopped", serviceName);
+        return ServiceState.STOPPED;
+      } 
+      if (execution.out.contains("START_PENDING")) {
+        LOGGER.info("Service {} is pending start", serviceName);
+        return ServiceState.START_PENDING;
+      } 
+      if (execution.out.contains("STOP_PENDING")) {
+        LOGGER.info("Service {} is pending stop", serviceName);
+        return ServiceState.STOP_PENDING;
+      } 
+      return ServiceState.RUNNING;
+    } 
+    return ServiceState.UNKNOWN_SERVICE;
+  }
+  
+  private static final class Execution {
+    final int exitCode;
+    
+    final String out;
+    
+    final String err;
+    
+    Execution(int exitCode, String out, String err) {
+      this.exitCode = exitCode;
+      this.out = out;
+      this.err = err;
+    }
+    
+    public String toString() {
+      return "exitCode=" + this.exitCode + ", out='" + this.out + "', err='" + this.err + "'";
+    }
+  }
+}
+

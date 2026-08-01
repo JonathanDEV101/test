@@ -1,0 +1,160 @@
+JAR: applicationprocess-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\applicationprocess-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/dart2/bosch/applicationprocess/ApplicationProcessManager.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.applicationprocess;
+
+import com.gigatronik.beds.common.event.ApplicationEventQueue;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ApplicationProcessManager {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ApplicationProcessManager.class);
+  
+  private final Map<ApplicationProcess, Boolean> processStates = new EnumMap<>(ApplicationProcess.class);
+  
+  private final List<ApplicationProcessStateChangesListener> listeners = new ArrayList<>();
+  
+  private final ApplicationEventQueue applicationEventQueue = ApplicationEventQueue.getInstance();
+  
+  private static ApplicationProcessManager instance = null;
+  
+  public enum ApplicationProcess {
+    FLASH_EBIKE_DIRECT,
+    FLASH_EBIKE,
+    FLASH_MAPS,
+    DOWNLOAD_CONTAINER,
+    DOWNLOAD_MAP,
+    DATA_MINING,
+    READ_SERVICE_PARAMS(20000),
+    SET_BMS_TYPE_IN_BCT;
+    
+    private int timeout;
+    
+    ApplicationProcess() {
+      this.timeout = Integer.MAX_VALUE;
+    }
+    
+    ApplicationProcess(int timeout) {
+      this.timeout = timeout;
+    }
+    
+    int getTimeoutValue() {
+      return this.timeout;
+    }
+  }
+  
+  public static synchronized ApplicationProcessManager getInstance() {
+    if (instance == null)
+      instance = new ApplicationProcessManager(); 
+    return instance;
+  }
+  
+  public synchronized boolean isProcessActive(ApplicationProcess process) {
+    return (this.processStates.get(process) != null && this.processStates.get(process));
+  }
+  
+  public synchronized boolean isAnyProcessActive() {
+    return this.processStates.values().contains(Boolean.valueOf(true));
+  }
+  
+  public synchronized void setProcessState(ApplicationProcess process, boolean state) {
+    LOGGER.info("Process {} {}", process, state ? "started" : "finished");
+    this.processStates.put(process, Boolean.valueOf(state));
+    if (!state)
+      notifyAll(); 
+    publishOperationStateEvent(new ApplicationProcessStateChangedEvent(this));
+  }
+  
+  public synchronized boolean isFlashingActive() {
+    boolean flashBike = (this.processStates.get(ApplicationProcess.FLASH_EBIKE) != null && this.processStates.get(ApplicationProcess.FLASH_EBIKE));
+    boolean flashBikeDirect = (this.processStates.get(ApplicationProcess.FLASH_EBIKE_DIRECT) != null && this.processStates.get(ApplicationProcess.FLASH_EBIKE_DIRECT));
+    boolean flashMaps = (this.processStates.get(ApplicationProcess.FLASH_MAPS) != null && this.processStates.get(ApplicationProcess.FLASH_MAPS));
+    return (flashBike || flashBikeDirect || flashMaps);
+  }
+  
+  public synchronized boolean isDownloadActive() {
+    boolean downloadContainer = (this.processStates.get(ApplicationProcess.DOWNLOAD_CONTAINER) != null && this.processStates.get(ApplicationProcess.DOWNLOAD_CONTAINER));
+    boolean downloadMap = (this.processStates.get(ApplicationProcess.DOWNLOAD_MAP) != null && this.processStates.get(ApplicationProcess.DOWNLOAD_MAP));
+    return (downloadContainer || downloadMap);
+  }
+  
+  public synchronized boolean isReadingServiceDataActive() {
+    return (this.processStates.get(ApplicationProcess.READ_SERVICE_PARAMS) != null && this.processStates.get(ApplicationProcess.READ_SERVICE_PARAMS));
+  }
+  
+  public synchronized boolean isBlockingProcessActive() {
+    return (isFlashingActive() || isDownloadActive());
+  }
+  
+  public void addListener(ApplicationProcessStateChangesListener listener) {
+    if (listener != null && !this.listeners.contains(listener))
+      this.listeners.add(listener); 
+  }
+  
+  public void removeListener(ApplicationProcessStateChangesListener listener) {
+    this.listeners.remove(listener);
+  }
+  
+  private void publishOperationStateEvent(ApplicationProcessStateChangedEvent event) {
+    this.applicationEventQueue.queueJob(() -> this.listeners.forEach(listener -> listener.onApplicationProcessStateChanged(event)), "Publish application process state changed event");
+  }
+  
+  public synchronized void waitForApplicationProcessFinishedWithTimeout(ApplicationProcess process) {
+    LOGGER.debug("Wait for application process '{}' with current active state '{}' for max. '{}' ms", process, isProcessActive(process), process.getTimeoutValue());
+    while (isProcessActive(process) && !Thread.currentThread().isInterrupted()) {
+      try {
+        wait((long)process.getTimeoutValue());
+      } catch (InterruptedException ex) {
+        LOGGER.warn("Waiting interrupted", (Throwable)ex);
+        Thread.currentThread().interrupt();
+      } 
+    } 
+    LOGGER.debug("Waiting for application process '{}' finished. Current active state is '{}'", process, Boolean.valueOf(isProcessActive(process)));
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/dart2/bosch/applicationprocess/ApplicationProcessStateChangedEvent.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.applicationprocess;
+
+public class ApplicationProcessStateChangedEvent {
+  private final ApplicationProcessManager appProcMgr;
+  
+  public ApplicationProcessStateChangedEvent(ApplicationProcessManager applicationProcessManager) {
+    this.appProcMgr = applicationProcessManager;
+  }
+  
+  public ApplicationProcessManager getApplicationProcessManager() {
+    return this.appProcMgr;
+  }
+  
+  public String toString() {
+    return "[FLASH_EBIKE_DIRECT=" + this.appProcMgr.isProcessActive(ApplicationProcessManager.ApplicationProcess.FLASH_EBIKE_DIRECT) + ", FLASH_EBIKE=" + 
+      this.appProcMgr.isProcessActive(ApplicationProcessManager.ApplicationProcess.FLASH_EBIKE) + ", FLASH_MAPS=" + 
+      this.appProcMgr.isProcessActive(ApplicationProcessManager.ApplicationProcess.FLASH_MAPS) + ", DOWNLOAD_CONTAINER=" + 
+      this.appProcMgr.isProcessActive(ApplicationProcessManager.ApplicationProcess.DOWNLOAD_CONTAINER) + ", DOWNLOAD_MAP=" + 
+      this.appProcMgr.isProcessActive(ApplicationProcessManager.ApplicationProcess.DOWNLOAD_MAP) + ", DATA_MINING=" + 
+      this.appProcMgr.isProcessActive(ApplicationProcessManager.ApplicationProcess.DATA_MINING) + ", READ_SERVICE_PARAMS=" + 
+      this.appProcMgr.isProcessActive(ApplicationProcessManager.ApplicationProcess.READ_SERVICE_PARAMS) + "]";
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/dart2/bosch/applicationprocess/ApplicationProcessStateChangesListener.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.applicationprocess;
+
+public interface ApplicationProcessStateChangesListener {
+  void onApplicationProcessStateChanged(ApplicationProcessStateChangedEvent paramApplicationProcessStateChangedEvent);
+}
+

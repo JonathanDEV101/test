@@ -1,0 +1,678 @@
+JAR: bdp.interaction-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\bdp.interaction-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/dart2/bosch/bdp/interaction/api/BdpConnectionService.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.bdp.interaction.api;
+
+public interface BdpConnectionService {
+  void registerForBdpDeviceConnectionEvents(BdpDeviceConnectionListener paramBdpDeviceConnectionListener) throws BdpInteractionException;
+  
+  void unregisterForBdpDeviceConnectionEvents(BdpDeviceConnectionListener paramBdpDeviceConnectionListener) throws BdpInteractionException;
+  
+  boolean isBdpInstalled() throws BdpInteractionException;
+  
+  boolean isBdpRunning() throws BdpInteractionException;
+  
+  void startBdp() throws BdpInteractionException;
+  
+  public static interface BdpDeviceConnectionListener {
+    void onBdpDeviceConnectedChanged(boolean param1Boolean);
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/dart2/bosch/bdp/interaction/api/BdpInteractionException.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.bdp.interaction.api;
+
+public class BdpInteractionException extends Exception {
+  public BdpInteractionException(String cause, Exception ex) {
+    super(cause, ex);
+  }
+  
+  public BdpInteractionException(String cause) {
+    super(cause);
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/dart2/bosch/bdp/interaction/impl/BdpConnectionServiceFactory.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.bdp.interaction.impl;
+
+import com.gigatronik.dart2.bosch.bdp.interaction.api.BdpConnectionService;
+import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class BdpConnectionServiceFactory {
+  private static final Logger LOGGER = LoggerFactory.getLogger(BdpConnectionServiceFactory.class);
+  
+  private static BdpConnectionService instance;
+  
+  public static synchronized BdpConnectionService getInstance() {
+    if (instance == null) {
+      WinUsbDriverWrapper winUsbDriverWrapper = createWinUsbDriverWrapperInstance();
+      instance = new BdpConnectionServiceImpl(winUsbDriverWrapper);
+    } 
+    return instance;
+  }
+  
+  private static WinUsbDriverWrapper createWinUsbDriverWrapperInstance() {
+    try {
+      return new WinUsbDriverWrapper();
+    } catch (IOException ex) {
+      LOGGER.warn("Windows USB driver instance creation failed! Feature 'detection of Gen3 bikes' disabled!", (Throwable)ex);
+      return null;
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/dart2/bosch/bdp/interaction/impl/BdpConnectionServiceImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.bdp.interaction.impl;
+
+import com.gigatronik.bosch.utils.WinRegistry;
+import com.gigatronik.dart2.bosch.bdp.interaction.api.BdpConnectionService;
+import com.gigatronik.dart2.bosch.bdp.interaction.api.BdpInteractionException;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Paths;
+import java.util.Properties;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class BdpConnectionServiceImpl implements BdpConnectionService {
+  private static final Logger LOGGER = LoggerFactory.getLogger(BdpConnectionServiceImpl.class);
+  
+  private static final String BDP_PROCESS_NAME = "javaw.exe";
+  
+  private static final String BDP_PROPERTY_FILE_NAME = ".lock";
+  
+  private static final String BDP_PROPERTY_FILE_NAME_PATH = System.getenv("APPDATA") + "/Bosch/BDP/logs/";
+  
+  private static final String BDP_PID_PROPERTY_KEY = "pid";
+  
+  private static final String REGISTRY_PATH_BDP = "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{612EBC09-2A0C-46E6-A405-F0961A2B7275}_is1";
+  
+  private static final String REGISTRY_KEY_INSTALLATION_PATH = "InstallLocation";
+  
+  private static final String REGISTRY_KEY_EXECUTABLE_NAME = "Inno Setup: Icon Group";
+  
+  private WinUsbDriverWrapper driverWrapper;
+  
+  BdpConnectionServiceImpl(WinUsbDriverWrapper winUsbDriverWrapper) {
+    this.driverWrapper = winUsbDriverWrapper;
+  }
+  
+  public boolean isBdpInstalled() throws BdpInteractionException {
+    return (getBdpExecutablePath() != null);
+  }
+  
+  public boolean isBdpRunning() throws BdpInteractionException {
+    String path = BDP_PROPERTY_FILE_NAME_PATH + ".lock";
+    return (Paths.get(path).toFile().exists() && isBdpRunning(path));
+  }
+  
+  private boolean isBdpRunning(String existingPropertyFilePath) throws BdpInteractionException {
+    LOGGER.trace("BDP property file does exist");
+    try (InputStream inputStream = new FileInputStream(existingPropertyFilePath)) {
+      Properties properties = new Properties();
+      properties.load(inputStream);
+      String bdpPid = properties.getProperty("pid");
+      LOGGER.debug("BDP PID is='{}'", bdpPid);
+      return (StringUtils.isNotBlank(bdpPid) && isBdpProcessActive(bdpPid));
+    } catch (IOException ex) {
+      throw new BdpInteractionException("Failed streaming '" + existingPropertyFilePath + "'.", ex);
+    } 
+  }
+  
+  private boolean isBdpProcessActive(String pid) throws BdpInteractionException {
+    Process taskList = getTaskListProcessReference();
+    boolean isBdpProcessActive = isBdpProcessActive(pid, taskList);
+    LOGGER.debug("isBdpProcessActive='{}'", Boolean.valueOf(isBdpProcessActive));
+    return isBdpProcessActive;
+  }
+  
+  private boolean isBdpProcessActive(String pid, Process taskList) throws BdpInteractionException {
+    try (BufferedReader input = new BufferedReader(new InputStreamReader(taskList.getInputStream()))) {
+      return input.lines().anyMatch(process -> (process.startsWith("javaw.exe") && process.contains(pid)));
+    } catch (IOException ex) {
+      throw new BdpInteractionException("Iterating task list failed!", ex);
+    } 
+  }
+  
+  private Process getTaskListProcessReference() throws BdpInteractionException {
+    try {
+      return Runtime.getRuntime().exec(System.getenv("windir") + "\\system32\\tasklist.exe");
+    } catch (IOException ex) {
+      throw new BdpInteractionException("Accessing task list application failed!", ex);
+    } 
+  }
+  
+  public void startBdp() throws BdpInteractionException {
+    String path = getBdpExecutablePath();
+    LOGGER.debug("BDP is installed @ '{}'", path);
+    if (StringUtils.isNotBlank(path)) {
+      startBdpAction(path);
+    } else {
+      throw new BdpInteractionException("BDP application must be installed before starting!");
+    } 
+  }
+  
+  private String getBdpExecutablePath() throws BdpInteractionException {
+    try {
+      String installationPath = getBdpInstallationPath();
+      String executableName = getBdpExecutableName();
+      if (StringUtils.isNotBlank(installationPath) && StringUtils.isNotBlank(executableName))
+        return installationPath + installationPath + ".exe"; 
+    } catch (InvocationTargetException|IllegalAccessException ex) {
+      throw new BdpInteractionException("Reading the BDP installation path from registry failed!", ex);
+    } 
+    return null;
+  }
+  
+  private String getBdpInstallationPath() throws InvocationTargetException, IllegalAccessException {
+    return WinRegistry.readString(-2147483646L, "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{612EBC09-2A0C-46E6-A405-F0961A2B7275}_is1", "InstallLocation");
+  }
+  
+  private String getBdpExecutableName() throws InvocationTargetException, IllegalAccessException {
+    return WinRegistry.readString(-2147483646L, "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{612EBC09-2A0C-46E6-A405-F0961A2B7275}_is1", "Inno Setup: Icon Group");
+  }
+  
+  private void startBdpAction(String path) throws BdpInteractionException {
+    try {
+      ProcessBuilder builder = new ProcessBuilder(new String[] { path });
+      builder.redirectErrorStream(true);
+      builder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+      builder.start();
+    } catch (IOException ex) {
+      throw new BdpInteractionException("Starting BDP failed!", ex);
+    } 
+  }
+  
+  public void registerForBdpDeviceConnectionEvents(BdpConnectionService.BdpDeviceConnectionListener listener) throws BdpInteractionException {
+    if (this.driverWrapper == null)
+      throw new BdpInteractionException("Windows USB library driver not operative!"); 
+    this.driverWrapper.registerForBdpDeviceConnectionEvents(listener);
+  }
+  
+  public void unregisterForBdpDeviceConnectionEvents(BdpConnectionService.BdpDeviceConnectionListener listener) throws BdpInteractionException {
+    if (this.driverWrapper == null)
+      throw new BdpInteractionException("Windows USB library driver not operative!"); 
+    this.driverWrapper.unregisterForBdpDeviceConnectionEvents(listener);
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/dart2/bosch/bdp/interaction/impl/driver/impl/jna/WinUsbJna.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.bdp.interaction.impl.driver.impl.jna;
+
+import com.sun.jna.Callback;
+import com.sun.jna.Library;
+import com.sun.jna.Pointer;
+import com.sun.jna.Structure;
+import com.sun.jna.WString;
+import com.sun.jna.ptr.IntByReference;
+import java.util.Arrays;
+import java.util.List;
+
+public interface WinUsbJna extends Library {
+  public static final int MAX_PATH = 260;
+  
+  void RegisterForDeviceNotification(UsbDeviceConnectionStateListener paramUsbDeviceConnectionStateListener, WString paramWString);
+  
+  void CmRegisterNotification(UsbDeviceConnectionStateListener paramUsbDeviceConnectionStateListener, WString paramWString);
+  
+  void CmUnregisterNotification(UsbDeviceConnectionStateListener paramUsbDeviceConnectionStateListener, WString paramWString);
+  
+  int OpenDevice(Pointer paramPointer, String paramString);
+  
+  void CloseDevice(Pointer paramPointer);
+  
+  boolean GetUsbDeviceDetail(Pointer paramPointer, String paramString);
+  
+  boolean QueryDeviceEndpoints(Pointer paramPointer1, Pointer paramPointer2);
+  
+  boolean Write(Pointer paramPointer, short paramShort, byte[] paramArrayOfbyte, int paramInt);
+  
+  int Read(Pointer paramPointer, short paramShort, byte[] paramArrayOfbyte, IntByReference paramIntByReference);
+  
+  int SetTransferTimeoutPolicy(Pointer paramPointer, short paramShort, int paramInt);
+  
+  int GetTransferTimeoutPolicy(Pointer paramPointer, short paramShort, IntByReference paramIntByReference);
+  
+  int ControlTransfer(Pointer paramPointer, byte paramByte1, byte paramByte2, byte paramByte3, byte paramByte4, short paramShort1, short paramShort2, byte[] paramArrayOfbyte, short paramShort3);
+  
+  public static final class SetupPacket {
+    public static final int BMREQUEST_HOST_TO_DEVICE = 0;
+    
+    public static final int BMREQUEST_DEVICE_TO_HOST = 1;
+    
+    public static final int BMREQUEST_STANDARD = 0;
+    
+    public static final int BMREQUEST_CLASS = 1;
+    
+    public static final int BMREQUEST_VENDOR = 2;
+    
+    public static final int BMREQUEST_TO_DEVICE = 0;
+    
+    public static final int BMREQUEST_TO_INTERFACE = 1;
+    
+    public static final int BMREQUEST_TO_ENDPOINT = 2;
+    
+    public static final int BMREQUEST_TO_OTHER = 3;
+  }
+  
+  public static final class ECommStatus {
+    public static final int ECST_IDLE = 0;
+    
+    public static final int ECST_ACTIVE = 1;
+    
+    public static final int ECST_NEWPACKET = 2;
+    
+    public static final int ECST_ERRORMASK = 128;
+    
+    public static final int ECST_ERROR = 129;
+    
+    public static final int ECST_OVERRUN = 130;
+    
+    public static final int ECST_DISCONNECT = 131;
+  }
+  
+  public static class BUsbPipe extends Structure {
+    public short pipeType;
+    
+    public short pipeId;
+    
+    public short maximumPacketSize;
+    
+    public byte interval;
+    
+    public short maximumBytesPerInterval;
+    
+    public short outBytesPerFrame;
+    
+    public short isochOutBytesPerFrame;
+    
+    protected List<String> getFieldOrder() {
+      return Arrays.asList("pipeType", "pipeId", "maximumPacketSize", "interval", "maximumBytesPerInterval", "outBytesPerFrame", "isochOutBytesPerFrame");
+    }
+  }
+  
+  public static class BUsbEndpoints extends Structure {
+    public WinUsbJna.BUsbPipe bUsbPipeIn;
+    
+    public WinUsbJna.BUsbPipe bUsbPipeOut;
+    
+    protected List<String> getFieldOrder() {
+      return Arrays.asList("bUsbPipeIn", "bUsbPipeOut");
+    }
+  }
+  
+  public static class DeviceData extends Structure {
+    public int HandlesOpen;
+    
+    public Pointer WinusbHandle;
+    
+    public Pointer DeviceHandle;
+    
+    public byte[] DevicePath = new byte[260];
+    
+    protected List<String> getFieldOrder() {
+      return Arrays.asList("HandlesOpen", "WinusbHandle", "DeviceHandle", "DevicePath");
+    }
+  }
+  
+  public static class UsbDeviceInfo extends Structure {
+    public String manufacturer;
+    
+    public String product;
+    
+    public String serial;
+    
+    public short VID;
+    
+    public short PID;
+    
+    protected List<String> getFieldOrder() {
+      return Arrays.asList("manufacturer", "product", "serial", "VID", "PID");
+    }
+  }
+  
+  public static interface UsbDeviceConnectionStateListener extends Callback {
+    void onStateChanged(boolean param1Boolean, String param1String);
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/dart2/bosch/bdp/interaction/impl/driver/impl/WinUsbImpl.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.bdp.interaction.impl.driver.impl;
+
+import com.gigatronik.dart2.bosch.bdp.interaction.impl.driver.WinUsb;
+import com.gigatronik.dart2.bosch.bdp.interaction.impl.driver.impl.jna.WinUsbJna;
+import com.sun.jna.Pointer;
+import com.sun.jna.WString;
+import com.sun.jna.ptr.IntByReference;
+import java.io.IOException;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class WinUsbImpl implements WinUsb {
+  private static final Logger LOGGER = LoggerFactory.getLogger(WinUsbImpl.class);
+  
+  private static WinUsbImpl instance;
+  
+  private WinUsbJna winUsbApiLib;
+  
+  private WinUsbLoader winUsbApiLoader;
+  
+  private WinUsbImpl() throws IOException {
+    try {
+      this.winUsbApiLoader = new WinUsbLoader();
+      this.winUsbApiLib = this.winUsbApiLoader.loadLibrary();
+    } catch (Throwable ex) {
+      throw new IOException("Failed to load native Windows USB library", ex);
+    } 
+  }
+  
+  public static WinUsb getInstance() throws IOException {
+    if (instance == null)
+      instance = new WinUsbImpl(); 
+    return instance;
+  }
+  
+  public void disposeInstance() {
+    if (this.winUsbApiLoader != null) {
+      this.winUsbApiLoader.unloadLibrary();
+      this.winUsbApiLoader = null;
+      disposeMe();
+    } 
+  }
+  
+  private static void disposeMe() {
+    instance = null;
+  }
+  
+  public int open(Pointer deviceData, String path) {
+    if (deviceData == null || path == null)
+      throw new IllegalArgumentException("Parameters may not be null"); 
+    return this.winUsbApiLib.OpenDevice(deviceData, path);
+  }
+  
+  public void close(Pointer deviceData) {
+    if (deviceData != null)
+      this.winUsbApiLib.CloseDevice(deviceData); 
+  }
+  
+  public void setUsbConnectionStateListener(WinUsbJna.UsbDeviceConnectionStateListener listener, String guid) {
+    if (listener == null || guid == null)
+      throw new IllegalArgumentException("Parameters may not be null"); 
+    this.winUsbApiLib.CmRegisterNotification(listener, new WString(guid));
+  }
+  
+  public void unsetUsbConnectionStateListener(WinUsbJna.UsbDeviceConnectionStateListener listener, String guid) {
+    if (listener == null || guid == null)
+      throw new IllegalArgumentException("Parameters may not be null"); 
+    this.winUsbApiLib.CmUnregisterNotification(listener, new WString(guid));
+  }
+  
+  public boolean getUsbDeviceDetail(Pointer deviceInfo, String path) {
+    if (deviceInfo == null || path == null)
+      throw new IllegalArgumentException("Parameters may not be null"); 
+    return this.winUsbApiLib.GetUsbDeviceDetail(deviceInfo, path);
+  }
+  
+  public boolean queryDeviceEndpoints(Pointer winusbHandle, Pointer bUsbEndpoints) {
+    if (winusbHandle == null || bUsbEndpoints == null)
+      throw new IllegalArgumentException("Parameters may not be null"); 
+    return this.winUsbApiLib.QueryDeviceEndpoints(winusbHandle, bUsbEndpoints);
+  }
+  
+  public boolean write(Pointer winusbHandle, short pipeOutId, byte[] buffer) {
+    if (winusbHandle == null || buffer == null)
+      throw new IllegalArgumentException("Parameters may not be null"); 
+    int length = buffer.length;
+    if (length == 0)
+      throw new IllegalArgumentException("Zero length buffer not allowed"); 
+    return this.winUsbApiLib.Write(winusbHandle, pipeOutId, buffer, length);
+  }
+  
+  public int read(Pointer winusbHandle, short pipeInId, byte[] buffer, IntByReference lengthTransferred) {
+    if (winusbHandle == null || buffer == null)
+      throw new IllegalArgumentException("Parameters may not be null"); 
+    if (buffer.length == 0)
+      throw new IllegalArgumentException("Zero length buffer not allowed"); 
+    return this.winUsbApiLib.Read(winusbHandle, pipeInId, buffer, Optional.<IntByReference>ofNullable(lengthTransferred).orElse(new IntByReference()));
+  }
+  
+  public int setTransferTimeoutPolicy(Pointer winHandle, short pipeId, int timeout) {
+    return this.winUsbApiLib.SetTransferTimeoutPolicy(winHandle, pipeId, timeout);
+  }
+  
+  public int getTransferTimeoutPolicy(Pointer winHandle, short pipeId) {
+    IntByReference timeout = new IntByReference();
+    int status = this.winUsbApiLib.GetTransferTimeoutPolicy(winHandle, pipeId, timeout);
+    if (status < 0)
+      return -1; 
+    return timeout.getValue();
+  }
+  
+  public int controlTransfer(Pointer winHandle, byte requestDirection, byte requestType, byte recipient, byte request, short value, short index, byte[] data, short length) {
+    return this.winUsbApiLib.ControlTransfer(winHandle, requestDirection, requestType, recipient, request, value, index, data, length);
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/dart2/bosch/bdp/interaction/impl/driver/impl/WinUsbLoader.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.bdp.interaction.impl.driver.impl;
+
+import com.gigatronik.dart2.bosch.bdp.interaction.impl.driver.impl.jna.WinUsbJna;
+import com.sun.jna.Native;
+import com.sun.jna.NativeLibrary;
+import com.sun.jna.Platform;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import org.apache.commons.io.FilenameUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class WinUsbLoader {
+  private static final Logger LOGGER = LoggerFactory.getLogger(WinUsbLoader.class);
+  
+  private String basename = "";
+  
+  WinUsbJna loadLibrary() throws IOException {
+    String dllJarPath = getDllJarPath();
+    LOGGER.info("Loading WinUSB DLL: '{}'", dllJarPath);
+    File file = extractLibraryFromJar(dllJarPath);
+    file.deleteOnExit();
+    this.basename = FilenameUtils.getBaseName(file.getName());
+    LOGGER.debug("WinUSB DLL basename: '{}'", this.basename);
+    NativeLibrary.addSearchPath(this.basename, file.getParent());
+    WinUsbJna winLib = (WinUsbJna)Native.loadLibrary(this.basename, WinUsbJna.class);
+    return winLib;
+  }
+  
+  private String getDllJarPath() {
+    StringBuilder result = new StringBuilder();
+    if (Platform.isWindows()) {
+      result.append("BdWinUsb");
+      if (Platform.is64Bit()) {
+        result.append("64");
+      } else {
+        result.append("32");
+      } 
+      result.append(".dll");
+    } else {
+      throw new UnsatisfiedLinkError("OS platform " + System.getProperty("os.name") + " not supported!!!");
+    } 
+    return result.toString();
+  }
+  
+  void unloadLibrary() {
+    NativeLibrary instance = NativeLibrary.getInstance(this.basename, WinUsbJna.class.getClassLoader());
+    if (instance != null)
+      instance.dispose(); 
+  }
+  
+  private File extractLibraryFromJar(String filename) throws IOException {
+    String prefix = "";
+    String suffix = null;
+    if (filename != null) {
+      String[] parts = filename.split("\\.", 2);
+      prefix = parts[0];
+      suffix = (parts.length > 1) ? ("." + parts[parts.length - 1]) : null;
+    } 
+    if (filename == null || prefix.length() < 3)
+      throw new IllegalArgumentException("The filename has to be at least 3 characters long."); 
+    File tempFile = File.createTempFile(prefix, suffix);
+    if (!tempFile.exists())
+      throw new FileNotFoundException("File " + tempFile.getAbsolutePath() + " does not exist."); 
+    byte[] buffer = new byte[1024];
+    try (InputStream is = getClass().getResourceAsStream(filename)) {
+      if (is == null)
+        throw new FileNotFoundException("File '" + filename + "' was not found inside JAR."); 
+      try (OutputStream os = new FileOutputStream(tempFile)) {
+        int readBytes;
+        while ((readBytes = is.read(buffer)) != -1)
+          os.write(buffer, 0, readBytes); 
+      } 
+      return tempFile;
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/dart2/bosch/bdp/interaction/impl/driver/WinUsb.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.bdp.interaction.impl.driver;
+
+import com.gigatronik.dart2.bosch.bdp.interaction.impl.driver.impl.jna.WinUsbJna;
+import com.sun.jna.Pointer;
+import com.sun.jna.ptr.IntByReference;
+
+public interface WinUsb {
+  void disposeInstance();
+  
+  int open(Pointer paramPointer, String paramString);
+  
+  void close(Pointer paramPointer);
+  
+  void setUsbConnectionStateListener(WinUsbJna.UsbDeviceConnectionStateListener paramUsbDeviceConnectionStateListener, String paramString);
+  
+  void unsetUsbConnectionStateListener(WinUsbJna.UsbDeviceConnectionStateListener paramUsbDeviceConnectionStateListener, String paramString);
+  
+  boolean getUsbDeviceDetail(Pointer paramPointer, String paramString);
+  
+  boolean queryDeviceEndpoints(Pointer paramPointer1, Pointer paramPointer2);
+  
+  boolean write(Pointer paramPointer, short paramShort, byte[] paramArrayOfbyte);
+  
+  int read(Pointer paramPointer, short paramShort, byte[] paramArrayOfbyte, IntByReference paramIntByReference);
+  
+  int setTransferTimeoutPolicy(Pointer paramPointer, short paramShort, int paramInt);
+  
+  int getTransferTimeoutPolicy(Pointer paramPointer, short paramShort);
+  
+  int controlTransfer(Pointer paramPointer, byte paramByte1, byte paramByte2, byte paramByte3, byte paramByte4, short paramShort1, short paramShort2, byte[] paramArrayOfbyte, short paramShort3);
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/dart2/bosch/bdp/interaction/impl/WinUsbDriverWrapper.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.bdp.interaction.impl;
+
+import com.gigatronik.dart2.bosch.bdp.interaction.api.BdpConnectionService;
+import com.gigatronik.dart2.bosch.bdp.interaction.impl.driver.WinUsb;
+import com.gigatronik.dart2.bosch.bdp.interaction.impl.driver.impl.WinUsbImpl;
+import com.gigatronik.dart2.bosch.bdp.interaction.impl.driver.impl.jna.WinUsbJna;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.commons.lang3.RandomUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class WinUsbDriverWrapper implements WinUsbJna.UsbDeviceConnectionStateListener {
+  private static final Logger LOGGER = LoggerFactory.getLogger(WinUsbDriverWrapper.class);
+  
+  private static final String BRC_GUID = "{568BC6B2-FB6A-4CFD-9500-7A57ABA997F5}";
+  
+  private List<BdpConnectionService.BdpDeviceConnectionListener> listeners = new ArrayList<>();
+  
+  private WinUsb driver;
+  
+  private boolean areCallbacksAlreadyEnabled = false;
+  
+  WinUsbDriverWrapper() throws IOException {
+    this.driver = WinUsbImpl.getInstance();
+  }
+  
+  void registerForBdpDeviceConnectionEvents(BdpConnectionService.BdpDeviceConnectionListener listener) {
+    addListener(listener);
+    enableCallbacks();
+  }
+  
+  private void addListener(BdpConnectionService.BdpDeviceConnectionListener listener) {
+    if (!this.listeners.contains(listener)) {
+      LOGGER.trace("Register '{}' for BDP device connection state change events", listener);
+      this.listeners.add(listener);
+    } 
+  }
+  
+  private void enableCallbacks() {
+    if (!this.areCallbacksAlreadyEnabled) {
+      this.driver.setUsbConnectionStateListener(this, "{568BC6B2-FB6A-4CFD-9500-7A57ABA997F5}");
+      this.areCallbacksAlreadyEnabled = true;
+    } 
+  }
+  
+  void unregisterForBdpDeviceConnectionEvents(BdpConnectionService.BdpDeviceConnectionListener listener) {
+    LOGGER.trace("Unregister '{}' for BDP device connection state change events", listener);
+    this.listeners.remove(listener);
+  }
+  
+  public void onStateChanged(boolean connected, String path) {
+    String previousName = getCurrentThreadNameAndSetNewOne("WinUsbDriver-Thread");
+    LOGGER.debug("Received 'BDP device connection state change event': connected={}, path={}", Boolean.valueOf(connected), path);
+    this.listeners.forEach(listener -> listener.onBdpDeviceConnectedChanged(connected));
+    setThreadName(previousName);
+  }
+  
+  private String getCurrentThreadNameAndSetNewOne(String newName) {
+    String previousName = Thread.currentThread().getName();
+    setThreadName(newName);
+    return previousName;
+  }
+  
+  private void setThreadName(String newName) {
+    int number = RandomUtils.nextInt(0, 10);
+    Thread.currentThread().setName(newName + newName);
+  }
+}
+

@@ -1,0 +1,18 @@
+JAR: startproject.api-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\startproject.api-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/dart2/bosch/startproject/api/ApplicationController.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.startproject.api;
+
+public interface ApplicationController {
+  void initialize();
+  
+  void start() throws Exception;
+  
+  void exit();
+  
+  void prepareUserLevelChange();
+}
+

@@ -1,0 +1,3056 @@
+JAR: odx.parser-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\odx.parser-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/diagserver/bosch/AbstractFlashJob.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch;
+
+import com.gigatronik.dart2.framework.util.ByteArrayConverterUtil;
+import com.gigatronik.diagserver.bosch.impl.ComCtrl;
+import com.gigatronik.diagserver.utils.Helper;
+import java.util.Arrays;
+
+public abstract class AbstractFlashJob {
+  public static final int MAX_RETRY_TRANSFER_DATABLOCK = 3;
+  
+  protected final ComCtrl comCtrl;
+  
+  public AbstractFlashJob(ComCtrl comController) {
+    this.comCtrl = comController;
+  }
+  
+  public byte[] writeFingerprint(byte[] fpData) {
+    byte[] fpService = { 46, -15, 90 };
+    if (fpData == null)
+      fpData = new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 1 }; 
+    byte[] pduTX = Helper.concatByteArrays(fpService, fpData);
+    byte[] pduRX = this.comCtrl.transmitRequest(pduTX);
+    return pduRX;
+  }
+  
+  protected byte[] eraseMemory(byte[] memoryAddress) {
+    return eraseMemory(memoryAddress, null);
+  }
+  
+  protected byte[] eraseMemory(byte[] memoryAddress, byte[] memorySize) {
+    byte[] reqTX = { 49, 1, -1, 0, 68 };
+    byte[] pduTX = Helper.concatByteArrays(reqTX, memoryAddress);
+    if (memorySize != null)
+      pduTX = Helper.concatByteArrays(pduTX, memorySize); 
+    return this.comCtrl.transmitRequest(pduTX);
+  }
+  
+  protected byte[] requestDownload(byte[] memoryAddress, byte[] memorySize, byte encrypted) {
+    byte[] pduTX = { 52, encrypted, 68 };
+    int reqLength = pduTX.length;
+    pduTX = Arrays.copyOf(pduTX, pduTX.length + memoryAddress.length + memorySize.length);
+    System.arraycopy(memoryAddress, 0, pduTX, reqLength, memoryAddress.length);
+    System.arraycopy(memorySize, 0, pduTX, reqLength + memoryAddress.length, memorySize.length);
+    return this.comCtrl.transmitRequest(pduTX);
+  }
+  
+  protected int getBlockLengthFromRequestDownloadResponse(byte[] pduRX, boolean reduceResultByTwo) {
+    byte[] bBlockLength = new byte[pduRX.length - 2];
+    System.arraycopy(pduRX, 2, bBlockLength, 0, pduRX.length - 2);
+    int result = ByteArrayConverterUtil.byteArrayToInteger(bBlockLength);
+    return reduceResultByTwo ? (result - 2) : result;
+  }
+  
+  protected byte[] transferData(byte[] data, int blockLength, int counterReset, double stepStart, double stepSize, boolean sendTesterPresent) {
+    int numberOfIterations;
+    byte[] pduRX = null;
+    if (data.length % blockLength == 0) {
+      numberOfIterations = data.length / blockLength;
+    } else {
+      numberOfIterations = data.length / blockLength + 1;
+    } 
+    int counter = 0;
+    double stepWidth = stepSize / (double)numberOfIterations;
+    for (int i = 0; i < numberOfIterations; i++) {
+      if (sendTesterPresent)
+        this.comCtrl.sendFunctionalTesterPresent(); 
+      this.comCtrl.setProgress((int)(stepStart + stepWidth * (double)i));
+      if (++counter > 255)
+        counter = counterReset; 
+      byte[] datablock = ByteArrayConverterUtil.partOfByteArray(data, i * blockLength, blockLength);
+      pduRX = transferDatablock((byte)counter, datablock);
+      if (Helper.isNegativeResponse(pduRX))
+        break; 
+    } 
+    return pduRX;
+  }
+  
+  private byte[] transferDatablock(byte blockSequenceCounter, byte[] data) {
+    byte[] dataSegment = Helper.concatByteArrays(blockSequenceCounter, data);
+    byte[] pduTx = Helper.concatByteArrays((byte)54, dataSegment);
+    byte[] pduRx = null;
+    for (int n = 0; n < 3; n++) {
+      pduRx = this.comCtrl.transmitRequest(pduTx);
+      if (Helper.isPositiveResponse(pduTx, pduRx))
+        break; 
+    } 
+    return pduRx;
+  }
+  
+  protected byte[] transferExit() {
+    byte[] pduTX = { 55 };
+    return this.comCtrl.transmitRequest(pduTX);
+  }
+  
+  protected byte[] checkMemory(byte[] checksum) {
+    byte[] reqTX = { 49, 1, 2, 2 };
+    byte[] pduTX = Helper.concatByteArrays(reqTX, checksum);
+    byte[] pduRX = this.comCtrl.transmitRequest(pduTX);
+    if (pduRX.length == 5 && pduRX[4] == 1)
+      pduRX[0] = Byte.MAX_VALUE; 
+    return pduRX;
+  }
+  
+  public byte[] checkProgrammingDependencies() {
+    byte[] pduTX = { 49, 1, -1, 1 };
+    return this.comCtrl.transmitRequest(pduTX);
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/diagserver/bosch/api/BoschServerAPI.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.api;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedListener;
+import com.gigatronik.dart2.framework.odxparser.OdxEcu;
+import com.gigatronik.dart2.framework.odxparser.OdxParam;
+import com.gigatronik.dart2.framework.plugins.exceptions.DatabaseException;
+import com.gigatronik.diagserver.bosch.FlashDataSet;
+import com.gigatronik.diagserver.bosch.impl.ComCtrl;
+import com.gigatronik.ebike.common.configuration.Constants;
+import java.util.List;
+
+public interface BoschServerAPI extends HidDeviceConnectionChangedListener {
+  public static final String POS_RESPONSE = "POSITIVE";
+  
+  public static final String NEG_RESPONSE = "NEGATIVE";
+  
+  public static final String ERR_CHECKSUM = "CHECKSUM ERROR";
+  
+  void setSimulationMode(boolean paramBoolean, String paramString);
+  
+  void setSimulationMode(boolean paramBoolean);
+  
+  List<String> getEcus();
+  
+  OdxEcu getEcuByShortName(String paramString);
+  
+  OdxParam getRequestParameter(String paramString1, String paramString2, String paramString3);
+  
+  List<String> startExtendedSession(String paramString);
+  
+  List<String> startProgrammingSession(String paramString);
+  
+  List<String> startDefaultSession(String paramString);
+  
+  List<String> silentMode(String paramString, boolean paramBoolean);
+  
+  void setRequestParameterValue(String paramString1, String paramString2, String paramString3, String paramString4) throws DatabaseException;
+  
+  List<String> transmitService(String paramString1, String paramString2, boolean paramBoolean);
+  
+  byte[] transmitPdu(String paramString, byte[] paramArrayOfbyte);
+  
+  List<String> securityAccess(String paramString, int paramInt);
+  
+  List<String> flashStartDownload(String paramString, FlashDataSet paramFlashDataSet1, FlashDataSet paramFlashDataSet2);
+  
+  List<String> flashWriteData(String paramString, byte[] paramArrayOfbyte1, byte[] paramArrayOfbyte2);
+  
+  int getFlashProgress(String paramString);
+  
+  void setFlashProgress(String paramString, int paramInt);
+  
+  void resetGeneralFlashProgress();
+  
+  void suppressTesterPresentMessages(String paramString, boolean paramBoolean);
+  
+  Constants.HidDevice getDevice();
+  
+  List<String> hardReset(String paramString);
+  
+  void setHidMessageInterval(long paramLong);
+  
+  void setHidMessageIntervalDefault();
+  
+  ComCtrl getComCtrlByName(String paramString);
+  
+  List<ComCtrl> getComCtrls();
+  
+  void startFunctionalTesterPresentMessages();
+  
+  void stopFunctionalTesterPresentMessages();
+  
+  int selectUsbProtocol(int paramInt);
+  
+  List<String> securityAccessVictorFlash(String paramString, int paramInt, boolean paramBoolean);
+  
+  void addHidDeviceConnectionChangedListener(HidDeviceConnectionChangedListener paramHidDeviceConnectionChangedListener);
+  
+  void removeHidDeviceConnectionChangedListener(HidDeviceConnectionChangedListener paramHidDeviceConnectionChangedListener);
+  
+  void startDeviceListener();
+  
+  void setUserdefinedCanReadTimeout(int paramInt);
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/diagserver/bosch/BasFlashJob.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch;
+
+import com.gigatronik.diagserver.bosch.impl.ComCtrl;
+import com.gigatronik.diagserver.utils.Helper;
+
+public class BasFlashJob extends AbstractFlashJob {
+  private static final int CHECK_MEMORY_ENCRYPTION_BYTE = 4;
+  
+  private static final int CHECK_MEMORY_POS_RESPONSE_LENGTH = 5;
+  
+  public BasFlashJob(ComCtrl comController) {
+    super(comController);
+  }
+  
+  public byte[] programApplicationSoftware(FlashDataSet fdsApp) {
+    this.comCtrl.startTesterPresentTaskIfNotAlreadyRunning();
+    byte[] pduRX = eraseMemory();
+    this.comCtrl.setProgress(8);
+    this.comCtrl.stopTesterPresentTask();
+    if (!Helper.isNegativeResponse(pduRX)) {
+      pduRX = requestDownload((byte)(fdsApp.getEncryption() ? 1 : 0));
+      this.comCtrl.setProgress(10);
+    } 
+    if (!Helper.isNegativeResponse(pduRX)) {
+      int iBlockLength = getBlockLengthFromRequestDownloadResponse(pduRX, true);
+      pduRX = transferData(fdsApp.getData(0), iBlockLength, 0, 10.0D, 86.0D, true);
+    } 
+    if (!Helper.isNegativeResponse(pduRX))
+      pduRX = transferExit(); 
+    this.comCtrl.startTesterPresentTaskIfNotAlreadyRunning();
+    if (!Helper.isNegativeResponse(pduRX)) {
+      pduRX = checkMemory(fdsApp.getChecksum());
+      this.comCtrl.setProgress(100);
+    } 
+    this.comCtrl.stopTesterPresentTask();
+    return pduRX;
+  }
+  
+  protected byte[] eraseMemory() {
+    byte[] pduTX = { 49, 1, -1, 0, 1, 1 };
+    return this.comCtrl.transmitRequest(pduTX);
+  }
+  
+  protected byte[] requestDownload(byte encrypted) {
+    byte[] pduTX = { 52, encrypted, 65, 1, 0, 5, 64, 0 };
+    return this.comCtrl.transmitRequest(pduTX);
+  }
+  
+  protected byte[] checkMemory(byte[] checksum) {
+    byte[] reqTX = { 49, 1, 2, 2, 17, 1, 4 };
+    byte[] pduTX = Helper.concatByteArrays(reqTX, checksum);
+    byte[] pduRX = this.comCtrl.transmitRequest(pduTX);
+    if (pduRX.length != 5 || pduRX[4] == 1)
+      pduRX[0] = Byte.MAX_VALUE; 
+    return pduRX;
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/diagserver/bosch/BuiBctFlashJob.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch;
+
+import com.gigatronik.dart2.framework.util.ByteArrayConverterUtil;
+import com.gigatronik.diagserver.bosch.impl.ComCtrl;
+import com.gigatronik.diagserver.utils.Helper;
+import org.apache.commons.lang3.StringUtils;
+
+public class BuiBctFlashJob extends AbstractFlashJob {
+  public BuiBctFlashJob(ComCtrl comController) {
+    super(comController);
+  }
+  
+  public byte[] programApplicationSoftware(FlashDataSet fdsApp) {
+    byte[] pduRX = null;
+    for (int n = 0; !Helper.isNegativeResponse(pduRX) && n < fdsApp.getNumberOfBlocks(); n++)
+      pduRX = programApplicationSoftwareBlock(fdsApp.getAddress(n), fdsApp.getData(n), fdsApp.getChecksum()); 
+    return pduRX;
+  }
+  
+  private byte[] programApplicationSoftwareBlock(byte[] memoryAddressAppSW, byte[] data, byte[] checksum) {
+    byte[] pduRX;
+    if (StringUtils.equalsAny(this.comCtrl.getEcuName(), "BUI210", "BCT", "CUI100")) {
+      pduRX = eraseMemory(memoryAddressAppSW, new byte[] { (byte)0, (byte)3, (byte)64, (byte)0 });
+    } else {
+      pduRX = eraseMemory(memoryAddressAppSW, new byte[] { (byte)0, (byte)3, (byte)Byte.MIN_VALUE, (byte)0 });
+    } 
+    if (!Helper.isNegativeResponse(pduRX)) {
+      pduRX = requestDownload(memoryAddressAppSW, ByteArrayConverterUtil.integerToByteArray(data.length), (byte)0);
+      this.comCtrl.setProgress(2);
+    } 
+    if (!Helper.isNegativeResponse(pduRX)) {
+      int blockLength = getBlockLengthFromRequestDownloadResponse(pduRX, false);
+      pduRX = transferData(data, (blockLength > 0) ? blockLength : 56, 1, 2.0D, 96.0D, false);
+    } 
+    if (!Helper.isNegativeResponse(pduRX)) {
+      pduRX = transferExit();
+      this.comCtrl.setProgress(98);
+    } 
+    if (!Helper.isNegativeResponse(pduRX)) {
+      if (checksum != null)
+        pduRX = checkMemory(checksum); 
+      this.comCtrl.setProgress(100);
+    } 
+    return pduRX;
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/diagserver/bosch/ClassicPlusBmsFlashJob.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch;
+
+import com.gigatronik.dart2.framework.util.ByteArrayConverterUtil;
+import com.gigatronik.diagserver.bosch.impl.ComCtrl;
+import com.gigatronik.diagserver.utils.Helper;
+
+public class ClassicPlusBmsFlashJob extends AbstractFlashJob {
+  public ClassicPlusBmsFlashJob(ComCtrl comController) {
+    super(comController);
+  }
+  
+  public byte[] programBootloader(FlashDataSet fdsBoot) {
+    byte[] pduRX = null;
+    for (int n = 0; !Helper.isNegativeResponse(pduRX) && n < fdsBoot.getNumberOfBlocks(); n++)
+      pduRX = programBootloaderBlock(fdsBoot.getAddress(n), fdsBoot.getData(n), fdsBoot.getChecksum()); 
+    return pduRX;
+  }
+  
+  private byte[] programBootloaderBlock(byte[] memoryAddressSWIL, byte[] data, byte[] checksum) {
+    byte[] pduRX = requestDownload(memoryAddressSWIL, ByteArrayConverterUtil.integerToByteArray(data.length - 1), (byte)0);
+    if (!Helper.isNegativeResponse(pduRX)) {
+      int iBlockLength = getBlockLengthFromRequestDownloadResponse(pduRX, true);
+      pduRX = transferData(data, iBlockLength, 0, 0.0D, 2.0D, true);
+      this.comCtrl.setProgress(2);
+    } 
+    if (!Helper.isNegativeResponse(pduRX)) {
+      pduRX = transferExit();
+      this.comCtrl.setProgress(4);
+    } 
+    this.comCtrl.startTesterPresentTaskIfNotAlreadyRunning();
+    if (!Helper.isNegativeResponse(pduRX)) {
+      pduRX = checkMemory(checksum);
+      this.comCtrl.setProgress(6);
+    } 
+    this.comCtrl.stopTesterPresentTask();
+    return pduRX;
+  }
+  
+  public byte[] programApplicationSoftware(FlashDataSet fdsApp) {
+    byte[] pduRX = null;
+    for (int n = 0; !Helper.isNegativeResponse(pduRX) && n < fdsApp.getNumberOfBlocks(); n++)
+      pduRX = programApplicationSoftware(fdsApp.getAddress(n), fdsApp.getData(n), fdsApp.getChecksum()); 
+    return pduRX;
+  }
+  
+  private byte[] programApplicationSoftware(byte[] memoryAddressAppSW, byte[] data, byte[] checksum) {
+    this.comCtrl.startTesterPresentTaskIfNotAlreadyRunning();
+    byte[] pduRX = eraseMemory(memoryAddressAppSW);
+    this.comCtrl.setProgress(8);
+    this.comCtrl.stopTesterPresentTask();
+    if (!Helper.isNegativeResponse(pduRX)) {
+      pduRX = requestDownload(memoryAddressAppSW, ByteArrayConverterUtil.integerToByteArray(data.length - 1), (byte)0);
+      this.comCtrl.setProgress(10);
+    } 
+    if (!Helper.isNegativeResponse(pduRX)) {
+      int iBlockLength = getBlockLengthFromRequestDownloadResponse(pduRX, true);
+      pduRX = transferData(data, iBlockLength, 0, 10.0D, 86.0D, true);
+    } 
+    if (!Helper.isNegativeResponse(pduRX)) {
+      pduRX = transferExit();
+      this.comCtrl.setProgress(98);
+    } 
+    this.comCtrl.startTesterPresentTaskIfNotAlreadyRunning();
+    if (!Helper.isNegativeResponse(pduRX)) {
+      pduRX = checkMemory(checksum);
+      this.comCtrl.setProgress(100);
+    } 
+    this.comCtrl.stopTesterPresentTask();
+    return pduRX;
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/diagserver/bosch/ClassicPlusDuFlashJob.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch;
+
+import com.gigatronik.diagserver.bosch.impl.ComCtrl;
+import com.gigatronik.diagserver.utils.Helper;
+
+public class ClassicPlusDuFlashJob extends ClassicPlusBmsFlashJob {
+  public ClassicPlusDuFlashJob(ComCtrl comController) {
+    super(comController);
+  }
+  
+  public byte[] writeApplicationData(byte[] data) {
+    byte[] pduRX = null;
+    byte[] pduTX = null;
+    byte[] pduReq = { 46, -15, 56, 0 };
+    int blockSize = 32;
+    int blockPos = 0;
+    int dataPos = 0;
+    byte[] block = null;
+    byte[] eepData = Helper.extractEEPData(data);
+    dataPos = 0;
+    while (dataPos < eepData.length) {
+      if (eepData.length - dataPos < blockSize * 4)
+        blockSize = (eepData.length - dataPos) / 4; 
+      blockPos = 0;
+      block = new byte[blockSize * 5];
+      while (blockPos < block.length && dataPos < eepData.length) {
+        block[blockPos] = (byte)(dataPos / 4);
+        blockPos++;
+        System.arraycopy(eepData, dataPos, block, blockPos, 4);
+        blockPos += 4;
+        dataPos += 4;
+      } 
+      pduReq[3] = (byte)block.length;
+      pduTX = Helper.concatByteArrays(pduReq, block);
+      pduRX = this.comCtrl.transmitRequest(pduTX);
+      if (Helper.isNegativeResponse(pduRX))
+        return pduRX; 
+    } 
+    return pduRX;
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/diagserver/bosch/FlashDataSet.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class FlashDataSet {
+  private final List<byte[]> address = new ArrayList<>();
+  
+  private final List<Integer> size = new ArrayList<>();
+  
+  private final List<byte[]> data = new ArrayList<>();
+  
+  private byte[] checksum = null;
+  
+  private byte[] fingerprint = null;
+  
+  private boolean bEncrypted;
+  
+  public FlashDataSet() {}
+  
+  public FlashDataSet(boolean isCrypted) {
+    this.bEncrypted = isCrypted;
+  }
+  
+  public void addBlock(byte[] pAddress, byte[] pData) {
+    this.address.add(pAddress);
+    this.data.add(pData);
+    this.size.add(Integer.valueOf(pData.length));
+  }
+  
+  public void addBlock(byte[] pAddress, int iSize, byte[] pData) {
+    this.address.add(pAddress);
+    this.data.add(pData);
+    this.size.add(Integer.valueOf(iSize));
+  }
+  
+  public int getNumberOfBlocks() {
+    return this.address.size();
+  }
+  
+  public boolean getEncryption() {
+    return this.bEncrypted;
+  }
+  
+  public void setEncryption(boolean isEncrypted) {
+    this.bEncrypted = isEncrypted;
+  }
+  
+  public byte[] getAddress(int index) {
+    return this.address.get(index);
+  }
+  
+  public void setAddress(int index, byte[] pAddress) {
+    this.address.set(index, pAddress);
+  }
+  
+  public int getSize(int index) {
+    return this.size.get(index);
+  }
+  
+  public void setSize(int index, int size) {
+    this.size.set(index, Integer.valueOf(size));
+  }
+  
+  public byte[] getData(int index) {
+    return this.data.get(index);
+  }
+  
+  public void setData(int index, byte[] pData) {
+    this.data.set(index, pData);
+  }
+  
+  public byte[] getChecksum() {
+    return this.checksum;
+  }
+  
+  public void setChecksum(byte[] pChecksum) {
+    this.checksum = pChecksum;
+  }
+  
+  public byte[] getFingerprint() {
+    return this.fingerprint;
+  }
+  
+  public void setFingerprint(byte[] pFingerprint) {
+    this.fingerprint = pFingerprint;
+  }
+  
+  public int getDataSize() {
+    int dataSize = 0;
+    for (byte[] segment : this.data)
+      dataSize += segment.length; 
+    return dataSize;
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/diagserver/bosch/focus/ApplicationFocusHandler.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.focus;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedListener;
+import com.gigatronik.beds.service.hiddriverwrapper.impl.DataReceiver;
+import com.gigatronik.dart2.bosch.service.nativeloader.ControlProcess;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ApplicationFocusHandler implements HidDeviceConnectionChangedListener {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ApplicationFocusHandler.class);
+  
+  private final ControlProcess controlProcess;
+  
+  public ApplicationFocusHandler(DataReceiver dataReceiver) {
+    dataReceiver.addHidDeviceConnectionChangedListener(this);
+    this.controlProcess = new ControlProcess();
+  }
+  
+  public void onHidDeviceConnectionChanged(HidDeviceConnectionChangedEvent event) {
+    if (event.getVendorId() == 4236 && event.getState())
+      focusApplication(); 
+  }
+  
+  private void focusApplication() {
+    LOGGER.info("Focus this application window upon BES2 eBike connection detected!");
+    this.controlProcess.focusApplication();
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/diagserver/bosch/impl/BoschConfig.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.impl;
+
+import com.gigatronik.dart2.framework.settings.Settings;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import org.apache.commons.lang3.StringUtils;
+
+public class BoschConfig {
+  private List<ComCtrl> comCtrls = new ArrayList<>();
+  
+  private short canIdFunctionalTxClassicPlus = 57;
+  
+  private short canIdFunctionalTxVictor = 93;
+  
+  private boolean simMode = false;
+  
+  String getEcuBase(String name) {
+    ComCtrl myCtrl = getComCtrlByName(name);
+    if (myCtrl != null)
+      return myCtrl.getEcuBase(); 
+    return "";
+  }
+  
+  List<ComCtrl> getComCtrls() {
+    return this.comCtrls;
+  }
+  
+  void readConfiguration(Settings settings) {
+    String value = settings.getProperty("Functional CanIdTx ClassicPlus");
+    if (value != null)
+      this.canIdFunctionalTxClassicPlus = Short.parseShort(value.replace("0x", ""), 16); 
+    value = settings.getProperty("Functional CanIdTx Victor");
+    if (value != null)
+      this.canIdFunctionalTxVictor = Short.parseShort(value.replace("0x", ""), 16); 
+    value = settings.getProperty("Simulation");
+    if (StringUtils.equals(value, "yes") || StringUtils.equals(value, "true"))
+      this.simMode = true; 
+    Set<String> unsortedSections = settings.getSections("component%d");
+    SortedSet<String> sections = new TreeSet<>(Comparator.comparing(a -> Integer.valueOf(a.substring(9))));
+    sections.addAll(unsortedSections);
+    createComControls(sections, settings);
+  }
+  
+  private void createComControls(Set<String> sections, Settings settings) {
+    this.comCtrls = new ArrayList<>();
+    for (String section : sections) {
+      ComCtrl comCtrl;
+      Map<String, String> currentSection = settings.getSectionProperties(section);
+      String ecuBase = currentSection.get("EcuBase");
+      String ecuName = currentSection.get("EcuName");
+      String value = currentSection.get("CanIdTx");
+      short canIdTx = Short.parseShort(value.replace("0x", ""), 16);
+      value = currentSection.get("CanIdRx");
+      short canIdRx = Short.parseShort(value.replace("0x", ""), 16);
+      value = currentSection.get("Protocol");
+      ComCtrl.PROTOCOL protocol = ComCtrl.PROTOCOL.CAN;
+      if (StringUtils.equals(value, "USB"))
+        protocol = ComCtrl.PROTOCOL.USB; 
+      if (StringUtils.equals(ecuName, "DU") || StringUtils.equals(ecuName, "BMS")) {
+        comCtrl = new ComCtrl(protocol, ecuName, ecuBase, canIdTx, canIdRx, this.canIdFunctionalTxClassicPlus);
+      } else {
+        comCtrl = new ComCtrl(protocol, ecuName, ecuBase, canIdTx, canIdRx, this.canIdFunctionalTxVictor);
+      } 
+      comCtrl.setSimMode(this.simMode);
+      this.comCtrls.add(comCtrl);
+    } 
+  }
+  
+  boolean getSimulationMode() {
+    return this.simMode;
+  }
+  
+  void setSimulationMode(boolean mode) {
+    this.simMode = mode;
+  }
+  
+  public ComCtrl getComCtrlByName(String name) {
+    if (name != null)
+      for (ComCtrl ctrl : this.comCtrls) {
+        if (name.equals(ctrl.getEcuName()) || name.equals(ctrl.getEcuBase()))
+          return ctrl; 
+      }  
+    return null;
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/diagserver/bosch/impl/BoschDeviceConnectionHandler.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.impl;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.beds.settings.SettingsProxy;
+import com.gigatronik.bosch.ebike.hid.CanIsoTpComLayer;
+import com.gigatronik.ebike.common.configuration.Constants;
+import java.util.Timer;
+import java.util.TimerTask;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class BoschDeviceConnectionHandler {
+  private static final Logger LOGGER = LoggerFactory.getLogger(BoschDeviceConnectionHandler.class);
+  
+  private static final int GENERAL_INITIALIZATION_DELAY_DEFAULT = 1000;
+  
+  private static final int BUI27X_INITIALIZATION_DELAY_DEFAULT = 2000;
+  
+  private static final int BUI350_INITIALIZATION_DELAY_DEFAULT = 2000;
+  
+  private static final int HANDSHAKE_RETRY_DELAY_DEFAULT = 500;
+  
+  private static final int MAX_RETRY_HANDSHAKE = 3;
+  
+  private final int bui27xInitDelay;
+  
+  private final int bui350InitDelay;
+  
+  private final int hidInitDelay;
+  
+  private final int handshakeRetryDelay;
+  
+  private Constants.HidDevice deviceInProgress = Constants.HidDevice.NONE;
+  
+  private Constants.HidDevice connectedDevice = Constants.HidDevice.NONE;
+  
+  private final CanIsoTpComLayer canIsoTpComLayer;
+  
+  private final DeviceConnectionChangeEventPublisher deviceConnectionChangeEventPublisher;
+  
+  private Timer delayedConnectTimer = new Timer("DelayedConnectTimer-" + Thread.currentThread().getId());
+  
+  BoschDeviceConnectionHandler(CanIsoTpComLayer comLayer, DeviceConnectionChangeEventPublisher publisher) {
+    this.canIsoTpComLayer = comLayer;
+    this.deviceConnectionChangeEventPublisher = publisher;
+    this.hidInitDelay = SettingsProxy.getInstance().getGlobalSettingsNoException().getInteger("hidInitDelay", 1000);
+    LOGGER.debug("Set general device initialization delay to {} ms", Integer.valueOf(this.hidInitDelay));
+    this.bui27xInitDelay = SettingsProxy.getInstance().getGlobalSettingsNoException().getInteger("bui27xInitDelay", 2000);
+    LOGGER.debug("Set BUI27x initialization delay to {} ms", Integer.valueOf(this.bui27xInitDelay));
+    this.bui350InitDelay = SettingsProxy.getInstance().getGlobalSettingsNoException().getInteger("bui350InitDelay", 2000);
+    LOGGER.debug("Set BUI350 initialization delay to {} ms", Integer.valueOf(this.bui350InitDelay));
+    this.handshakeRetryDelay = SettingsProxy.getInstance().getGlobalSettingsNoException().getInteger("handshakeRetryDelay", 500);
+    LOGGER.debug("Set handshake retry delay to {} ms", Integer.valueOf(this.handshakeRetryDelay));
+  }
+  
+  synchronized void handleDeviceConnectionChangedEvent(HidDeviceConnectionChangedEvent event) {
+    Constants.HidDevice device = Constants.HidDevice.fromPid(event.getProductId());
+    if (device != null)
+      if (event.getState()) {
+        handleDeviceConnect(event, device);
+      } else {
+        handleDeviceDisconnect(event, device);
+      }  
+  }
+  
+  private void handleDeviceConnect(final HidDeviceConnectionChangedEvent event, final Constants.HidDevice device) {
+    TimerTask initializationTask = new TimerTask() {
+        public void run() {
+          BoschDeviceConnectionHandler.LOGGER.debug("Delay's over, so check connection conditions and initialize device '{}' if necessary", device);
+          if (BoschDeviceConnectionHandler.this.connectedDevice == Constants.HidDevice.NONE && BoschDeviceConnectionHandler.this.initDevice(device)) {
+            BoschDeviceConnectionHandler.this.connectedDevice = device;
+            BoschDeviceConnectionHandler.this.deviceConnectionChangeEventPublisher.publishEvent(event);
+          } 
+          BoschDeviceConnectionHandler.this.deviceInProgress = Constants.HidDevice.NONE;
+        }
+      };
+    LOGGER.info("HID device '{}' connected", device);
+    if (this.deviceInProgress != Constants.HidDevice.NONE || this.connectedDevice != Constants.HidDevice.NONE) {
+      LOGGER.warn("HID device connect already in progress, so ignore connect of '{}'.", device);
+      return;
+    } 
+    this.deviceInProgress = device;
+    this.delayedConnectTimer = new Timer("DelayedConnectTimer-" + Thread.currentThread().getId());
+    this.delayedConnectTimer.schedule(initializationTask, (long)getInitializationDelayTime(device));
+  }
+  
+  private void handleDeviceDisconnect(HidDeviceConnectionChangedEvent event, Constants.HidDevice device) {
+    if (this.deviceInProgress == device) {
+      LOGGER.info("Not yet initialized device '{}' disconnected, cancel further initialization.", device);
+      this.delayedConnectTimer.cancel();
+      this.canIsoTpComLayer.closeDevice();
+      this.deviceInProgress = Constants.HidDevice.NONE;
+    } 
+    if (this.connectedDevice == device) {
+      LOGGER.info("Initialized device '{}' disconnected, inform listeners.", device);
+      this.canIsoTpComLayer.closeDevice();
+      this.connectedDevice = Constants.HidDevice.NONE;
+      this.deviceConnectionChangeEventPublisher.publishEvent(event);
+    } 
+  }
+  
+  private boolean initDevice(Constants.HidDevice device) {
+    for (int n = 1; n <= 3; n++) {
+      LOGGER.debug("Handshake try no. '{}' with '{}'", Integer.valueOf(n), device);
+      if (this.canIsoTpComLayer.initHidDevice(device) == device) {
+        LOGGER.debug("Success handshaking with '{}'", device);
+        return true;
+      } 
+      try {
+        Thread.sleep((long)this.handshakeRetryDelay);
+      } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
+        LOGGER.error("Sleep after failed handshake interrupted", (Throwable)ex);
+      } 
+    } 
+    LOGGER.error("Handshaking with '{}' failed", device);
+    return false;
+  }
+  
+  private int getInitializationDelayTime(Constants.HidDevice device) {
+    int usedDelayTime;
+    if (device == Constants.HidDevice.BUI270_APP || device == Constants.HidDevice.BUI270_FBL || device == Constants.HidDevice.BUI270_STO || device == Constants.HidDevice.BUI275_APP || device == Constants.HidDevice.BUI275_FBL || device == Constants.HidDevice.BUI275_STO) {
+      usedDelayTime = this.bui27xInitDelay;
+    } else if (device == Constants.HidDevice.BUI350_APP || device == Constants.HidDevice.BUI350_FBL) {
+      usedDelayTime = this.bui350InitDelay;
+    } else {
+      usedDelayTime = this.hidInitDelay;
+    } 
+    LOGGER.debug("Wait '{}' ms before starting initialization of device '{}'", Integer.valueOf(usedDelayTime), device);
+    return usedDelayTime;
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/diagserver/bosch/impl/BoschServer.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.impl;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.GTIoTHidAdapter;
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedListener;
+import com.gigatronik.beds.service.hiddriverwrapper.impl.DataReceiver;
+import com.gigatronik.beds.service.hiddriverwrapper.impl.GTIoTHidAdapterImpl;
+import com.gigatronik.beds.settings.SettingsProxy;
+import com.gigatronik.bosch.ebike.hid.CanIsoTpComLayer;
+import com.gigatronik.bosch.ebike.hid.ComLayerWrapperImpl;
+import com.gigatronik.dart2.framework.odxparser.OdxDocument;
+import com.gigatronik.dart2.framework.odxparser.OdxEcu;
+import com.gigatronik.dart2.framework.odxparser.OdxEndOfPduField;
+import com.gigatronik.dart2.framework.odxparser.OdxParam;
+import com.gigatronik.dart2.framework.odxparser.OdxParser;
+import com.gigatronik.dart2.framework.odxparser.OdxRequest;
+import com.gigatronik.dart2.framework.odxparser.OdxService;
+import com.gigatronik.dart2.framework.odxparser.OdxStructure;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.gigatronik.dart2.framework.plugins.exceptions.DatabaseException;
+import com.gigatronik.dart2.framework.settings.Settings;
+import com.gigatronik.diagserver.bosch.FlashDataSet;
+import com.gigatronik.diagserver.bosch.api.BoschServerAPI;
+import com.gigatronik.diagserver.bosch.focus.ApplicationFocusHandler;
+import com.gigatronik.ebike.common.configuration.Constants;
+import com.gigatronik.framework.plugin.hardware.usb.hid.HidDriver;
+import java.util.ArrayList;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class BoschServer implements BoschServerAPI {
+  private static final Logger LOGGER = LoggerFactory.getLogger(BoschServer.class);
+  
+  private final OdxParser odxRdr;
+  
+  private final BoschConfig boschConf = new BoschConfig();
+  
+  private static BoschServer instance;
+  
+  private final HidDriver hidDriver = new HidDriver();
+  
+  private final DataReceiver dataReceiver = new DataReceiver();
+  
+  private final GTIoTHidAdapter gtIotAdapter = new GTIoTHidAdapterImpl(this.hidDriver, this.dataReceiver);
+  
+  private final ComLayerWrapperImpl comLayerWrapper = new ComLayerWrapperImpl(this.gtIotAdapter);
+  
+  private final CanIsoTpComLayer canIsoTpComLayer = new CanIsoTpComLayer(this.comLayerWrapper);
+  
+  private final DeviceConnectionChangeEventPublisher deviceConnectionChangeEventPublisher = new DeviceConnectionChangeEventPublisher();
+  
+  private final BoschDeviceConnectionHandler boschDeviceConnectionHandler = new BoschDeviceConnectionHandler(this.canIsoTpComLayer, this.deviceConnectionChangeEventPublisher);
+  
+  private static final String FAILED_TO_PARSE_RESPONSE_PDU = "Failed to parse response pdu";
+  
+  public static BoschServer getInstance() {
+    return instance;
+  }
+  
+  public BoschServer(OdxDocument[] docs, Settings settings) {
+    if (instance != null)
+      this.dataReceiver.removeHidDeviceConnectionChangedListener(instance); 
+    instance = this;
+    init(settings);
+    this.odxRdr = new OdxParser(docs);
+    LOGGER.info("Finished reading serialized ODX data");
+    this.dataReceiver.addHidDeviceConnectionChangedListener(instance);
+    new ApplicationFocusHandler(this.dataReceiver);
+  }
+  
+  private void init(Settings settings) {
+    this.canIsoTpComLayer.setWaitTimeBetweenWriteRead(0L);
+    this.boschConf.readConfiguration(settings);
+    LOGGER.info("Try to load ApplicationProperty-File");
+    try {
+      SettingsProxy.getInstance().getInternalSettings();
+      LOGGER.info("Loading successful");
+    } catch (ConfigurationNotFoundException e) {
+      LOGGER.warn("Could not initialize internal properties", (Throwable)e);
+    } 
+  }
+  
+  public void setSimulationMode(boolean simMode) {
+    this.boschConf.setSimulationMode(simMode);
+    for (ComCtrl myCtrl : this.boschConf.getComCtrls())
+      myCtrl.setSimMode(simMode); 
+  }
+  
+  public void setSimulationMode(boolean simMode, String simFilePath) {
+    this.boschConf.setSimulationMode(simMode);
+    for (ComCtrl myCtrl : this.boschConf.getComCtrls()) {
+      myCtrl.setSimMode(simMode);
+      myCtrl.setSimFile(simFilePath);
+    } 
+  }
+  
+  public List<String> getEcus() {
+    List<String> ecuNames = new ArrayList<>();
+    for (OdxEcu ecu : this.odxRdr.getEcus())
+      ecuNames.add(ecu.getShortName()); 
+    return ecuNames;
+  }
+  
+  public void setRequestParameterValue(String ecu, String service, String parameter, String value) throws DatabaseException {
+    LOGGER.info("setRequestParameterValue >>> {}.{}.{} = {}", ecu, service, parameter, value);
+    OdxParam myParam = getRequestParameter(ecu, service, parameter);
+    if (myParam != null && myParam.hasValue())
+      myParam.setValue(value); 
+  }
+  
+  public OdxEcu getEcuByShortName(String shortName) {
+    String ecuBase = this.boschConf.getEcuBase(shortName);
+    if (ecuBase.isEmpty())
+      return this.odxRdr.getEcuByShortName(shortName); 
+    return this.odxRdr.getEcuByShortName(ecuBase);
+  }
+  
+  public List<String> startExtendedSession(String ecu) {
+    ComCtrl myComCtrl = this.boschConf.getComCtrlByName(ecu);
+    if (myComCtrl != null)
+      return Jobs.startSession(3, myComCtrl); 
+    return new ArrayList<>();
+  }
+  
+  public List<String> startProgrammingSession(String ecu) {
+    ComCtrl myComCtrl = this.boschConf.getComCtrlByName(ecu);
+    if (myComCtrl != null)
+      return Jobs.startSession(2, myComCtrl); 
+    return new ArrayList<>();
+  }
+  
+  public List<String> startDefaultSession(String ecu) {
+    ComCtrl myComCtrl = this.boschConf.getComCtrlByName(ecu);
+    if (myComCtrl != null)
+      return Jobs.startSession(1, myComCtrl); 
+    return new ArrayList<>();
+  }
+  
+  public List<String> hardReset(String ecu) {
+    ComCtrl myComCtrl = this.boschConf.getComCtrlByName(ecu);
+    if (myComCtrl != null)
+      return Jobs.hardReset(myComCtrl); 
+    return new ArrayList<>();
+  }
+  
+  public void suppressTesterPresentMessages(String ecu, boolean suppressed) {
+    if (suppressed) {
+      disableAutomaticAdaptionFunctionTesterPresentTask();
+    } else {
+      enableAutomaticAdaptionFunctionTesterPresentTask();
+    } 
+  }
+  
+  public void startFunctionalTesterPresentMessages() {
+    ComCtrl myComCtrl = getGatewayComCtrl();
+    if (myComCtrl != null)
+      myComCtrl.startTesterPresentTaskIfNotAlreadyRunning(); 
+  }
+  
+  public int selectUsbProtocol(int protocolId) {
+    ComCtrl myComCtrl = getGatewayComCtrl();
+    if (myComCtrl != null)
+      return myComCtrl.selectUsbProtocol(protocolId); 
+    return -1;
+  }
+  
+  public void stopFunctionalTesterPresentMessages() {
+    ComCtrl myComCtrl = getGatewayComCtrl();
+    if (myComCtrl != null)
+      myComCtrl.stopTesterPresentTask(); 
+  }
+  
+  private ComCtrl getGatewayComCtrl() {
+    ComCtrl myComCtrl = this.boschConf.getComCtrlByName("BUI270");
+    if (myComCtrl == null)
+      myComCtrl = this.boschConf.getComCtrlByName("BUI"); 
+    return myComCtrl;
+  }
+  
+  public List<String> securityAccess(String ecu, int accessLevel) {
+    OdxEcu myEcu = getEcuByShortName(ecu);
+    if (myEcu != null) {
+      ComCtrl myComCtrl = this.boschConf.getComCtrlByName(ecu);
+      if (myComCtrl != null)
+        return Jobs.securityAccess(myEcu, myComCtrl, accessLevel); 
+    } 
+    return new ArrayList<>();
+  }
+  
+  public List<String> securityAccessVictorFlash(String ecu, int accessLevel, boolean ibdOrOemDongle) {
+    ComCtrl myComCtrl = this.boschConf.getComCtrlByName(ecu);
+    if (myComCtrl != null)
+      return Jobs.securityAccessVictorFlash(myComCtrl, accessLevel, ibdOrOemDongle); 
+    return new ArrayList<>();
+  }
+  
+  public List<String> silentMode(String ecu, boolean silent) {
+    OdxEcu myEcu = getEcuByShortName(ecu);
+    if (myEcu != null) {
+      ComCtrl myComCtrl = this.boschConf.getComCtrlByName(ecu);
+      if (myComCtrl != null) {
+        if (silent)
+          return Jobs.disableRXandTX(myEcu, myComCtrl); 
+        return Jobs.enableRXandTX(myEcu, myComCtrl);
+      } 
+    } 
+    return new ArrayList<>();
+  }
+  
+  public List<String> flashStartDownload(String ecu, FlashDataSet bootData, FlashDataSet appData) {
+    List<String> result = new ArrayList<>();
+    ComCtrl myComCtrl = this.boschConf.getComCtrlByName(ecu);
+    if (myComCtrl != null) {
+      myComCtrl.setProgress(0);
+      disableAutomaticAdaptionFunctionTesterPresentTask();
+      result = Jobs.flashDownload(ecu, myComCtrl, bootData, appData);
+      enableAutomaticAdaptionFunctionTesterPresentTask();
+    } 
+    return result;
+  }
+  
+  public List<String> flashWriteData(String ecu, byte[] paramData, byte[] paramChecksum) {
+    ComCtrl myComCtrl = this.boschConf.getComCtrlByName(ecu);
+    if (myComCtrl != null)
+      return Jobs.writeParameterDataClassicPlus(ecu, myComCtrl, paramData); 
+    return new ArrayList<>();
+  }
+  
+  public int getFlashProgress(String ecu) {
+    ComCtrl myComCtrl = this.boschConf.getComCtrlByName(ecu);
+    if (myComCtrl != null)
+      return myComCtrl.getProgress(); 
+    return -1;
+  }
+  
+  public void setFlashProgress(String ecu, int progress) {
+    ComCtrl myComCtrl = this.boschConf.getComCtrlByName(ecu);
+    if (myComCtrl != null)
+      myComCtrl.setProgress(progress); 
+  }
+  
+  public List<String> transmitService(String ecu, String service, boolean showUnit) {
+    LOGGER.info("transmitService >>> {}.{}", ecu, service);
+    OdxEcu myEcu = getEcuByShortName(ecu);
+    if (myEcu != null) {
+      OdxService myService = myEcu.getServiceByShortname(service);
+      if (myService != null) {
+        ComCtrl myComCtrl = this.boschConf.getComCtrlByName(ecu);
+        byte[] pduTX = myService.getRequestPdu();
+        if (myComCtrl != null) {
+          byte[] pduRX = myComCtrl.transmitRequest(pduTX);
+          if (pduRX != null)
+            return getResponseParameterList(myService, pduTX, pduRX, showUnit); 
+        } 
+      } 
+    } 
+    return new ArrayList<>();
+  }
+  
+  private List<String> getResponseParameterList(OdxService service, byte[] requestPdu, byte[] responsePdu, boolean showUnit) {
+    List<String> result = new ArrayList<>();
+    if (responsePdu != null) {
+      if (responsePdu[0] == requestPdu[0] + 64)
+        return getPositiveResponseParameterList(service, responsePdu, showUnit); 
+      if (responsePdu[0] == Byte.MAX_VALUE)
+        return getNegativeResponseParameterList(service, responsePdu, showUnit); 
+      result.add("NEGATIVE");
+    } 
+    return result;
+  }
+  
+  private List<String> getPositiveResponseParameterList(OdxService service, byte[] responsePdu, boolean showUnit) {
+    List<String> result = new ArrayList<>();
+    result.add("POSITIVE");
+    try {
+      service.setResponsePDU(responsePdu);
+    } catch (DatabaseException ex) {
+      LOGGER.error("Failed to parse response pdu", (Throwable)ex);
+    } 
+    for (OdxParam myParam : service.getPositiveResponse().getParameter())
+      result.addAll(getParameterValue(myParam, showUnit)); 
+    return result;
+  }
+  
+  private List<String> getNegativeResponseParameterList(OdxService myService, byte[] responsePdu, boolean showUnit) {
+    List<String> result = new ArrayList<>();
+    result.add("NEGATIVE");
+    if (responsePdu.length == 2) {
+      result.add("TimeoutP2");
+    } else {
+      result.add(String.format("0x%02X", responsePdu[responsePdu.length - 1]));
+      try {
+        myService.setResponsePDU(responsePdu);
+      } catch (DatabaseException ex) {
+        LOGGER.error("Failed to parse response pdu", (Throwable)ex);
+      } 
+      for (OdxParam myParam : myService.getNegativeResponse().getParameter())
+        result.addAll(getParameterValue(myParam, showUnit)); 
+    } 
+    return result;
+  }
+  
+  private List<String> getParameterValue(OdxParam parameter, boolean showUnit) {
+    List<String> resultList = new ArrayList<>();
+    OdxStructure structure = parameter.getOdxStructure();
+    OdxEndOfPduField endOfPduField = parameter.getOdxEndOfPduField();
+    if (structure != null) {
+      addStructureData(showUnit, resultList, structure);
+    } else if (endOfPduField != null) {
+      addEndOfPduFieldData(showUnit, resultList, endOfPduField);
+    } else {
+      resultList.add(parameter.getShortName());
+      resultList.add(showUnit ? parameter.getPrintableValueWithUnit() : parameter.getPrintableValue());
+    } 
+    return resultList;
+  }
+  
+  private void addStructureData(boolean showUnit, List<String> resultList, OdxStructure structure) {
+    if (structure != null)
+      for (OdxParam parameter : structure.getParameter())
+        resultList.addAll(getParameterValue(parameter, showUnit));  
+  }
+  
+  private void addEndOfPduFieldData(boolean showUnit, List<String> resultList, OdxEndOfPduField endOfPduField) {
+    int size = endOfPduField.getStructureNumber();
+    for (int n = 0; n < size; n++) {
+      try {
+        addStructureData(showUnit, resultList, endOfPduField.getStructureByIndex(n));
+      } catch (DatabaseException ex) {
+        LOGGER.error("Failed to parse response pdu", (Throwable)ex);
+      } 
+    } 
+  }
+  
+  public byte[] transmitPdu(String ecu, byte[] pdu) {
+    ComCtrl myComCtrl = this.boschConf.getComCtrlByName(ecu);
+    if (myComCtrl != null)
+      return myComCtrl.transmitRequest(pdu); 
+    return new byte[0];
+  }
+  
+  public ComCtrl getComCtrlByName(String ecu) {
+    return this.boschConf.getComCtrlByName(ecu);
+  }
+  
+  public List<ComCtrl> getComCtrls() {
+    return this.boschConf.getComCtrls();
+  }
+  
+  public Constants.HidDevice getDevice() {
+    Constants.HidDevice device;
+    if (this.boschConf.getSimulationMode()) {
+      device = Constants.HidDevice.BUI25X_APP;
+    } else {
+      device = this.canIsoTpComLayer.getDevice();
+      if (device == Constants.HidDevice.NONE)
+        device = this.canIsoTpComLayer.initDevice(); 
+    } 
+    return device;
+  }
+  
+  public void resetGeneralFlashProgress() {
+    for (ComCtrl comCtrl : this.boschConf.getComCtrls())
+      comCtrl.setProgress(0); 
+  }
+  
+  public OdxParam getRequestParameter(String ecu, String service, String parameter) {
+    OdxEcu myEcu = getEcuByShortName(ecu);
+    if (myEcu != null) {
+      OdxService myService = myEcu.getServiceByShortname(service);
+      if (myService != null) {
+        OdxRequest myRequest = myService.getOdxRequest();
+        if (myRequest != null)
+          return myRequest.getParameterByShortnameFromStructure(parameter); 
+      } 
+    } 
+    return null;
+  }
+  
+  public void setHidMessageInterval(long interval) {
+    this.canIsoTpComLayer.setHidMessageInterval(interval);
+  }
+  
+  public void setHidMessageIntervalDefault() {
+    this.canIsoTpComLayer.setHidMessageIntervalDefault();
+  }
+  
+  public CanIsoTpComLayer getComLayer() {
+    return this.canIsoTpComLayer;
+  }
+  
+  private void disableAutomaticAdaptionFunctionTesterPresentTask() {
+    List<ComCtrl> comCtrls = this.boschConf.getComCtrls();
+    if (!comCtrls.isEmpty())
+      comCtrls.get(0).disableTesterPresentTaskAndStopTaskIfRunning(); 
+  }
+  
+  private void enableAutomaticAdaptionFunctionTesterPresentTask() {
+    List<ComCtrl> comCtrls = this.boschConf.getComCtrls();
+    if (!comCtrls.isEmpty())
+      comCtrls.get(0).enableTesterPresentTask(); 
+  }
+  
+  public void onHidDeviceConnectionChanged(HidDeviceConnectionChangedEvent event) {
+    if (event.getVendorId() == 4236) {
+      LOGGER.info("Bosch eBike HID device '{}' connection state change event received. Handle it before passing the event to listeners.", event);
+      this.boschDeviceConnectionHandler.handleDeviceConnectionChangedEvent(event);
+    } else {
+      LOGGER.info("Non Bosch eBike HID device '{}' connection state change event received. Just pass the event to listeners.", event);
+      this.deviceConnectionChangeEventPublisher.publishEvent(event);
+    } 
+  }
+  
+  public void addHidDeviceConnectionChangedListener(HidDeviceConnectionChangedListener listener) {
+    this.deviceConnectionChangeEventPublisher.addListener(listener);
+  }
+  
+  public void removeHidDeviceConnectionChangedListener(HidDeviceConnectionChangedListener listener) {
+    this.deviceConnectionChangeEventPublisher.removeListener(listener);
+  }
+  
+  public void startDeviceListener() {
+    this.gtIotAdapter.startDeviceListener();
+  }
+  
+  public void setUserdefinedCanReadTimeout(int timeout) {
+    this.canIsoTpComLayer.setUserdefinedCanReadTimeout(timeout);
+  }
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/diagserver/bosch/impl/BoschServerFactory.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.impl;
+
+import com.gigatronik.beds.settings.SettingsProxy;
+import com.gigatronik.dart2.framework.odxparser.OdxDocument;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.gigatronik.dart2.framework.settings.Settings;
+import com.gigatronik.diagserver.bosch.api.BoschServerAPI;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.security.GeneralSecurityException;
+import java.security.NoSuchAlgorithmException;
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.SealedObject;
+import javax.crypto.spec.SecretKeySpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class BoschServerFactory {
+  private static final Logger LOGGER = LoggerFactory.getLogger(BoschServerFactory.class);
+  
+  protected BoschServer boschServer;
+  
+  private void initBoschServer() {
+    try {
+      this.boschServer = new BoschServer(loadOdxData(), (Settings)SettingsProxy.getInstance().getInternalSettings());
+      this.boschServer.getEcus();
+      LOGGER.info("ODX-Server loaded successfully");
+    } catch (ConfigurationNotFoundException e) {
+      LOGGER.error("Error loading ODX-Server", (Throwable)e);
+    } 
+  }
+  
+  private OdxDocument[] loadOdxData() {
+    OdxDocument[] documents = new OdxDocument[0];
+    String propOdxPath = null;
+    try {
+      propOdxPath = SettingsProxy.getInstance().getInternalSettings().getProperty("odxFilePath");
+    } catch (ConfigurationNotFoundException e) {
+      LOGGER.error("Property 'odxFilePath' not found", (Throwable)e);
+    } 
+    LOGGER.info("odxFilePath: {}", propOdxPath);
+    if (propOdxPath != null) {
+      String propOdxFiles = "";
+      try {
+        propOdxFiles = SettingsProxy.getInstance().getInternalSettings().getProperty("odxFiles");
+      } catch (ConfigurationNotFoundException e) {
+        LOGGER.error("Property 'odxFiles' not found", (Throwable)e);
+      } 
+      String propOdxFileNames = "";
+      try {
+        propOdxFileNames = SettingsProxy.getInstance().getInternalSettings().getProperty("odxFileNames");
+      } catch (ConfigurationNotFoundException e) {
+        LOGGER.error("Property 'odxFileNames' not found", (Throwable)e);
+      } 
+      String[] odxFile = propOdxFiles.split(",");
+      String[] odxName = propOdxFileNames.split(",");
+      if (odxFile.length > 0 && odxName.length > 0) {
+        if (odxFile.length == odxName.length) {
+          documents = new OdxDocument[odxFile.length];
+          for (int i = 0; i < odxFile.length; i++) {
+            LOGGER.debug(odxFile[i]);
+            documents[i] = deserializeDocument(propOdxPath + propOdxPath);
+          } 
+        } else {
+          LOGGER.error("Please check properties 'odxFiles' and 'odxFileNames' if filled correctly");
+        } 
+      } else {
+        LOGGER.error("Please check properties 'odxFiles' and 'odxFileNames' if filled correctly");
+      } 
+    } else {
+      LOGGER.error("Property 'odxFilePath' is empty");
+    } 
+    return documents;
+  }
+  
+  private OdxDocument deserializeDocument(String file) {
+    OdxDocument odxDocument = null;
+    try {
+      Cipher c = Cipher.getInstance("AES");
+      c.init(2, new SecretKeySpec("1234567812345678".getBytes(), "AES"));
+      try(InputStream in = getClass().getResourceAsStream(file); 
+          CipherInputStream cin = new CipherInputStream(in, c); 
+          ObjectInputStream oin = new ObjectInputStream(cin)) {
+        SealedObject sealedObject = (SealedObject)oin.readObject();
+        odxDocument = (OdxDocument)sealedObject.getObject(c);
+      } catch (IOException|ClassNotFoundException|javax.crypto.BadPaddingException ex) {
+        LOGGER.error("Error loading seriallized odx file {}", file, ex);
+      } 
+    } catch (NoSuchAlgorithmException|javax.crypto.NoSuchPaddingException|java.security.InvalidKeyException|javax.crypto.IllegalBlockSizeException ex) {
+      LOGGER.error("Error loading serialized odx file {}", file, ex);
+    } 
+    return odxDocument;
+  }
+  
+  public BoschServerAPI createInstance() {
+    initBoschServer();
+    return this.boschServer;
+  }
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/diagserver/bosch/impl/ComCtrl.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.impl;
+
+import com.gigatronik.dart2.framework.util.ByteArrayConverterUtil;
+import com.gigatronik.diagserver.bosch.impl.sessionKeeping.SessionKeepAliveHandler;
+import com.gigatronik.diagserver.bosch.impl.sessionKeeping.SessionKeepAliveHandlerFactory;
+import com.gigatronik.diagserver.utils.Helper;
+import com.gigatronik.diagserver.utils.PduSimulation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ComCtrl {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ComCtrl.class);
+  
+  public enum PROTOCOL {
+    CAN, USB, SIM;
+  }
+  
+  private static final Object SYNCHRONIZATION_KEY_OBJECT_ON_UDS_LAYER = new Object();
+  
+  private final short canIdTx;
+  
+  private final short canIdRx;
+  
+  private final short canIdFunctionalTx;
+  
+  private final String ecuBase;
+  
+  private final String ecuName;
+  
+  private int flashProgress = 0;
+  
+  private PROTOCOL protocol;
+  
+  private PROTOCOL protocolBackup;
+  
+  private String sSimFile = "C:\\EBikeData\\BoschServerSimulation.txt";
+  
+  private int comState = 0;
+  
+  private final SessionKeepAliveHandler sessionKeepAliveHandler;
+  
+  ComCtrl(PROTOCOL protocol, String ecuName, String ecuBase, short txAddress, short rxAddress, short txFunctional) {
+    this.protocol = protocol;
+    this.ecuName = ecuName;
+    this.ecuBase = ecuBase;
+    this.canIdTx = txAddress;
+    this.canIdRx = rxAddress;
+    this.canIdFunctionalTx = txFunctional;
+    this.protocolBackup = protocol;
+    this.sessionKeepAliveHandler = SessionKeepAliveHandlerFactory.getInstance();
+  }
+  
+  public void setSimMode(boolean simMode) {
+    if (simMode) {
+      this.protocolBackup = this.protocol;
+      this.protocol = PROTOCOL.SIM;
+    } else {
+      this.protocol = this.protocolBackup;
+    } 
+  }
+  
+  public void setSimFile(String simFile) {
+    this.sSimFile = simFile;
+  }
+  
+  public String getEcuName() {
+    return this.ecuName;
+  }
+  
+  public String getEcuBase() {
+    return this.ecuBase;
+  }
+  
+  public short getTxCanId() {
+    return this.canIdTx;
+  }
+  
+  public short getRxCanId() {
+    return this.canIdRx;
+  }
+  
+  public PROTOCOL getProtocol() {
+    return this.protocol;
+  }
+  
+  public byte[] transmitRequest(byte[] pduTx) {
+    return transmitPdu(pduTx);
+  }
+  
+  public byte[] transmitPdu(byte[] pduTx) {
+    return transmit(this.canIdTx, this.canIdRx, pduTx);
+  }
+  
+  private byte[] transmit(short txId, short rxId, byte[] txPdu) {
+    synchronized (SYNCHRONIZATION_KEY_OBJECT_ON_UDS_LAYER) {
+      logTx(txId, txPdu);
+      byte[] rxPdu = null;
+      switch (this.protocol) {
+        case CAN:
+          rxPdu = BoschServer.getInstance().getComLayer().sendRequest(txId, rxId, txPdu);
+          break;
+        case USB:
+          rxPdu = BoschServer.getInstance().getComLayer().sendRequestWithoutIsoTp(txId, rxId, txPdu);
+          break;
+        case SIM:
+          rxPdu = PduSimulation.getResponsePdu(this.sSimFile, this.ecuBase, txPdu);
+          break;
+      } 
+      if (!isValidResponse(rxPdu))
+        rxPdu = new byte[] { Byte.MAX_VALUE, txPdu[0] }; 
+      logRx(rxId, rxPdu);
+      this.sessionKeepAliveHandler.adaptKeepAliveUdsSessionHandlingState(rxPdu, this);
+      return rxPdu;
+    } 
+  }
+  
+  public void disableTesterPresentTaskAndStopTaskIfRunning() {
+    this.sessionKeepAliveHandler.disableTesterPresentTaskAndStopTaskIfRunning();
+  }
+  
+  public void enableTesterPresentTask() {
+    this.sessionKeepAliveHandler.enableTesterPresentTask();
+  }
+  
+  public void stopTesterPresentTask() {
+    this.sessionKeepAliveHandler.stopCyclicFunctionalTesterPresentMessageSendingIfActive();
+  }
+  
+  public void startTesterPresentTaskIfNotAlreadyRunning() {
+    this.sessionKeepAliveHandler.startCyclicFunctionalTesterPresentMessageSendingIfNotAlreadyRunning();
+  }
+  
+  public synchronized int getProgress() {
+    return this.flashProgress;
+  }
+  
+  public synchronized void setProgress(int progress) {
+    LOGGER.info("setProgress({})", Integer.valueOf(progress));
+    this.flashProgress = progress;
+  }
+  
+  public boolean isCommunicationActive() {
+    byte[] pduTx = { 62, 0 };
+    byte[] pduRx = transmitRequest(pduTx);
+    if (Helper.isPositiveResponse(pduTx, pduRx)) {
+      if (this.comState < 1)
+        this.comState = 1; 
+    } else {
+      this.comState = 0;
+    } 
+    return (this.comState > 0);
+  }
+  
+  protected boolean isValidResponse(byte[] pdu) {
+    return (pdu != null && pdu.length > 0 && pdu[0] != 0);
+  }
+  
+  public boolean sendFunctionalTesterPresent() {
+    byte[] pduTx = { 62, Byte.MIN_VALUE };
+    logTx(this.canIdFunctionalTx, pduTx);
+    return BoschServer.getInstance().getComLayer().writeNonSynchronizedRequest(this.canIdFunctionalTx, pduTx);
+  }
+  
+  public int selectUsbProtocol(int protocolId) {
+    return BoschServer.getInstance().getComLayer().selectProtocol(protocolId);
+  }
+  
+  private void logTx(short id, byte[] pdu) {
+    String idString = String.format("0x%03X", id);
+    String pduString = ByteArrayConverterUtil.byteArrayToHexString(pdu);
+    LOGGER.info("{} >>> {}", idString, pduString);
+  }
+  
+  private void logRx(short id, byte[] pdu) {
+    String idString = String.format("0x%03X", id);
+    String pduString = ByteArrayConverterUtil.byteArrayToHexString(pdu);
+    LOGGER.info("{} <<< {}", idString, pduString);
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/diagserver/bosch/impl/DeviceConnectionChangeEventPublisher.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.impl;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedListener;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+
+public class DeviceConnectionChangeEventPublisher {
+  private final List<HidDeviceConnectionChangedListener> listeners = new ArrayList<>();
+  
+  private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(new BasicThreadFactory.Builder().namingPattern("BoschDeviceConnectionChangedEventPublisher-%d").build());
+  
+  protected synchronized void addListener(HidDeviceConnectionChangedListener listener) {
+    if (!this.listeners.contains(listener))
+      this.listeners.add(listener); 
+  }
+  
+  protected synchronized void removeListener(HidDeviceConnectionChangedListener listener) {
+    this.listeners.remove(listener);
+  }
+  
+  protected synchronized void publishEvent(HidDeviceConnectionChangedEvent event) {
+    this.listeners.forEach(listener -> this.executor.execute(() -> listener.onHidDeviceConnectionChanged(event)));
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/diagserver/bosch/impl/Jobs.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.impl;
+
+import com.gigatronik.bosch.plugin.tokenproxy.TokenPluginProxy;
+import com.gigatronik.dart2.framework.odxparser.OdxEcu;
+import com.gigatronik.dart2.framework.odxparser.OdxParam;
+import com.gigatronik.dart2.framework.odxparser.OdxService;
+import com.gigatronik.dart2.framework.plugins.exceptions.DatabaseException;
+import com.gigatronik.dart2.framework.util.ByteArrayConverterUtil;
+import com.gigatronik.diagserver.bosch.BasFlashJob;
+import com.gigatronik.diagserver.bosch.BuiBctFlashJob;
+import com.gigatronik.diagserver.bosch.ClassicPlusBmsFlashJob;
+import com.gigatronik.diagserver.bosch.ClassicPlusDuFlashJob;
+import com.gigatronik.diagserver.bosch.FlashDataSet;
+import com.gigatronik.diagserver.bosch.VictorFlashJob;
+import com.gigatronik.diagserver.bosch.reboot.EcuRebootHandler;
+import com.gigatronik.diagserver.bosch.reboot.EcuRebootHandlerFactory;
+import com.gigatronik.diagserver.bosch.reboot.EcuRebootServiceResponse;
+import com.gigatronik.diagserver.utils.Helper;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class Jobs {
+  private static final String[] CLASSIC_ECUS = new String[] { "DU", "BMS" };
+  
+  private static final String[] HID_DEVICE = new String[] { "BUI", "BCT", "CUI" };
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(Jobs.class);
+  
+  private static final int PROTOCOL_STANDARD = 1;
+  
+  private static final int PROTOCOL_FLASH_CAN = 4;
+  
+  private static final int PROTOCOL_FLASH_HMI = 3;
+  
+  public static final String BUI = "BUI";
+  
+  public static final String BBP = "BBP";
+  
+  public static final String BMS = "BMS";
+  
+  public static final String BDU = "BDU";
+  
+  public static final String DU = "DU";
+  
+  public static final String BCT = "BCT";
+  
+  private static final String BAS = "ABS";
+  
+  public static final String BCS = "BCS";
+  
+  private static final String BUI33 = "BUI33";
+  
+  private static final String BUI35 = "BUI35";
+  
+  public static final String COBI = "CUI";
+  
+  private static final int KEY_SLOT_BDU_LEVEL_0 = 22;
+  
+  private static final int KEY_SLOT_BDU_IBD_DONGLE_LEVEL_1 = 0;
+  
+  private static final int KEY_SLOT_BDU_OEM_DONGLE_LEVEL_2 = 0;
+  
+  private static final int KEY_SLOT_BDU_BOSCH_DONGLE_LEVEL_1 = 1;
+  
+  private static final int KEY_SLOT_BDU_BOSCH_DONGLE_LEVEL_2 = 2;
+  
+  private static final int KEY_SLOT_BDU_LEVEL_3 = 3;
+  
+  private static final int KEY_SLOT_BDU_LEVEL_4 = 9;
+  
+  private static final int KEY_SLOT_BBP_LEVEL_0 = 23;
+  
+  private static final int KEY_SLOT_BBP_IBD_DONGLE_LEVEL_1 = 1;
+  
+  private static final int KEY_SLOT_BBP_OEM_DONGLE_LEVEL_2 = 1;
+  
+  private static final int KEY_SLOT_BBP_BOSCH_DONGLE_LEVEL_1 = 5;
+  
+  private static final int KEY_SLOT_BBP_BOSCH_DONGLE_LEVEL_2 = 6;
+  
+  private static final int KEY_SLOT_BBP_LEVEL_3 = 7;
+  
+  private static final int KEY_SLOT_BBP_LEVEL_4 = 10;
+  
+  private static final int KEY_SLOT_ABS_LEVEL_0 = 25;
+  
+  private static final int KEY_SLOT_ABS_IBD_DONGLE_LEVEL_1 = 3;
+  
+  private static final int KEY_SLOT_ABS_OEM_DONGLE_LEVEL_2 = 3;
+  
+  private static final int KEY_SLOT_ABS_BOSCH_DONGLE_LEVEL_1 = 14;
+  
+  private static final int KEY_SLOT_ABS_BOSCH_DONGLE_LEVEL_2 = 15;
+  
+  private static final int KEY_SLOT_ABS_LEVEL_3 = 16;
+  
+  private static final int KEY_SLOT_ABS_LEVEL_4 = 17;
+  
+  private static final int KEY_SLOT_ABS_LEVEL_6 = 18;
+  
+  private static final int KEY_SLOT_BUI33X_LEVEL_0 = 25;
+  
+  private static final int KEY_SLOT_BUI33X_IBD_DONGLE_LEVEL_1 = 5;
+  
+  private static final int KEY_SLOT_BUI33X_OEM_DONGLE_LEVEL_2 = 5;
+  
+  private static final int KEY_SLOT_BUI33X_BOSCH_DONGLE_LEVEL_1 = 19;
+  
+  private static final int KEY_SLOT_BUI33X_BOSCH_DONGLE_LEVEL_2 = 20;
+  
+  private static final int KEY_SLOT_BUI33X_BOSCH_DONGLE_LEVEL_3 = 21;
+  
+  private static final int KEY_SLOT_BUI35X_LEVEL_0 = 25;
+  
+  private static final int KEY_SLOT_BUI35X_IBD_DONGLE_LEVEL_1 = 6;
+  
+  private static final int KEY_SLOT_BUI35X_OEM_DONGLE_LEVEL_2 = 6;
+  
+  private static final int KEY_SLOT_BUI35X_BOSCH_DONGLE_LEVEL_1 = 26;
+  
+  private static final int KEY_SLOT_BUI35X_BOSCH_DONGLE_LEVEL_2 = 27;
+  
+  private static final int KEY_SLOT_BUI35X_BOSCH_DONGLE_LEVEL_3 = 28;
+  
+  public static List<String> startSession(int sessionId, ComCtrl ctrl) {
+    byte[] pduTx = { 16, (byte)sessionId };
+    boolean callBlocking = StringUtils.startsWithAny(ctrl.getEcuName(), HID_DEVICE);
+    EcuRebootHandler rebootHandler = EcuRebootHandlerFactory.getInstance(ctrl);
+    LOGGER.debug("Wait for ECU reconnect '{}'", Boolean.valueOf(callBlocking));
+    EcuRebootServiceResponse response = rebootHandler.executeSessionService(pduTx, callBlocking);
+    List<String> list = new ArrayList<>();
+    list.add(response.isPositive() ? "POSITIVE" : "NEGATIVE");
+    list.add(ByteArrayConverterUtil.byteArrayToHexString(response.getResponsePdu()));
+    return list;
+  }
+  
+  public static List<String> securityAccess(OdxEcu ecu, ComCtrl ctrl, int accessLevel) {
+    List<String> result = new ArrayList<>();
+    if (StringUtils.startsWithAny(ecu.getShortName(), "DU", "BMS")) {
+      result = securityAccessClassic(ctrl, accessLevel);
+    } else if (StringUtils.startsWithAny(ecu.getShortName(), "BDU", "BBP", "ABS", "BCS", "BUI33", "BUI35")) {
+      result = securityAccessVictor(ecu, ctrl, accessLevel);
+    } 
+    return result;
+  }
+  
+  private static List<String> securityAccessClassic(ComCtrl ctrl, int accessLevel) {
+    List<String> arrResult = new ArrayList<>();
+    byte accessTypeSeed = 0;
+    byte accessTypeKey = 0;
+    int seedDelta = 664927369;
+    switch (accessLevel) {
+      case 1:
+        accessTypeSeed = 17;
+        accessTypeKey = 18;
+        seedDelta = 664927369;
+        break;
+      case 2:
+        accessTypeSeed = 19;
+        accessTypeKey = 20;
+        seedDelta = -2129889325;
+        break;
+      case 3:
+        accessTypeSeed = 21;
+        accessTypeKey = 22;
+        seedDelta = 434455222;
+        break;
+    } 
+    byte[] pduRX = readSeed(ctrl, accessTypeSeed);
+    if (pduRX != null)
+      if (pduRX[0] != Byte.MAX_VALUE) {
+        if (pduRX.length >= 6) {
+          byte[] key = calculateKeyByTea(extractSeedFromResponse(pduRX), seedDelta);
+          pduRX = writeKey(ctrl, accessTypeKey, key);
+          if (pduRX[0] != Byte.MAX_VALUE) {
+            arrResult.add("POSITIVE");
+          } else {
+            arrResult.add("NEGATIVE");
+          } 
+        } 
+      } else {
+        arrResult.add("NEGATIVE");
+      }  
+    return arrResult;
+  }
+  
+  private static List<String> securityAccessVictor(OdxEcu ecu, ComCtrl ctrl, int accessLevel) {
+    OdxService seedService = null;
+    OdxService keyService = null;
+    int slot = 0;
+    switch (accessLevel) {
+      case 0:
+        seedService = ecu.getServiceByShortname("RequestSeed_Level_0_Request");
+        keyService = ecu.getServiceByShortname("SendKey_Level_0_Send");
+        slot = getSlotForSecurityAccessLevel0(ecu.getShortName());
+        break;
+      case 1:
+        seedService = ecu.getServiceByShortname("RequestSeed_Level_1_Request");
+        keyService = ecu.getServiceByShortname("SendKey_Level_1_Send");
+        slot = getSlotForSecurityAccessLevel1(ecu.getShortName(), true);
+        break;
+      case 2:
+        seedService = ecu.getServiceByShortname("RequestSeed_Level_2_Request");
+        keyService = ecu.getServiceByShortname("SendKey_Level_2_Send");
+        slot = getSlotForSecurityAccessLevel2(ecu.getShortName(), true);
+        break;
+    } 
+    return executeSecurityAccessVictor(ctrl, accessLevel, slot, seedService, keyService);
+  }
+  
+  private static boolean isSecurityAccessGranted(byte[] txSeed, byte[] rxSeed) {
+    if (Helper.isPositiveResponse(txSeed, rxSeed)) {
+      byte[] seed = ArrayUtils.subarray(rxSeed, 2, 20);
+      for (byte b : seed) {
+        if (b != 0)
+          return false; 
+      } 
+      return true;
+    } 
+    return false;
+  }
+  
+  private static List<String> executeSecurityAccessVictor(ComCtrl ctrl, int level, int slot, OdxService seedService, OdxService keyService) {
+    List<String> arrResult = new ArrayList<>();
+    if (seedService != null) {
+      byte[] pduTXSeed = seedService.getOdxRequest().getPdu();
+      byte[] pduRX = ctrl.transmitRequest(pduTXSeed);
+      if (pduRX != null) {
+        if (isSecurityAccessGranted(pduTXSeed, pduRX)) {
+          arrResult.add("POSITIVE");
+          return arrResult;
+        } 
+        int iMaxTry = 12;
+        int iNumTry = 0;
+        if (Helper.isNegativeResponse(pduRX))
+          while (pduRX.length == 3 && iNumTry < 12) {
+            switch (pduRX[2]) {
+              case 54:
+                LOGGER.warn("Sleep 10 sec because of received 0x36 'Exceeded number of attempts'");
+                Helper.sleepMilliseconds(10000L);
+                pduRX = ctrl.transmitRequest(pduTXSeed);
+                break;
+              case 55:
+                LOGGER.warn("Sleep 1 sec because of received 0x37 'Required time delay not expired'");
+                Helper.sleepMilliseconds(1000L);
+                pduRX = ctrl.transmitRequest(pduTXSeed);
+                break;
+            } 
+            iNumTry++;
+          }  
+        if (pduRX[0] != Byte.MAX_VALUE) {
+          if (pduRX.length >= 6) {
+            byte[] key = calculateKeyByDongle(extractSeedFromResponse(pduRX), slot);
+            if (key == null) {
+              arrResult.add("NEGATIVE");
+              arrResult.add("Error calculating key by dongle!");
+              return arrResult;
+            } 
+            pduRX = writeKey(ctrl, (byte)(16 * level + 2), key);
+            setServiceResponse(pduRX, keyService, arrResult);
+          } 
+        } else {
+          setServiceNegativeResponse(seedService, arrResult);
+        } 
+      } 
+    } 
+    return arrResult;
+  }
+  
+  private static void setServiceResponse(byte[] pduRx, OdxService service, List<String> arrResult) {
+    OdxParam[] arrResponse = null;
+    if (pduRx[0] != Byte.MAX_VALUE) {
+      try {
+        service.setResponsePDU(pduRx);
+      } catch (DatabaseException ex) {
+        LOGGER.error("Failed to parse response pdu", (Throwable)ex);
+      } 
+      arrResponse = service.getPositiveResponse().getParameter();
+      arrResult.add("POSITIVE");
+    } else {
+      if (pduRx.length > 2) {
+        try {
+          service.setResponsePDU(pduRx);
+        } catch (DatabaseException ex) {
+          LOGGER.error("Failed to parse response pdu", (Throwable)ex);
+        } 
+        arrResponse = service.getNegativeResponse().getParameter();
+      } 
+      arrResult.add("NEGATIVE");
+    } 
+    if (arrResponse != null)
+      for (OdxParam arrResponse1 : arrResponse) {
+        arrResult.add(arrResponse1.getShortName());
+        arrResult.add(arrResponse1.getPrintableValue());
+      }  
+  }
+  
+  private static void setServiceNegativeResponse(OdxService service, List<String> arrResult) {
+    OdxParam[] arrResponse = service.getNegativeResponse().getParameter();
+    arrResult.add("NEGATIVE");
+    for (OdxParam arrResponse1 : arrResponse) {
+      arrResult.add(arrResponse1.getShortName());
+      arrResult.add(arrResponse1.getPrintableValue());
+    } 
+  }
+  
+  private static List<String> executeSecurityAccessVictor(ComCtrl ctrl, int level, int slot) {
+    List<String> arrResult = new ArrayList<>();
+    byte[] pduSeed = { 39, (byte)(16 * level + 1) };
+    byte[] pduRX = ctrl.transmitRequest(pduSeed);
+    if (isSecurityAccessGranted(pduSeed, pduRX)) {
+      arrResult.add("POSITIVE");
+      return arrResult;
+    } 
+    if (pduRX[0] != Byte.MAX_VALUE)
+      if (pduRX.length >= 6) {
+        byte[] key = calculateKeyByDongle(extractSeedFromResponse(pduRX), slot);
+        if (key == null) {
+          arrResult.add("NEGATIVE");
+          arrResult.add("Error calculating key by dongle!");
+          return arrResult;
+        } 
+        pduRX = writeKey(ctrl, (byte)(16 * level + 2), key);
+        if (pduRX[0] != Byte.MAX_VALUE) {
+          arrResult.add("POSITIVE");
+        } else {
+          arrResult.add("NEGATIVE");
+        } 
+      } else {
+        arrResult.add("NEGATIVE");
+      }  
+    return arrResult;
+  }
+  
+  private static byte[] calculateKeyByDongle(byte[] seed, int slot) {
+    try {
+      if (!TokenPluginProxy.getInstance().isDongleAvailable()) {
+        LOGGER.error("Calculating key from seed failed - Dongle not connected!");
+        return null;
+      } 
+      Helper.sleepMilliseconds(50L);
+      Map<String, Object> map = new HashMap<>();
+      map.put("key slot", Integer.valueOf(slot));
+      byte[] pduKey = (byte[])TokenPluginProxy.getInstance().decrypt("aes", seed, map);
+      if (pduKey == null)
+        LOGGER.error("Calculating key from seed failed - Wrong Dongle!"); 
+      return pduKey;
+    } catch (Exception e) {
+      LOGGER.error("Calculating key from seed failed - Exception from Dongle interface", (Throwable)e);
+      return null;
+    } 
+  }
+  
+  private static byte[] calculateKeyByTea(byte[] seed, int delta) {
+    Helper.sleepMilliseconds(50L);
+    return Helper.calculateKeyByTea(seed, delta);
+  }
+  
+  private static byte[] extractSeedFromResponse(byte[] pdu) {
+    byte[] seed = new byte[pdu.length - 2];
+    System.arraycopy(pdu, 2, seed, 0, seed.length);
+    return seed;
+  }
+  
+  private static byte[] writeKey(ComCtrl ctrl, byte accessType, byte[] key) {
+    if (key != null) {
+      byte[] pduTxKey = new byte[2 + key.length];
+      pduTxKey[0] = 39;
+      pduTxKey[1] = accessType;
+      System.arraycopy(key, 0, pduTxKey, 2, key.length);
+      return ctrl.transmitRequest(pduTxKey);
+    } 
+    return new byte[] { Byte.MAX_VALUE };
+  }
+  
+  private static byte[] readSeed(ComCtrl ctrl, byte accessType) {
+    byte[] pduTx = { 39, accessType };
+    return ctrl.transmitRequest(pduTx);
+  }
+  
+  public static List<String> readErrorMemory(OdxEcu ecu, ComCtrl ctrl) {
+    List<String> arrResult = new ArrayList<>();
+    byte[] pduDTC = new byte[3];
+    byte[] pduTX = { 25, 2, 8 };
+    byte[] pduRX = ctrl.transmitRequest(pduTX);
+    if (!Helper.isNegativeResponse(pduRX)) {
+      for (int n = 3; n < pduRX.length - 3; n += 4) {
+        System.arraycopy(pduRX, n, pduDTC, 0, 3);
+        arrResult.add(ByteArrayConverterUtil.byteArrayToHexString(pduDTC));
+      } 
+    } else {
+      arrResult.add("NEGATIVE");
+      arrResult.add(ByteArrayConverterUtil.byteArrayToHexString(pduRX));
+    } 
+    return arrResult;
+  }
+  
+  public static List<String> clearErrorMemory(ComCtrl ctrl) {
+    List<String> arrResult = new ArrayList<>();
+    byte[] pduTX = { 20, -1, -1, -1 };
+    byte[] pduRX = ctrl.transmitRequest(pduTX);
+    if (!Helper.isNegativeResponse(pduRX)) {
+      arrResult.add("POSITIVE");
+    } else {
+      arrResult.add("NEGATIVE");
+      arrResult.add(ByteArrayConverterUtil.byteArrayToHexString(pduRX));
+    } 
+    return arrResult;
+  }
+  
+  public static List<String> readEnvironmentData(OdxEcu ecu, ComCtrl ctrl, String dtc) throws DatabaseException {
+    List<String> arrResult = new ArrayList<>();
+    OdxParam[] arrResponse = null;
+    OdxService myService = ecu.getServiceByShortname("FaultMemory_ReadEnvironmentData");
+    if (myService != null) {
+      OdxParam myParam = myService.getOdxRequest().getParameterByShortname("DTC");
+      if (myParam != null) {
+        myParam.setValue(dtc);
+        byte[] pduTX = myService.getOdxRequest().getPdu();
+        byte[] pduRX = ctrl.transmitRequest(pduTX);
+        if (pduRX != null) {
+          if (pduRX[0] != Byte.MAX_VALUE) {
+            try {
+              myService.setResponsePDU(pduRX);
+            } catch (DatabaseException ex) {
+              LOGGER.error("Failed to parse response pdu", (Throwable)ex);
+            } 
+            arrResponse = myService.getPositiveResponse().getParameter();
+            arrResult.add("POSITIVE");
+          } else {
+            if (pduRX.length > 2) {
+              try {
+                myService.setResponsePDU(pduRX);
+              } catch (DatabaseException ex) {
+                LOGGER.error("Failed to parse response pdu", (Throwable)ex);
+              } 
+              arrResponse = myService.getNegativeResponse().getParameter();
+            } 
+            arrResult.add("NEGATIVE");
+          } 
+          if (arrResponse != null)
+            for (OdxParam arrResponse1 : arrResponse) {
+              arrResult.add(arrResponse1.getShortName());
+              arrResult.add(arrResponse1.getPrintableValue());
+            }  
+        } 
+      } 
+    } 
+    return arrResult;
+  }
+  
+  public static List<String> flashDownload(String ecu, ComCtrl ctrl, FlashDataSet bootData, FlashDataSet appData) {
+    List<String> arrResult = new ArrayList<>();
+    byte[] pduRX = null;
+    ctrl.setProgress(0);
+    if (StringUtils.startsWithAny(ecu, "DU", "BMS")) {
+      pduRX = flashDownloadClassicPlusEcu(ctrl, bootData, appData);
+    } else if (StringUtils.startsWithAny(ecu, "BDU", "BBP", "BCS")) {
+      pduRX = flashDownloadVictorEcu(ctrl, bootData, appData);
+    } else if (ecu.startsWith("ABS")) {
+      pduRX = flashDownloadBas100(ctrl, appData);
+    } else if (StringUtils.startsWithAny(ecu, "BUI", "BCT", "CUI")) {
+      pduRX = flashDownloadBuiBct(ctrl, appData);
+    } 
+    if (Helper.isNegativeResponse(pduRX)) {
+      arrResult.add("NEGATIVE");
+      if (Arrays.equals(pduRX, new byte[] { (byte)Byte.MAX_VALUE, (byte)1, (byte)2, (byte)2, (byte)1 }))
+        arrResult.add("CHECKSUM ERROR"); 
+      arrResult.add(ByteArrayConverterUtil.byteArrayToHexString(pduRX));
+    } else {
+      arrResult.add("POSITIVE");
+      arrResult.add(ByteArrayConverterUtil.byteArrayToHexString(pduRX));
+    } 
+    return arrResult;
+  }
+  
+  private static byte[] flashDownloadBuiBct(ComCtrl ctrl, FlashDataSet fdsApp) {
+    BuiBctFlashJob flashJob = new BuiBctFlashJob(ctrl);
+    ctrl.selectUsbProtocol(3);
+    byte[] pduRX = flashJob.programApplicationSoftware(fdsApp);
+    hardReset(ctrl);
+    ctrl.selectUsbProtocol(1);
+    return pduRX;
+  }
+  
+  private static byte[] flashDownloadClassicPlusEcu(ComCtrl ctrl, FlashDataSet fdsBoot, FlashDataSet fdsApp) {
+    ClassicPlusBmsFlashJob flashJob = new ClassicPlusBmsFlashJob(ctrl);
+    ctrl.selectUsbProtocol(4);
+    byte[] pduRX = flashJob.writeFingerprint(fdsApp.getFingerprint());
+    if (!Helper.isNegativeResponse(pduRX))
+      pduRX = flashJob.programBootloader(fdsBoot); 
+    if (!Helper.isNegativeResponse(pduRX))
+      pduRX = flashJob.programApplicationSoftware(fdsApp); 
+    if (!Helper.isNegativeResponse(pduRX))
+      pduRX = flashJob.checkProgrammingDependencies(); 
+    ctrl.selectUsbProtocol(1);
+    return pduRX;
+  }
+  
+  private static byte[] flashDownloadBas100(ComCtrl ctrl, FlashDataSet fdsApp) {
+    BasFlashJob flashJob = new BasFlashJob(ctrl);
+    ctrl.selectUsbProtocol(4);
+    byte[] pduRX = flashJob.writeFingerprint(fdsApp.getFingerprint());
+    if (!Helper.isNegativeResponse(pduRX))
+      pduRX = flashJob.programApplicationSoftware(fdsApp); 
+    if (!Helper.isNegativeResponse(pduRX))
+      pduRX = flashJob.checkProgrammingDependencies(); 
+    ctrl.selectUsbProtocol(1);
+    return pduRX;
+  }
+  
+  private static byte[] flashDownloadVictorEcu(ComCtrl ctrl, FlashDataSet fdsBoot, FlashDataSet fdsApp) {
+    VictorFlashJob flashJob = new VictorFlashJob(ctrl);
+    ctrl.selectUsbProtocol(4);
+    byte[] pduRX = flashJob.writeFingerprint(fdsApp.getFingerprint());
+    if (!Helper.isNegativeResponse(pduRX))
+      pduRX = flashJob.loadFlashDriver(fdsBoot); 
+    if (!Helper.isNegativeResponse(pduRX))
+      pduRX = flashJob.programApplicationSoftware(fdsApp); 
+    if (!Helper.isNegativeResponse(pduRX))
+      pduRX = flashJob.checkProgrammingDependencies(); 
+    ctrl.selectUsbProtocol(1);
+    return pduRX;
+  }
+  
+  public static List<String> writeParameterDataClassicPlus(String ecu, ComCtrl ctrl, byte[] paramData) {
+    List<String> arrResult = new ArrayList<>();
+    byte[] pduRX = null;
+    if (ecu.startsWith("DU")) {
+      ClassicPlusDuFlashJob flashJobDu = new ClassicPlusDuFlashJob(ctrl);
+      pduRX = flashJobDu.writeApplicationData(paramData);
+    } 
+    if (Helper.isNegativeResponse(pduRX)) {
+      arrResult.add("NEGATIVE");
+      arrResult.add(ByteArrayConverterUtil.byteArrayToHexString(pduRX));
+    } else {
+      arrResult.add("POSITIVE");
+    } 
+    return arrResult;
+  }
+  
+  public static List<String> hardReset(ComCtrl ctrl) {
+    byte[] pduTx = { 17, 1 };
+    boolean callBlocking = StringUtils.startsWithAny(ctrl.getEcuName(), HID_DEVICE);
+    EcuRebootHandler rebootHandler = EcuRebootHandlerFactory.getInstance(ctrl);
+    LOGGER.debug("Wait for ECU reconnect '{}'", Boolean.valueOf(callBlocking));
+    rebootHandler.executeResetService(pduTx, callBlocking);
+    List<String> result = new ArrayList<>();
+    result.add("POSITIVE");
+    return result;
+  }
+  
+  static List<String> disableRXandTX(OdxEcu ecu, ComCtrl ctrl) {
+    byte[] pduTX;
+    if (ecu.getShortName().startsWith("ABS")) {
+      pduTX = new byte[] { 40, 3, 1 };
+    } else if (StringUtils.startsWithAny(ecu.getShortName(), "BMS", "DU")) {
+      pduTX = new byte[] { 40, 1, 1 };
+    } else {
+      pduTX = new byte[] { 40, 3, 3 };
+    } 
+    byte[] pduRX = ctrl.transmitRequest(pduTX);
+    return Helper.getSimpleResponse(pduTX, pduRX);
+  }
+  
+  public static List<String> enableRXandTX(OdxEcu ecu, ComCtrl ctrl) {
+    byte[] pduTX;
+    if (ecu.getShortName().startsWith("ABS")) {
+      pduTX = new byte[] { 40, 0, 1 };
+    } else if (StringUtils.startsWithAny(ecu.getShortName(), "BMS", "DU")) {
+      pduTX = new byte[] { 40, 0, 1 };
+    } else {
+      pduTX = new byte[] { 40, 0, 3 };
+    } 
+    byte[] pduRX = ctrl.transmitRequest(pduTX);
+    return Helper.getSimpleResponse(pduTX, pduRX);
+  }
+  
+  public static List<String> securityAccessVictorFlash(ComCtrl ctrl, int accessLevel, boolean ibdOrOemDongle) {
+    int slot = 0;
+    String ecu = ctrl.getEcuBase();
+    if (StringUtils.startsWithAny(ecu, CLASSIC_ECUS))
+      return securityAccessClassic(ctrl, accessLevel); 
+    switch (accessLevel) {
+      case 0:
+        slot = getSlotForSecurityAccessLevel0(ecu);
+        break;
+      case 1:
+        slot = getSlotForSecurityAccessLevel1(ecu, ibdOrOemDongle);
+        break;
+      case 2:
+        slot = getSlotForSecurityAccessLevel2(ecu, ibdOrOemDongle);
+        break;
+      case 3:
+        slot = getSlotForSecurityAccessLevel3(ecu);
+        break;
+      case 4:
+        slot = getSlotForSecurityAccessLevel4(ecu);
+        break;
+      case 6:
+        slot = getSlotForSecurityAccessLevel6(ecu);
+        break;
+    } 
+    return executeSecurityAccessVictor(ctrl, accessLevel, slot);
+  }
+  
+  private static int getSlotForSecurityAccessLevel0(String ecu) {
+    if (ecu.startsWith("BDU"))
+      return 22; 
+    if (ecu.startsWith("BBP"))
+      return 23; 
+    if (StringUtils.equals(ecu, "ABS"))
+      return 25; 
+    if (ecu.startsWith("BUI33"))
+      return 25; 
+    if (ecu.startsWith("BUI35"))
+      return 25; 
+    return 0;
+  }
+  
+  private static int getSlotForSecurityAccessLevel1(String ecu, boolean ibdOrOemDongle) {
+    if (ecu.startsWith("BUI35"))
+      return ibdOrOemDongle ? 6 : 26; 
+    if (ecu.startsWith("BUI33"))
+      return ibdOrOemDongle ? 5 : 19; 
+    if (ecu.startsWith("BDU"))
+      return ibdOrOemDongle ? 0 : 1; 
+    if (ecu.startsWith("BBP"))
+      return ibdOrOemDongle ? 1 : 5; 
+    if (StringUtils.equals(ecu, "ABS"))
+      return ibdOrOemDongle ? 3 : 14; 
+    return 0;
+  }
+  
+  private static int getSlotForSecurityAccessLevel2(String ecu, boolean ibdOrOemDongle) {
+    if (ecu.startsWith("BUI35"))
+      return ibdOrOemDongle ? 6 : 27; 
+    if (ecu.startsWith("BUI33"))
+      return ibdOrOemDongle ? 5 : 20; 
+    if (ecu.startsWith("BDU"))
+      return ibdOrOemDongle ? 0 : 2; 
+    if (ecu.startsWith("BBP"))
+      return ibdOrOemDongle ? 1 : 6; 
+    if (StringUtils.equals(ecu, "ABS"))
+      return ibdOrOemDongle ? 3 : 15; 
+    return 0;
+  }
+  
+  private static int getSlotForSecurityAccessLevel3(String ecu) {
+    if (ecu.startsWith("BUI35"))
+      return 28; 
+    if (ecu.startsWith("BUI33"))
+      return 21; 
+    if (ecu.startsWith("BDU"))
+      return 3; 
+    if (ecu.startsWith("BBP"))
+      return 7; 
+    if (StringUtils.equals(ecu, "ABS"))
+      return 16; 
+    return 0;
+  }
+  
+  private static int getSlotForSecurityAccessLevel4(String ecu) {
+    if (ecu.startsWith("BDU"))
+      return 9; 
+    if (ecu.startsWith("BBP"))
+      return 10; 
+    if (StringUtils.equals(ecu, "ABS"))
+      return 17; 
+    return 0;
+  }
+  
+  private static int getSlotForSecurityAccessLevel6(String ecu) {
+    if (StringUtils.equals(ecu, "ABS"))
+      return 18; 
+    return 0;
+  }
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/diagserver/bosch/impl/sessionKeeping/SessionKeepAliveHandler.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.impl.sessionKeeping;
+
+import com.gigatronik.diagserver.bosch.impl.BoschServer;
+import com.gigatronik.diagserver.bosch.impl.ComCtrl;
+import java.util.Timer;
+import java.util.TimerTask;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class SessionKeepAliveHandler {
+  private static final long WAITING_TIME_BETWEEN_FUNCTIONAL_TESTER_PRESENT_SENDING = 3000L;
+  
+  private static final long DELAY_TIME_BEFORE_SENDING_FIRST_FUNCTIONAL_TESTER_PRESENT_AFTER_START = 1000L;
+  
+  private static final long TRANSMISSION_FAILURE_TOLERANCE_INTERVAL = 10000L;
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(SessionKeepAliveHandler.class);
+  
+  private boolean isAutomaticAdaptionFunctionTesterPresentTaskSuspended = false;
+  
+  private boolean isFunctionalTesterPresentTaskRunning = false;
+  
+  private long lastEcuRebootTimestamp = 0L;
+  
+  private ComCtrl usedCommunicationInstance;
+  
+  private Timer testerPresentTimer;
+  
+  public void adaptKeepAliveUdsSessionHandlingState(byte[] pduRx, ComCtrl communicationPartner) {
+    if (!this.isAutomaticAdaptionFunctionTesterPresentTaskSuspended && isValidResponse(pduRx)) {
+      checkCommunicationPartnerForUpdateTargetAddressNecessity(pduRx, communicationPartner);
+      checkPduForUpdateFailureHandlingNecessity(pduRx, communicationPartner);
+      checkPduForTaskStartNecessity(pduRx);
+    } 
+  }
+  
+  private void checkPduForUpdateFailureHandlingNecessity(byte[] pduRx, ComCtrl communicationPartner) {
+    if (isHidDevice(communicationPartner) && requestTriggersEcuReboot(pduRx))
+      updateTransmissionFailureToleranceTimestamp(); 
+  }
+  
+  private boolean isHidDevice(ComCtrl communicationPartner) {
+    String ecuName = communicationPartner.getEcuName();
+    return (ecuName.contains("BUI") || ecuName.contains("CUI") || ecuName.contains("BCT"));
+  }
+  
+  private boolean requestTriggersEcuReboot(byte[] pduRx) {
+    return (isHardResetResponse(pduRx) || isProgrammingSessionResponse(pduRx) || isBctWriteBatteryTypeResponse(pduRx));
+  }
+  
+  private boolean isBctWriteBatteryTypeResponse(byte[] pduRx) {
+    return (pduRx.length > 2 && pduRx[0] == 110 && pduRx[1] == Byte.MIN_VALUE && pduRx[2] == 1);
+  }
+  
+  private boolean isProgrammingSessionResponse(byte[] pduRx) {
+    return (pduRx[0] == 80 && pduRx[1] == 2);
+  }
+  
+  private boolean isHardResetResponse(byte[] pduRx) {
+    return ((pduRx[0] == Byte.MAX_VALUE && pduRx[1] == 17) || (pduRx[0] == 81 && pduRx[1] == 1));
+  }
+  
+  private synchronized void updateTransmissionFailureToleranceTimestamp() {
+    LOGGER.debug("Functional tester present transmission failures are tolerated for the next '{}' sec", Long.valueOf(10L));
+    this.lastEcuRebootTimestamp = System.currentTimeMillis();
+  }
+  
+  private void checkPduForTaskStartNecessity(byte[] pduRx) {
+    if (!this.isFunctionalTesterPresentTaskRunning && doesPduTriggerModeChangeInEcuToNonDefaultSession(pduRx))
+      startCyclicFunctionalTesterPresentMessageSendingIfNotAlreadyRunning(); 
+  }
+  
+  private void checkCommunicationPartnerForUpdateTargetAddressNecessity(byte[] pduRx, ComCtrl communicationPartner) {
+    if (isPositiveResponse(pduRx))
+      if (shouldConfigurationBeChangedToClassicPlus(communicationPartner)) {
+        setClassicPlusAsTargetAddress();
+      } else if (shouldConfigurationBeChangedToVictor(communicationPartner)) {
+        setVictorAsTargetAddress();
+      }  
+  }
+  
+  private boolean isPositiveResponse(byte[] pduRx) {
+    return (pduRx[0] != Byte.MAX_VALUE);
+  }
+  
+  private boolean shouldConfigurationBeChangedToVictor(ComCtrl communicationPartner) {
+    return (this.usedCommunicationInstance == null || (!isNeutralEcu(communicationPartner) && !isClassicPlusEcu(communicationPartner) && isClassicPlusEcu(this.usedCommunicationInstance)));
+  }
+  
+  private boolean shouldConfigurationBeChangedToClassicPlus(ComCtrl communicationPartner) {
+    return (isClassicPlusEcu(communicationPartner) && (this.usedCommunicationInstance == null || !isClassicPlusEcu(this.usedCommunicationInstance)));
+  }
+  
+  private boolean isNeutralEcu(ComCtrl communicationPartner) {
+    return (isIntuvia(communicationPartner) || isBct(communicationPartner));
+  }
+  
+  private boolean isIntuvia(ComCtrl communicationPartner) {
+    return communicationPartner.getEcuName().equals("BUI");
+  }
+  
+  private boolean isBct(ComCtrl communicationPartner) {
+    return communicationPartner.getEcuName().equals("BCT");
+  }
+  
+  private boolean isClassicPlusEcu(ComCtrl communicationPartner) {
+    String ecuName = communicationPartner.getEcuName();
+    return (ecuName.equals("BMS") || ecuName.equals("DU"));
+  }
+  
+  private void setClassicPlusAsTargetAddress() {
+    LOGGER.debug("Set functional tester present target address to classic plus");
+    this.usedCommunicationInstance = BoschServer.getInstance().getComCtrlByName("DU");
+  }
+  
+  private void setVictorAsTargetAddress() {
+    LOGGER.debug("Set functional tester present target address to victor");
+    this.usedCommunicationInstance = BoschServer.getInstance().getComCtrlByName("BDU");
+  }
+  
+  private boolean isValidResponse(byte[] pdu) {
+    return (pdu != null && pdu.length > 1);
+  }
+  
+  private boolean doesPduTriggerModeChangeInEcuToNonDefaultSession(byte[] pduRx) {
+    return (pduRx[0] == 80 && (pduRx[1] == 2 || pduRx[1] == 3));
+  }
+  
+  public synchronized void disableTesterPresentTaskAndStopTaskIfRunning() {
+    if (!this.isAutomaticAdaptionFunctionTesterPresentTaskSuspended) {
+      LOGGER.debug("Disable automatic adaption of function tester present task");
+      stopCyclicFunctionalTesterPresentMessageSendingIfActive();
+      this.isAutomaticAdaptionFunctionTesterPresentTaskSuspended = true;
+    } 
+  }
+  
+  public synchronized void enableTesterPresentTask() {
+    if (this.isAutomaticAdaptionFunctionTesterPresentTaskSuspended) {
+      LOGGER.debug("Enable automatic adaption of function tester present task");
+      this.isAutomaticAdaptionFunctionTesterPresentTaskSuspended = false;
+    } 
+  }
+  
+  public synchronized void stopCyclicFunctionalTesterPresentMessageSendingIfActive() {
+    if (this.isFunctionalTesterPresentTaskRunning) {
+      LOGGER.debug("Stop cyclic functional tester present message sending");
+      stopCyclicFunctionalTesterPresentMessageSending();
+      this.isFunctionalTesterPresentTaskRunning = false;
+    } 
+  }
+  
+  private void stopCyclicFunctionalTesterPresentMessageSending() {
+    this.testerPresentTimer.cancel();
+    this.testerPresentTimer = null;
+  }
+  
+  public synchronized void startCyclicFunctionalTesterPresentMessageSendingIfNotAlreadyRunning() {
+    if (!this.isFunctionalTesterPresentTaskRunning && this.usedCommunicationInstance != null) {
+      LOGGER.debug("Start cyclic functional tester present message sending with interval='{}'", Long.valueOf(3000L));
+      startCyclicFunctionalTesterPresentMessageSending(1000L, 3000L);
+      this.isFunctionalTesterPresentTaskRunning = true;
+    } 
+  }
+  
+  private void startCyclicFunctionalTesterPresentMessageSending(long delay, long interval) {
+    this.testerPresentTimer = new Timer("FunctionalTesterPresent-Timer");
+    this.testerPresentTimer.schedule(createFunctionalTesterPresentTimerTask(), delay, interval);
+  }
+  
+  private TimerTask createFunctionalTesterPresentTimerTask() {
+    TimerTask t = new TimerTask() {
+        public void run() {
+          SessionKeepAliveHandler.this.timerTaskAction();
+        }
+      };
+    return t;
+  }
+  
+  private synchronized void timerTaskAction() {
+    boolean sendingSuccess = this.usedCommunicationInstance.sendFunctionalTesterPresent();
+    if (sendingSuccess) {
+      LOGGER.trace("Transmission of functional tester present is done");
+    } else if (canFailureBeTolerated()) {
+      LOGGER.debug("Transmission failure tolerated!");
+    } else {
+      stopCyclicFunctionalTesterPresentMessageSendingIfActive();
+    } 
+  }
+  
+  private boolean canFailureBeTolerated() {
+    return (System.currentTimeMillis() - this.lastEcuRebootTimestamp < 10000L);
+  }
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/diagserver/bosch/impl/sessionKeeping/SessionKeepAliveHandlerFactory.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.impl.sessionKeeping;
+
+public class SessionKeepAliveHandlerFactory {
+  private static SessionKeepAliveHandler instance;
+  
+  public static SessionKeepAliveHandler getInstance() {
+    if (instance == null)
+      instance = new SessionKeepAliveHandler(); 
+    return instance;
+  }
+}
+
+
+========================================================================================================================
+ITEM 18: com/gigatronik/diagserver/bosch/reboot/Bui350RebootHandler.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.reboot;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.diagserver.bosch.impl.BoschServer;
+import com.gigatronik.diagserver.bosch.impl.ComCtrl;
+import com.gigatronik.diagserver.utils.Helper;
+import com.gigatronik.ebike.common.configuration.Constants;
+
+public class Bui350RebootHandler extends HidEcuRebootHandler {
+  Bui350RebootHandler(ComCtrl communicationController) {
+    super(communicationController);
+  }
+  
+  boolean doesSessionRequestTriggerReboot(byte[] pduTx) {
+    return false;
+  }
+  
+  boolean waitForReconnect() {
+    sleep(1000);
+    byte[] tpTx = { 62, 0 };
+    byte[] tpRx = this.communicationController.transmitPdu(tpTx);
+    if (!Helper.isPositiveResponse(tpTx, tpRx)) {
+      sleep(1000);
+      return (BoschServer.getInstance().getDevice() == Constants.HidDevice.BUI350_FBL);
+    } 
+    return true;
+  }
+}
+
+
+========================================================================================================================
+ITEM 19: com/gigatronik/diagserver/bosch/reboot/CanEcuRebootHandler.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.reboot;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.diagserver.bosch.impl.ComCtrl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class CanEcuRebootHandler implements EcuRebootHandler {
+  private static final Logger LOGGER = LoggerFactory.getLogger(CanEcuRebootHandler.class);
+  
+  private static final int TIMEOUT_CAN_ECU_RECONNECT = 3000;
+  
+  private static final int WAITING_TIME_BETWEEN_POLLING_CYCLES_CAN_ECU_RECONNECT = 250;
+  
+  protected final ComCtrl communicationController;
+  
+  protected final String ecuName;
+  
+  CanEcuRebootHandler(ComCtrl communicationController) {
+    this.communicationController = communicationController;
+    this.ecuName = communicationController.getEcuName();
+  }
+  
+  public EcuRebootServiceResponse executeResetService(byte[] pduTx, boolean waitForReconnect) {
+    byte[] pduRx = this.communicationController.transmitPdu(pduTx);
+    boolean isStillConnected = !isTimeout(pduRx);
+    if (waitForReconnect)
+      isStillConnected = waitForReconnect(); 
+    return new EcuRebootServiceResponse(pduRx).setStillConnectedState(isStillConnected);
+  }
+  
+  boolean waitForReconnect() {
+    for (int i = 0; i < 12 && !isInterrupted(); i++) {
+      sleep(250);
+      if (!isInterrupted() && pingEcu()) {
+        LOGGER.debug("CAN ECU '{}' is reachable again!", this.ecuName);
+        return true;
+      } 
+    } 
+    LOGGER.warn("Timeout while waiting for CAN ECU '{}' after hard reset!", this.ecuName);
+    return false;
+  }
+  
+  private boolean pingEcu() {
+    byte[] pduRx = this.communicationController.transmitPdu(new byte[] { (byte)62, (byte)0 });
+    return (pduRx != null && pduRx.length > 0 && pduRx[0] != Byte.MAX_VALUE);
+  }
+  
+  private boolean isTimeout(byte[] pduRx) {
+    return (pduRx == null || (pduRx.length == 2 && pduRx[0] == Byte.MAX_VALUE));
+  }
+  
+  public EcuRebootServiceResponse executeSessionService(byte[] pduTx, boolean waitForReconnect) {
+    byte[] pduRx = this.communicationController.transmitPdu(pduTx);
+    boolean isStillConnected = !isTimeout(pduRx);
+    if (waitForReconnect && wasServiceRequestSuccessful(pduTx, pduRx) && doesSessionRequestTriggerReboot(pduTx))
+      isStillConnected = waitForReconnect(); 
+    return new EcuRebootServiceResponse(pduRx).setStillConnectedState(isStillConnected);
+  }
+  
+  private boolean wasServiceRequestSuccessful(byte[] pduTx, byte[] pduRx) {
+    return (pduTx[0] + 64 == pduRx[0] && pduTx[1] == pduRx[1]);
+  }
+  
+  boolean doesSessionRequestTriggerReboot(byte[] pduTx) {
+    return (pduTx[1] == 2);
+  }
+  
+  void sleep(int ms) {
+    try {
+      Thread.sleep((long)ms);
+    } catch (InterruptedException ex) {
+      LOGGER.warn("Error in sleepMilliseconds ", (Throwable)ex);
+      Thread.currentThread().interrupt();
+    } 
+  }
+  
+  boolean isInterrupted() {
+    return Thread.currentThread().isInterrupted();
+  }
+  
+  public void onHidDeviceConnectionChanged(HidDeviceConnectionChangedEvent event) {}
+}
+
+
+========================================================================================================================
+ITEM 20: com/gigatronik/diagserver/bosch/reboot/EcuRebootHandler.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.reboot;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedListener;
+
+public interface EcuRebootHandler extends HidDeviceConnectionChangedListener {
+  EcuRebootServiceResponse executeResetService(byte[] paramArrayOfbyte, boolean paramBoolean);
+  
+  EcuRebootServiceResponse executeSessionService(byte[] paramArrayOfbyte, boolean paramBoolean);
+}
+
+
+========================================================================================================================
+ITEM 21: com/gigatronik/diagserver/bosch/reboot/EcuRebootHandlerFactory.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.reboot;
+
+import com.gigatronik.diagserver.bosch.impl.ComCtrl;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.commons.lang3.StringUtils;
+
+public class EcuRebootHandlerFactory {
+  private static Map<ComCtrl, EcuRebootHandler> instances = new HashMap<>();
+  
+  public static EcuRebootHandler getInstance(ComCtrl communicationController) {
+    if (!instances.containsKey(communicationController))
+      instances.put(communicationController, createInstance(communicationController)); 
+    return instances.get(communicationController);
+  }
+  
+  private static EcuRebootHandler createInstance(ComCtrl communicationController) {
+    String ecuName = communicationController.getEcuName();
+    if (isHidDevice(ecuName)) {
+      if (isBui350(ecuName))
+        return new Bui350RebootHandler(communicationController); 
+      return new HidEcuRebootHandler(communicationController);
+    } 
+    return new CanEcuRebootHandler(communicationController);
+  }
+  
+  private static boolean isHidDevice(String ecuName) {
+    return StringUtils.startsWithAny(ecuName, "BUI", "BCT", "CUI");
+  }
+  
+  private static boolean isBui350(String ecuName) {
+    return ecuName.startsWith("BUI35");
+  }
+}
+
+
+========================================================================================================================
+ITEM 22: com/gigatronik/diagserver/bosch/reboot/EcuRebootServiceResponse.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.reboot;
+
+public class EcuRebootServiceResponse {
+  private byte[] pduRx;
+  
+  private boolean ecuStillConnected = false;
+  
+  public EcuRebootServiceResponse() {
+    this(new byte[0]);
+  }
+  
+  public EcuRebootServiceResponse(byte[] pduRx) {
+    this.pduRx = pduRx;
+  }
+  
+  public EcuRebootServiceResponse setStillConnectedState(boolean isStillConnected) {
+    this.ecuStillConnected = isStillConnected;
+    return this;
+  }
+  
+  public boolean isEcuStillConnected() {
+    return this.ecuStillConnected;
+  }
+  
+  public boolean isPositive() {
+    return (this.pduRx != null && this.pduRx.length > 0 && this.pduRx[0] != Byte.MAX_VALUE);
+  }
+  
+  public byte[] getResponsePdu() {
+    return this.pduRx;
+  }
+}
+
+
+========================================================================================================================
+ITEM 23: com/gigatronik/diagserver/bosch/reboot/HidEcuRebootHandler.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch.reboot;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.diagserver.bosch.impl.BoschServer;
+import com.gigatronik.diagserver.bosch.impl.ComCtrl;
+import com.gigatronik.ebike.common.configuration.Constants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class HidEcuRebootHandler extends CanEcuRebootHandler {
+  private static final Logger LOGGER = LoggerFactory.getLogger(HidEcuRebootHandler.class);
+  
+  private static final int TIMEOUT_HID_ECU_RECONNECT = 10000;
+  
+  HidEcuRebootHandler(ComCtrl communicationController) {
+    super(communicationController);
+  }
+  
+  boolean waitForReconnect() {
+    return didHidConnectionEventOccur();
+  }
+  
+  private synchronized boolean didHidConnectionEventOccur() {
+    long endTime = getCurrentTime() + 10000L;
+    try {
+      waitNow();
+    } catch (InterruptedException ex) {
+      LOGGER.warn("Waiting interrupted!", (Throwable)ex);
+      Thread.currentThread().interrupt();
+    } 
+    return (endTime > getCurrentTime() && !isInterrupted());
+  }
+  
+  long getCurrentTime() {
+    return System.currentTimeMillis();
+  }
+  
+  synchronized void waitNow() throws InterruptedException {
+    LOGGER.debug("Start waiting for HID device reconnection");
+    wait(10000L);
+    LOGGER.debug("Terminate waiting for HID device reconnection");
+  }
+  
+  boolean doesSessionRequestTriggerReboot(byte[] pduTx) {
+    Constants.HidDevice device = BoschServer.getInstance().getDevice();
+    return ((device.isApplicationMode() && pduTx[1] == 2) || (device.isBootloaderMode() && pduTx[1] != 2));
+  }
+  
+  public synchronized void onHidDeviceConnectionChanged(HidDeviceConnectionChangedEvent event) {
+    if (event.getState() && event.getVendorId() == 4236)
+      notifyAll(); 
+  }
+}
+
+
+========================================================================================================================
+ITEM 24: com/gigatronik/diagserver/bosch/VictorFlashJob.java
+========================================================================================================================
+package com.gigatronik.diagserver.bosch;
+
+import com.gigatronik.dart2.framework.util.ByteArrayConverterUtil;
+import com.gigatronik.diagserver.bosch.impl.ComCtrl;
+import com.gigatronik.diagserver.utils.Helper;
+
+public class VictorFlashJob extends AbstractFlashJob {
+  public VictorFlashJob(ComCtrl comController) {
+    super(comController);
+  }
+  
+  public byte[] loadFlashDriver(FlashDataSet fdsBoot) {
+    byte encryption = fdsBoot.getEncryption() ? 1 : 0;
+    byte[] pduRX = null;
+    for (int n = 0; !Helper.isNegativeResponse(pduRX) && n < fdsBoot.getNumberOfBlocks(); n++)
+      pduRX = downloadDataSegment(encryption, fdsBoot.getAddress(n), fdsBoot.getData(n), fdsBoot.getSize(n), 0.0D, 2.0D); 
+    this.comCtrl.startTesterPresentTaskIfNotAlreadyRunning();
+    if (!Helper.isNegativeResponse(pduRX)) {
+      pduRX = checkMemory(fdsBoot.getChecksum());
+      this.comCtrl.setProgress(5);
+    } 
+    this.comCtrl.stopTesterPresentTask();
+    return pduRX;
+  }
+  
+  public byte[] programApplicationSoftware(FlashDataSet fdsApp) {
+    int numberOfBlocks = fdsApp.getNumberOfBlocks();
+    int dataSizeTotal = fdsApp.getDataSize();
+    byte encryption = fdsApp.getEncryption() ? 1 : 0;
+    int startAdd = ByteArrayConverterUtil.byteArrayToInteger(fdsApp.getAddress(0));
+    int endAdd = ByteArrayConverterUtil.byteArrayToInteger(fdsApp.getAddress(numberOfBlocks - 1)) + (fdsApp.getData(numberOfBlocks - 1)).length;
+    int memSize = endAdd - startAdd;
+    this.comCtrl.startTesterPresentTaskIfNotAlreadyRunning();
+    byte[] pduRX = eraseMemory(fdsApp.getAddress(0), ByteArrayConverterUtil.integerToByteArray(memSize));
+    this.comCtrl.setProgress(8);
+    this.comCtrl.stopTesterPresentTask();
+    double stepStart = 8.0D;
+    for (int n = 0; !Helper.isNegativeResponse(pduRX) && n < fdsApp.getNumberOfBlocks(); n++) {
+      double stepSize = 91.0D * (double)(fdsApp.getData(n)).length / (double)dataSizeTotal;
+      pduRX = downloadDataSegment(encryption, fdsApp.getAddress(n), fdsApp.getData(n), fdsApp.getSize(n), stepStart, stepSize);
+      stepStart += stepSize;
+    } 
+    this.comCtrl.startTesterPresentTaskIfNotAlreadyRunning();
+    if (!Helper.isNegativeResponse(pduRX)) {
+      pduRX = checkMemory(fdsApp.getChecksum());
+      this.comCtrl.setProgress(100);
+    } 
+    this.comCtrl.stopTesterPresentTask();
+    return pduRX;
+  }
+  
+  private byte[] downloadDataSegment(byte encrypted, byte[] address, byte[] data, int size, double stepStart, double stepSize) {
+    byte[] pduRX = requestDownload(address, ByteArrayConverterUtil.integerToByteArray(size), encrypted);
+    if (!Helper.isNegativeResponse(pduRX)) {
+      int iBlockLength = getBlockLengthFromRequestDownloadResponse(pduRX, true);
+      pduRX = transferData(data, iBlockLength, 0, stepStart, stepSize, true);
+    } 
+    if (!Helper.isNegativeResponse(pduRX))
+      pduRX = transferExit(); 
+    return pduRX;
+  }
+}
+
+
+========================================================================================================================
+ITEM 25: com/gigatronik/diagserver/utils/Helper.java
+========================================================================================================================
+package com.gigatronik.diagserver.utils;
+
+import com.gigatronik.dart2.framework.util.ByteArrayConverterUtil;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class Helper {
+  private static final Logger LOGGER = LoggerFactory.getLogger(Helper.class);
+  
+  private static final int POSITIVE_UDS_RESPONSE_SID_OFFSET = 64;
+  
+  private static final int NEGATIVE_UDS_RESPONSE_SID = 127;
+  
+  public static void sleepMilliseconds(long millis) {
+    try {
+      Thread.sleep(millis);
+    } catch (InterruptedException ex) {
+      LOGGER.error("Error in sleepMilliseconds ", (Throwable)ex);
+      Thread.currentThread().interrupt();
+    } 
+  }
+  
+  public static boolean isTimeoutResponse(byte[] pduRX) {
+    return (pduRX != null && pduRX.length == 2 && pduRX[0] == Byte.MAX_VALUE);
+  }
+  
+  public static boolean isNegativeResponse(byte[] pduRX) {
+    return (pduRX != null && pduRX.length >= 1 && pduRX[0] == Byte.MAX_VALUE);
+  }
+  
+  public static boolean isPositiveResponse(byte[] pduTX, byte[] pduRX) {
+    return (pduRX != null && pduRX.length >= 1 && pduRX[0] == pduTX[0] + 64);
+  }
+  
+  public static List<String> getSimpleResponse(byte[] pduTX, byte[] pduRX) {
+    List<String> arrResult = new ArrayList<>();
+    if (isPositiveResponse(pduTX, pduRX)) {
+      arrResult.add("POSITIVE");
+    } else {
+      arrResult.add("NEGATIVE");
+      if (pduRX.length == 2) {
+        arrResult.add("Communication");
+        arrResult.add("TimeoutP2");
+      } 
+    } 
+    return arrResult;
+  }
+  
+  public static byte[] concatByteArrays(byte[] by1, byte[] by2) {
+    byte[] by = new byte[by1.length + by2.length];
+    System.arraycopy(by1, 0, by, 0, by1.length);
+    System.arraycopy(by2, 0, by, by1.length, by2.length);
+    return by;
+  }
+  
+  public static byte[] concatByteArrays(byte by1, byte[] by2) {
+    byte[] by = new byte[1 + by2.length];
+    by[0] = by1;
+    System.arraycopy(by2, 0, by, 1, by2.length);
+    return by;
+  }
+  
+  public static byte[] calculateKeyByTea(byte[] t_Seed_ui8, int t_Delta_ui32) {
+    byte t_no_of_Rounds_ui8 = 32;
+    int t_Sum1_ui32 = 0;
+    int t_Sum2_ui32 = 0;
+    int t_Seed_Byte1_ui32 = 0;
+    int t_Seed_Byte2_ui32 = 0;
+    int t_Seed_Byte3_ui32 = 0;
+    int t_Seed_Byte4_ui32 = 0;
+    int t_EncrKey_Byte1_ui32 = 0;
+    int t_EncrKey_Byte2_ui32 = 0;
+    int t_EncrKey_Byte3_ui32 = 0;
+    int t_EncrKey_Byte4_ui32 = 0;
+    int t_SecurityKey_ui32 = 0;
+    t_Seed_Byte1_ui32 = t_Seed_ui8[3] & 0xFF;
+    t_Seed_Byte2_ui32 = t_Seed_ui8[2] & 0xFF;
+    t_Seed_Byte3_ui32 = t_Seed_ui8[1] & 0xFF;
+    t_Seed_Byte4_ui32 = t_Seed_ui8[0] & 0xFF;
+    t_EncrKey_Byte1_ui32 = t_Seed_Byte2_ui32 >>> 1;
+    t_EncrKey_Byte2_ui32 = t_Seed_Byte3_ui32 >>> 1;
+    t_EncrKey_Byte3_ui32 = t_Seed_Byte4_ui32 >>> 1;
+    t_EncrKey_Byte4_ui32 = t_Seed_Byte1_ui32 >>> 1;
+    for (t_no_of_Rounds_ui8 = (byte)(t_no_of_Rounds_ui8 - 1); t_no_of_Rounds_ui8 > 0; ) {
+      t_Sum1_ui32 += t_Delta_ui32;
+      t_Seed_Byte1_ui32 += (t_Seed_Byte2_ui32 << 4) + (t_EncrKey_Byte1_ui32 ^ t_Seed_Byte2_ui32) + t_Sum1_ui32 ^ (t_Seed_Byte2_ui32 >>> 5) + t_EncrKey_Byte2_ui32;
+      t_Seed_Byte2_ui32 += (t_Seed_Byte1_ui32 << 4) + (t_EncrKey_Byte3_ui32 ^ t_Seed_Byte1_ui32) + t_Sum1_ui32 ^ (t_Seed_Byte1_ui32 >>> 5) + t_EncrKey_Byte4_ui32;
+      t_Seed_Byte3_ui32 += (t_Seed_Byte4_ui32 << 4) + (t_EncrKey_Byte3_ui32 ^ t_Seed_Byte4_ui32) + t_Sum1_ui32 ^ (t_Seed_Byte4_ui32 >>> 5) + t_EncrKey_Byte4_ui32;
+      t_Seed_Byte4_ui32 += (t_Seed_Byte3_ui32 << 4) + (t_EncrKey_Byte1_ui32 ^ t_Seed_Byte3_ui32) + t_Sum1_ui32 ^ (t_Seed_Byte3_ui32 >>> 5) + t_EncrKey_Byte2_ui32;
+      t_EncrKey_Byte1_ui32 <<= t_no_of_Rounds_ui8;
+      t_EncrKey_Byte2_ui32 |= t_EncrKey_Byte1_ui32 << t_no_of_Rounds_ui8;
+      t_EncrKey_Byte3_ui32 |= t_EncrKey_Byte2_ui32 << t_no_of_Rounds_ui8;
+      t_EncrKey_Byte4_ui32 |= t_EncrKey_Byte3_ui32 << t_no_of_Rounds_ui8;
+      t_Sum2_ui32 -= t_Delta_ui32;
+    } 
+    t_SecurityKey_ui32 = t_Seed_Byte1_ui32;
+    t_SecurityKey_ui32 <<= 8;
+    t_SecurityKey_ui32 += t_Seed_Byte2_ui32 >>> 8 & 0xFF;
+    t_SecurityKey_ui32 <<= 8;
+    t_SecurityKey_ui32 += t_Seed_Byte3_ui32 >>> 16 & 0xFF;
+    t_SecurityKey_ui32 <<= 8;
+    t_SecurityKey_ui32 += t_Seed_Byte4_ui32 >>> 24 & 0xFF;
+    byte[] aKey = new byte[4];
+    aKey[0] = (byte)(t_Seed_Byte1_ui32 & 0xFF);
+    aKey[1] = (byte)(t_Seed_Byte2_ui32 >>> 8 & 0xFF);
+    aKey[2] = (byte)(t_Seed_Byte3_ui32 >>> 16 & 0xFF);
+    aKey[3] = (byte)(t_Seed_Byte4_ui32 >>> 24 & 0xFF);
+    return aKey;
+  }
+  
+  private static byte[] calculateCRC32Checksum(byte[] data) {
+    long[] LookupTable = new long[256];
+    long DefaultPolyForCRC32 = 3988292384L;
+    byte[] byChkSum = new byte[4];
+    for (int j = 0; j < 256; j++) {
+      long CRC = (long)j;
+      for (int k = 0; k < 8; k++) {
+        if ((CRC & 0x1L) == 1L) {
+          CRC = CRC >>> 1L ^ 0xEDB88320L;
+        } else {
+          CRC >>>= 1L;
+        } 
+      } 
+      LookupTable[j] = CRC;
+    } 
+    long checksum = 4294967295L;
+    for (int i = 0; i < data.length; i++) {
+      int date = data[i] & 0xFF;
+      int index = (int)((long)date ^ checksum & 0xFFL);
+      checksum = (checksum & 0xFFFFFF00L) / 256L & 0xFFFFFFL ^ LookupTable[index];
+    } 
+    checksum = -checksum - 1L;
+    byChkSum[0] = (byte)(int)(checksum >>> 24L & 0xFFL);
+    byChkSum[1] = (byte)(int)(checksum >>> 16L & 0xFFL);
+    byChkSum[2] = (byte)(int)(checksum >>> 8L & 0xFFL);
+    byChkSum[3] = (byte)(int)(checksum & 0xFFL);
+    return byChkSum;
+  }
+  
+  public static byte[] extractEEPData(byte[] eep) {
+    byte[] arrRslt = null;
+    int iByteLen = (eep.length - 32 - 8) / 2;
+    if (iByteLen > 0) {
+      arrRslt = new byte[iByteLen + 4];
+      byte[] arrData = new byte[iByteLen];
+      byte[][] arrAddrData = new byte[iByteLen / 4][8];
+      int iEEP = 32;
+      int iPos = 0;
+      while (iEEP < eep.length - 8) {
+        System.arraycopy(eep, iEEP, arrAddrData[iPos], 0, 8);
+        iEEP += 8;
+        iPos++;
+      } 
+      Arrays.sort(arrAddrData, new Comparator<>() {
+            public int compare(byte[] a, byte[] b) {
+              return ByteArrayConverterUtil.byteArrayToInteger(a) - ByteArrayConverterUtil.byteArrayToInteger(b);
+            }
+          });
+      iPos = 0;
+      for (byte[] arrLine : arrAddrData) {
+        System.arraycopy(arrLine, 4, arrData, iPos, 4);
+        iPos += 4;
+      } 
+      byte[] arrChk = calculateCRC32Checksum(arrData);
+      System.arraycopy(arrChk, 0, arrRslt, 0, 4);
+      System.arraycopy(arrData, 0, arrRslt, 4, arrData.length);
+    } 
+    return arrRslt;
+  }
+}
+
+
+========================================================================================================================
+ITEM 26: com/gigatronik/diagserver/utils/PduSimulation.java
+========================================================================================================================
+package com.gigatronik.diagserver.utils;
+
+import com.gigatronik.dart2.framework.util.ByteArrayConverterUtil;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class PduSimulation {
+  private static final Logger LOGGER = LoggerFactory.getLogger(PduSimulation.class);
+  
+  static byte[] getPositiveResponsePdu(byte[] requestPdu) {
+    requestPdu[0] = (byte)(requestPdu[0] + 64);
+    return requestPdu;
+  }
+  
+  public static byte[] getResponsePdu(String simFile, String ecu, byte[] requestPdu) {
+    String request = "0x" + ByteArrayConverterUtil.byteArrayToHexString(requestPdu);
+    byte[] response = { Byte.MAX_VALUE, requestPdu[0] };
+    try (BufferedReader brSim = new BufferedReader(new FileReader(simFile))) {
+      String line = findFirstRequest(brSim, ecu);
+      while (!StringUtils.isEmpty(line)) {
+        response = findResponse(line, request);
+        if (response != null)
+          break; 
+        line = brSim.readLine();
+      } 
+    } catch (IOException ex) {
+      LOGGER.error("Error in getResponsePdu " + ex);
+    } 
+    return response;
+  }
+  
+  private static byte[] findResponse(String line, String request) {
+    byte[] response = null;
+    String[] entries = line.split(",");
+    if (entries.length >= 3)
+      if (request.length() > entries[1].length()) {
+        if (request.startsWith(entries[1].replace("*", "")))
+          response = calculateResponsePDUFromRequest(request, entries[2]); 
+      } else if (entries[1].startsWith(request)) {
+        response = calculateResponsePDUFromRequest(request, entries[2]);
+      }  
+    return response;
+  }
+  
+  private static String findFirstRequest(BufferedReader br, String ecu) throws IOException {
+    String ecuEntry = "[" + ecu + "]";
+    String line = br.readLine();
+    while (line != null && !StringUtils.startsWith(line, ecuEntry))
+      line = br.readLine(); 
+    while (StringUtils.startsWith(line, "["))
+      line = br.readLine(); 
+    return line;
+  }
+  
+  private static byte[] calculateResponsePDUFromRequest(String request, String response) {
+    int pos = response.indexOf("*");
+    String sResult = "";
+    if (pos >= 0) {
+      sResult = response.substring(0, pos) + response.substring(0, pos);
+    } else {
+      sResult = response;
+    } 
+    return ByteArrayConverterUtil.hexStringToByteArray(sResult);
+  }
+}
+

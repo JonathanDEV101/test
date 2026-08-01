@@ -1,0 +1,1387 @@
+JAR: api-2.0.76.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\api-2.0.76.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/dart2/framework/microservices/entities/v1/EndpointEntity.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.microservices.entities.v1;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.LinkedList;
+import java.util.List;
+
+public abstract class EndpointEntity<T> {
+  @JsonInclude(JsonInclude.Include.NON_EMPTY)
+  @JsonProperty("_items")
+  List<T> items = new LinkedList<>();
+  
+  public void addItem(T item) {
+    this.items.add(item);
+  }
+  
+  public List<T> getItems() {
+    return this.items;
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/dart2/framework/microservices/entities/v1/JaxRsDeserializationLink.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.microservices.entities.v1;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.net.URI;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import javax.ws.rs.core.Link;
+import javax.ws.rs.core.UriBuilder;
+
+public class JaxRsDeserializationLink extends Link {
+  @JsonProperty("href")
+  private URI link;
+  
+  @JsonProperty("rel")
+  private String rel;
+  
+  @JsonProperty("title")
+  private String title;
+  
+  @JsonProperty("type")
+  private String type;
+  
+  public URI getUri() {
+    return this.link;
+  }
+  
+  public UriBuilder getUriBuilder() {
+    return null;
+  }
+  
+  public String getRel() {
+    return this.rel;
+  }
+  
+  public List<String> getRels() {
+    return Collections.emptyList();
+  }
+  
+  public String getTitle() {
+    return this.title;
+  }
+  
+  public String getType() {
+    return this.type;
+  }
+  
+  public Map<String, String> getParams() {
+    return null;
+  }
+  
+  public String toString() {
+    return this.link.toString();
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/dart2/framework/microservices/entities/v1/LinkRelations.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.microservices.entities.v1;
+
+public abstract class LinkRelations {
+  public static final String SELF = "self";
+  
+  public static final String ALTERNATE = "alternate";
+  
+  public static final String BOOKMARK = "bookmark";
+  
+  public static final String LICENCE = "licence";
+  
+  public static final String HELP = "help";
+  
+  public static final String NEXT = "next";
+  
+  public static final String PREV = "prev";
+  
+  public static final String SEARCH = "search";
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/dart2/framework/microservices/entities/v1/MicroserviceEntity.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.microservices.entities.v1;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.gigatronik.dart2.framework.plugins.interfaces.DartPlugin;
+import java.util.LinkedList;
+import java.util.List;
+import javax.ws.rs.core.Link;
+import org.glassfish.jersey.linking.InjectLink;
+import org.glassfish.jersey.linking.InjectLinks;
+
+public class MicroserviceEntity extends EndpointEntity<Void> {
+  @JsonProperty("name")
+  protected String name;
+  
+  @JsonProperty("bundle")
+  protected String bundle;
+  
+  @JsonProperty("id")
+  public String id;
+  
+  @JsonProperty("version")
+  protected String version;
+  
+  @JsonProperty("webContainer")
+  protected WebContainerEntity container;
+  
+  @JsonDeserialize(as = LinkedList.class, contentAs = JaxRsDeserializationLink.class)
+  @JsonProperty("links")
+  @InjectLinks({@InjectLink(value = "/${instance.id}", rel = "bookmark")})
+  protected List<Link> linkList;
+  
+  protected MicroserviceEntity(DartPlugin plugin) {
+    this.name = plugin.getName();
+    this.bundle = plugin.getBundle();
+    this.id = plugin.getUuid().toString();
+    if (plugin.getWebContainer() != null) {
+      this.container = new WebContainerEntity(plugin.getWebContainer());
+    } else {
+      this.container = null;
+    } 
+    this.version = plugin.getVersion();
+  }
+  
+  public MicroserviceEntity() {}
+  
+  public Link getFirstLink() {
+    return this.linkList.get(0);
+  }
+  
+  public String getName() {
+    return this.name;
+  }
+  
+  public void setName(String name) {
+    this.name = name;
+  }
+  
+  public String getBundle() {
+    return this.bundle;
+  }
+  
+  public void setBundle(String bundle) {
+    this.bundle = bundle;
+  }
+  
+  public String getId() {
+    return this.id;
+  }
+  
+  public void setId(String id) {
+    this.id = id;
+  }
+  
+  public WebContainerEntity getContainer() {
+    return this.container;
+  }
+  
+  public void setContainer(WebContainerEntity container) {
+    this.container = container;
+  }
+  
+  public String getVersion() {
+    return this.version;
+  }
+  
+  public void setVersion(String version) {
+    this.version = version;
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/dart2/framework/microservices/entities/v1/WebContainerEntity.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.microservices.entities.v1;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.gigatronik.dart2.framework.plugins.interfaces.Microservice;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+
+public class WebContainerEntity {
+  @JsonProperty("aliases")
+  protected List<String> aliases = new LinkedList<>();
+  
+  @JsonProperty("url")
+  protected String url;
+  
+  public WebContainerEntity() {}
+  
+  public WebContainerEntity(Microservice webContainer) {
+    this.aliases.addAll(Arrays.asList(webContainer.getAliases()));
+    this.url = webContainer.getApplicationContainerURL().toString();
+  }
+  
+  public List<String> getAliases() {
+    return this.aliases;
+  }
+  
+  public void setAliases(List<String> aliases) {
+    this.aliases = aliases;
+  }
+  
+  public String getUrl() {
+    return this.url;
+  }
+  
+  public void setUrl(String url) {
+    this.url = url;
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/dart2/framework/plugins/exceptions/AggregateException.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.exceptions;
+
+public class AggregateException extends Exception {
+  private static final long serialVersionUID = 5374434256576976691L;
+  
+  private final Throwable[] causes;
+  
+  public AggregateException(Throwable... causes) {
+    this.causes = causes;
+  }
+  
+  public Throwable[] getCauses() {
+    return this.causes;
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/dart2/framework/plugins/exceptions/AuthenticationException.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.exceptions;
+
+public class AuthenticationException extends DartPluginException {
+  private static final long serialVersionUID = 7103552095214085177L;
+  
+  public AuthenticationException(String description) {
+    super(description);
+  }
+  
+  public AuthenticationException(Throwable e) {
+    super(e);
+  }
+  
+  public AuthenticationException(String msg, Throwable e) {
+    super(msg, e);
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/dart2/framework/plugins/exceptions/ConfigurationNotFoundException.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.exceptions;
+
+public class ConfigurationNotFoundException extends Exception {
+  private static final long serialVersionUID = -6414315138174462017L;
+  
+  public ConfigurationNotFoundException(String error) {
+    super(error);
+  }
+  
+  public ConfigurationNotFoundException(Throwable e) {
+    super(e);
+  }
+  
+  public ConfigurationNotFoundException(String msg, Throwable e) {
+    super(msg, e);
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/dart2/framework/plugins/exceptions/DartPluginException.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.exceptions;
+
+public abstract class DartPluginException extends Exception {
+  private static final long serialVersionUID = -3086619089972820082L;
+  
+  public DartPluginException(String description) {
+    super(description);
+  }
+  
+  public DartPluginException(Throwable e) {
+    super(e);
+  }
+  
+  public DartPluginException(String msg, Throwable e) {
+    super(msg, e);
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/dart2/framework/plugins/exceptions/DatabaseException.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.exceptions;
+
+public class DatabaseException extends DartPluginException {
+  private static final long serialVersionUID = 1L;
+  
+  public DatabaseException(Throwable e) {
+    super(e);
+  }
+  
+  public DatabaseException(String string) {
+    super(string);
+  }
+  
+  public DatabaseException(String string, Throwable e) {
+    super(string, e);
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/dart2/framework/plugins/exceptions/DiagnosisException.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.exceptions;
+
+public class DiagnosisException extends Exception {
+  private static final long serialVersionUID = 3606090468066548621L;
+  
+  public DiagnosisException(String error) {
+    super(error);
+  }
+  
+  public DiagnosisException(Throwable e) {
+    super(e);
+  }
+  
+  public DiagnosisException(String msg, Throwable e) {
+    super(msg, e);
+  }
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/dart2/framework/plugins/exceptions/DuplicateUuidException.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.exceptions;
+
+public class DuplicateUuidException extends DartPluginException {
+  private static final long serialVersionUID = -5883704397479397132L;
+  
+  public DuplicateUuidException(String description) {
+    super(description);
+  }
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/dart2/framework/plugins/exceptions/FlashException.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.exceptions;
+
+public class FlashException extends Exception {
+  private static final long serialVersionUID = 3606090468066548621L;
+  
+  public FlashException(String error) {
+    super(error);
+  }
+  
+  public FlashException(Throwable e) {
+    super(e);
+  }
+  
+  public FlashException(String msg, Throwable e) {
+    super(msg, e);
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/dart2/framework/plugins/exceptions/HardwareInterfaceException.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.exceptions;
+
+public class HardwareInterfaceException extends DartPluginException {
+  private static final long serialVersionUID = 2962542162909536592L;
+  
+  public HardwareInterfaceException(String message) {
+    super(message);
+  }
+  
+  public HardwareInterfaceException(Throwable e) {
+    super(e);
+  }
+  
+  public HardwareInterfaceException(String msg, Throwable e) {
+    super(msg, e);
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/dart2/framework/plugins/exceptions/NegativeResponseException.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.exceptions;
+
+public class NegativeResponseException extends Exception {
+  private static final long serialVersionUID = -826399246309057753L;
+  
+  public NegativeResponseException(String error) {
+    super(error);
+  }
+  
+  public NegativeResponseException(Throwable e) {
+    super(e);
+  }
+  
+  public NegativeResponseException(String msg, Throwable e) {
+    super(msg, e);
+  }
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/dart2/framework/plugins/exceptions/PluginNotFoundException.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.exceptions;
+
+public class PluginNotFoundException extends DartPluginException {
+  private static final long serialVersionUID = 4086316706892655141L;
+  
+  public PluginNotFoundException(String message) {
+    super(message);
+  }
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/dart2/framework/plugins/exceptions/ProtocolException.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.exceptions;
+
+public class ProtocolException extends Exception {
+  private static final long serialVersionUID = -2291729751900299657L;
+  
+  public ProtocolException(String error) {
+    super(error);
+  }
+  
+  public ProtocolException(String string, Exception e) {
+    super(string, e);
+  }
+}
+
+
+========================================================================================================================
+ITEM 18: com/gigatronik/dart2/framework/plugins/exceptions/TokenInitializationException.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.exceptions;
+
+public class TokenInitializationException extends DartPluginException {
+  private static final long serialVersionUID = 2962542162909536591L;
+  
+  public TokenInitializationException(String message) {
+    super(message);
+  }
+  
+  public TokenInitializationException(Throwable ex) {
+    super(ex);
+  }
+  
+  public TokenInitializationException(String message, Throwable ex) {
+    super(message, ex);
+  }
+}
+
+
+========================================================================================================================
+ITEM 19: com/gigatronik/dart2/framework/plugins/interfaces/AsyncronousDriverDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+public interface AsyncronousDriverDartPlugin<DT extends DriverDartPlugin.Device> extends DriverDartPlugin<DT> {
+  void setHandler(AsynchronousDataHandler<DT> paramAsynchronousDataHandler);
+  
+  public static interface AsynchronousDataHandler<DT extends DriverDartPlugin.Device> {
+    void onData(DT param1DT, byte[] param1ArrayOfbyte);
+    
+    void onConnectionStateChanged(DT param1DT, boolean param1Boolean);
+  }
+}
+
+
+========================================================================================================================
+ITEM 20: com/gigatronik/dart2/framework/plugins/interfaces/CanInterfaceDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.HardwareInterfaceException;
+import com.gigatronik.dart2.framework.plugins.exceptions.ProtocolException;
+
+public interface CanInterfaceDartPlugin extends HardwareInterfaceDartPlugin {
+  void send(short paramShort, byte[] paramArrayOfbyte) throws HardwareInterfaceException, ProtocolException;
+  
+  byte[] send(short paramShort1, short paramShort2, byte[] paramArrayOfbyte, int paramInt) throws HardwareInterfaceException, ProtocolException;
+}
+
+
+========================================================================================================================
+ITEM 21: com/gigatronik/dart2/framework/plugins/interfaces/CredentialsProviderDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.AuthenticationException;
+import java.security.Principal;
+import javax.security.auth.Subject;
+
+public interface CredentialsProviderDartPlugin extends DartPlugin {
+  AuthenticatedUser authenticate(String paramString, Object paramObject) throws AuthenticationException;
+  
+  boolean validate(AuthenticatedUser paramAuthenticatedUser) throws AuthenticationException;
+  
+  void invalidate(AuthenticatedUser paramAuthenticatedUser);
+  
+  public static interface AuthenticatedUser {
+    boolean hasPermission(String param1String) throws AuthenticationException;
+    
+    Principal getPrincipal();
+    
+    Subject getSubject();
+  }
+}
+
+
+========================================================================================================================
+ITEM 22: com/gigatronik/dart2/framework/plugins/interfaces/CustomServiceProviderDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.DatabaseException;
+
+public interface CustomServiceProviderDartPlugin extends HardwareInterfaceDartPlugin {
+  OdxDatabaseDartPlugin.Service[] getServices(String paramString) throws DatabaseException;
+  
+  OdxDatabaseDartPlugin.Service getService(String paramString1, String paramString2) throws DatabaseException;
+}
+
+
+========================================================================================================================
+ITEM 23: com/gigatronik/dart2/framework/plugins/interfaces/DartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import java.util.UUID;
+
+public interface DartPlugin {
+  String getVersion();
+  
+  String getName();
+  
+  String getBundle();
+  
+  UUID getUuid();
+  
+  Microservice getWebContainer();
+  
+  boolean isSingleton();
+}
+
+
+========================================================================================================================
+ITEM 24: com/gigatronik/dart2/framework/plugins/interfaces/DartUIRendererPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+public interface DartUIRendererPlugin extends DartPlugin {
+  void showSplash(PreloadStage paramPreloadStage, DartPlugin paramDartPlugin);
+  
+  void showError(Exception paramException, boolean paramBoolean);
+  
+  public enum PreloadStage {
+    INITIALIZING, LOAD_PLUGIN, START_SERVICES, DONE;
+  }
+}
+
+
+========================================================================================================================
+ITEM 25: com/gigatronik/dart2/framework/plugins/interfaces/defaults/DefaultMicroservice.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces.defaults;
+
+import com.gigatronik.dart2.framework.plugins.interfaces.Microservice;
+import java.net.URL;
+import java.security.ProtectionDomain;
+import java.util.LinkedList;
+import java.util.List;
+
+public class DefaultMicroservice implements Microservice {
+  private final URL location;
+  
+  private final List<String> aliases = new LinkedList<>();
+  
+  public DefaultMicroservice(Class<?> c) {
+    ProtectionDomain protectionDomain = c.getProtectionDomain();
+    this.location = protectionDomain.getCodeSource().getLocation();
+  }
+  
+  public void addAlias(String aliasurl) {
+    this.aliases.add(aliasurl);
+  }
+  
+  public URL getApplicationContainerURL() {
+    return this.location;
+  }
+  
+  public String[] getAliases() {
+    return this.aliases.<String>toArray(new String[this.aliases.size()]);
+  }
+}
+
+
+========================================================================================================================
+ITEM 26: com/gigatronik/dart2/framework/plugins/interfaces/defaults/odxdb/CustomService.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces.defaults.odxdb;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.HardwareInterfaceException;
+import com.gigatronik.dart2.framework.plugins.exceptions.ProtocolException;
+import com.gigatronik.dart2.framework.plugins.interfaces.OdxDatabaseDartPlugin;
+
+public abstract class CustomService implements OdxDatabaseDartPlugin.Service {
+  public static final String CUSTOM_SERVICES_PREFIX = "DART2_CUSTOM_SERVICE__";
+  
+  private final String SHORTNAME;
+  
+  private final String ID;
+  
+  private final OdxDatabaseDartPlugin.Parameter[] PARAMETERS;
+  
+  public CustomService(String serviceShortname, String ecuShortname, OdxDatabaseDartPlugin.Parameter... parameters) {
+    this.SHORTNAME = "DART2_CUSTOM_SERVICE__" + serviceShortname;
+    this.ID = ecuShortname + "_" + serviceShortname;
+    this.PARAMETERS = parameters;
+  }
+  
+  public OdxDatabaseDartPlugin.Service.AddressingType getAddressing() {
+    return OdxDatabaseDartPlugin.Service.AddressingType.PHYSICAL;
+  }
+  
+  public boolean isPhysical() {
+    return true;
+  }
+  
+  public boolean isFunctional() {
+    return false;
+  }
+  
+  public String getShortName() {
+    return this.SHORTNAME;
+  }
+  
+  public OdxDatabaseDartPlugin.Request getRequest() {
+    return new CustomServiceRequest(this.ID + "_request", this.PARAMETERS);
+  }
+  
+  public String getId() {
+    return this.ID;
+  }
+  
+  public OdxDatabaseDartPlugin.Response setResponsePDU(byte[] rawresponse) {
+    return null;
+  }
+  
+  public static boolean isCustomServiceShortname(String shortname) {
+    return shortname.startsWith("DART2_CUSTOM_SERVICE__");
+  }
+  
+  public abstract OdxDatabaseDartPlugin.Response execute(OdxDatabaseDartPlugin.Request paramRequest) throws ProtocolException, HardwareInterfaceException;
+}
+
+
+========================================================================================================================
+ITEM 27: com/gigatronik/dart2/framework/plugins/interfaces/defaults/odxdb/CustomServiceParameter.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces.defaults.odxdb;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.DatabaseException;
+import com.gigatronik.dart2.framework.plugins.interfaces.OdxDatabaseDartPlugin;
+
+public class CustomServiceParameter implements OdxDatabaseDartPlugin.Parameter {
+  private final OdxDatabaseDartPlugin.Datatype DATATYPE;
+  
+  private final boolean IS_CONSTANT;
+  
+  private final String SHORTNAME;
+  
+  private String value;
+  
+  public CustomServiceParameter(String shortname, OdxDatabaseDartPlugin.Datatype datatype, String value, boolean constant) {
+    this.IS_CONSTANT = constant;
+    this.SHORTNAME = shortname;
+    this.DATATYPE = datatype;
+    this.value = value;
+  }
+  
+  public String getShortName() {
+    return this.SHORTNAME;
+  }
+  
+  public boolean isConstant() {
+    return this.IS_CONSTANT;
+  }
+  
+  public boolean isStructure() {
+    return false;
+  }
+  
+  public OdxDatabaseDartPlugin.Structure getStructure() {
+    return null;
+  }
+  
+  public OdxDatabaseDartPlugin.Datatype getDatatype() {
+    return this.DATATYPE;
+  }
+  
+  public void setValue(String value) {
+    this.value = value;
+  }
+  
+  public String getPrintableValue() {
+    return this.value;
+  }
+  
+  public OdxDatabaseDartPlugin.Value getValue() {
+    return new OdxDatabaseDartPlugin.Value() {
+        public int asInteger() {
+          return Integer.parseInt(CustomServiceParameter.this.value);
+        }
+        
+        public String asString() {
+          return CustomServiceParameter.this.value;
+        }
+      };
+  }
+  
+  public void setValue(byte[] value) throws DatabaseException {
+    throw new UnsupportedOperationException("Not supported yet.");
+  }
+  
+  public void setValue(double value) throws DatabaseException {
+    throw new UnsupportedOperationException("Not supported yet.");
+  }
+  
+  public void setValue(long value) throws DatabaseException {
+    throw new UnsupportedOperationException("Not supported yet.");
+  }
+  
+  public OdxDatabaseDartPlugin.EndOfPduField getEndOfPduField() {
+    return null;
+  }
+  
+  public long getLowerLimit() {
+    throw new UnsupportedOperationException("Not supported yet.");
+  }
+  
+  public long getUpperLimit() {
+    throw new UnsupportedOperationException("Not supported yet.");
+  }
+}
+
+
+========================================================================================================================
+ITEM 28: com/gigatronik/dart2/framework/plugins/interfaces/defaults/odxdb/CustomServiceRequest.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces.defaults.odxdb;
+
+import com.gigatronik.dart2.framework.plugins.interfaces.OdxDatabaseDartPlugin;
+import java.util.HashMap;
+import java.util.Map;
+
+public class CustomServiceRequest implements OdxDatabaseDartPlugin.Request {
+  private final String ID;
+  
+  protected final Map<String, OdxDatabaseDartPlugin.Parameter> PARAMETERS = new HashMap<>();
+  
+  public CustomServiceRequest(String id, OdxDatabaseDartPlugin.Parameter[] parameters) {
+    this.ID = id;
+    for (OdxDatabaseDartPlugin.Parameter parameter : parameters)
+      this.PARAMETERS.put(parameter.getShortName(), parameter); 
+  }
+  
+  public String getId() {
+    return this.ID;
+  }
+  
+  public OdxDatabaseDartPlugin.Parameter[] getParameter() {
+    return (OdxDatabaseDartPlugin.Parameter[])this.PARAMETERS.values().toArray(new OdxDatabaseDartPlugin.Parameter[this.PARAMETERS.size()]);
+  }
+  
+  public OdxDatabaseDartPlugin.Parameter getParameter(String shortname) {
+    return this.PARAMETERS.get(shortname);
+  }
+  
+  public byte[] getPdu() {
+    return null;
+  }
+}
+
+
+========================================================================================================================
+ITEM 29: com/gigatronik/dart2/framework/plugins/interfaces/defaults/odxdb/CustomServiceResponse.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces.defaults.odxdb;
+
+import com.gigatronik.dart2.framework.plugins.interfaces.OdxDatabaseDartPlugin;
+import java.util.HashMap;
+import java.util.Map;
+
+public class CustomServiceResponse implements OdxDatabaseDartPlugin.Response {
+  private final Map<String, CustomServiceParameter> PARAMETERS = new HashMap<>();
+  
+  public CustomServiceResponse(Map<String, String> parameters) {
+    for (Map.Entry<String, String> param : parameters.entrySet()) {
+      CustomServiceParameter parameter = new CustomServiceParameter(param.getKey(), OdxDatabaseDartPlugin.Datatype.STRING, param.getValue(), false);
+      this.PARAMETERS.put(parameter.getShortName(), parameter);
+    } 
+  }
+  
+  public boolean isPositive() {
+    return (this.PARAMETERS != null);
+  }
+  
+  public OdxDatabaseDartPlugin.Parameter[] getParameter() {
+    return (OdxDatabaseDartPlugin.Parameter[])this.PARAMETERS.values().toArray(new OdxDatabaseDartPlugin.Parameter[this.PARAMETERS.size()]);
+  }
+  
+  public OdxDatabaseDartPlugin.Parameter getParameter(String shortname) {
+    return this.PARAMETERS.get(shortname);
+  }
+  
+  public static OdxDatabaseDartPlugin.Response newGenericPositiveResponse() {
+    return new CustomServiceResponse(new HashMap<>());
+  }
+}
+
+
+========================================================================================================================
+ITEM 30: com/gigatronik/dart2/framework/plugins/interfaces/DiagnosicDatasourceDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import java.net.URL;
+
+public interface DiagnosicDatasourceDartPlugin extends DartPlugin {
+  URL[] getFiles();
+  
+  String getEncryptionKey();
+}
+
+
+========================================================================================================================
+ITEM 31: com/gigatronik/dart2/framework/plugins/interfaces/DiagServerDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.DartPluginException;
+
+public interface DiagServerDartPlugin extends DartPlugin {
+  void start() throws DartPluginException;
+  
+  void stop();
+  
+  FlashProviderDartPlugin getFlashProvider() throws DartPluginException;
+  
+  ParameterizationProviderDartPlugin getParameterizationProvider() throws DartPluginException;
+  
+  FaultMemoryProviderDartPlugin getFaultMemoryProvider() throws DartPluginException;
+  
+  CustomServiceProviderDartPlugin getCustomServiceProvider() throws DartPluginException;
+  
+  ServiceProviderDartPlugin getServiceProvider() throws DartPluginException;
+}
+
+
+========================================================================================================================
+ITEM 32: com/gigatronik/dart2/framework/plugins/interfaces/DriverDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.HardwareInterfaceException;
+import java.util.List;
+
+public interface DriverDartPlugin<DT extends DriverDartPlugin.Device> extends DartPlugin {
+  void initialize() throws HardwareInterfaceException;
+  
+  void uninitialize();
+  
+  boolean isInitialized();
+  
+  List<DT> getDevices();
+  
+  public static interface Device {
+    boolean isConnected();
+    
+    void tx(byte[] param1ArrayOfbyte) throws HardwareInterfaceException;
+    
+    void tx(byte param1Byte, byte[] param1ArrayOfbyte) throws HardwareInterfaceException;
+    
+    Object getId();
+    
+    Object getType();
+    
+    void invalidate();
+  }
+}
+
+
+========================================================================================================================
+ITEM 33: com/gigatronik/dart2/framework/plugins/interfaces/EnvironmentCheckDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+public interface EnvironmentCheckDartPlugin extends DartPlugin {
+  EnvironmentSnapshotDartPlugin.CheckResult execute();
+}
+
+
+========================================================================================================================
+ITEM 34: com/gigatronik/dart2/framework/plugins/interfaces/EnvironmentSnapshotDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import java.util.Date;
+import java.util.List;
+
+public interface EnvironmentSnapshotDartPlugin extends DartPlugin {
+  Snapshot createSnapshot();
+  
+  Snapshot getResults(EnvironmentCheckDartPlugin... paramVarArgs);
+  
+  public static interface Snapshot {
+    List<EnvironmentSnapshotDartPlugin.CheckResult> getResults();
+    
+    Date getTimestamp();
+  }
+  
+  public static interface CheckResult {
+    EnvironmentCheckDartPlugin getCheck();
+    
+    Object getResult();
+  }
+}
+
+
+========================================================================================================================
+ITEM 35: com/gigatronik/dart2/framework/plugins/interfaces/FaultMemoryProviderDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.HardwareInterfaceException;
+import com.gigatronik.dart2.framework.plugins.exceptions.ProtocolException;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+
+public interface FaultMemoryProviderDartPlugin extends HardwareInterfaceDartPlugin {
+  List<FaultMemoryEntry> getFaults(short paramShort) throws HardwareInterfaceException, ProtocolException;
+  
+  void clearFaults(short paramShort) throws HardwareInterfaceException, ProtocolException;
+  
+  public static interface FaultMemoryEntry {
+    int getCode();
+    
+    Date getDate();
+    
+    String getDetail(Locale param1Locale);
+    
+    String getCaption(Locale param1Locale);
+  }
+}
+
+
+========================================================================================================================
+ITEM 36: com/gigatronik/dart2/framework/plugins/interfaces/FlashProviderDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.FlashException;
+import com.gigatronik.dart2.framework.plugins.exceptions.HardwareInterfaceException;
+import java.io.InputStream;
+
+public interface FlashProviderDartPlugin extends HardwareInterfaceDartPlugin {
+  void flash(int paramInt, InputStream paramInputStream, Object... paramVarArgs) throws HardwareInterfaceException, FlashException;
+}
+
+
+========================================================================================================================
+ITEM 37: com/gigatronik/dart2/framework/plugins/interfaces/HardwareInterfaceDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.HardwareInterfaceException;
+import java.util.Observer;
+
+public interface HardwareInterfaceDartPlugin extends DartPlugin {
+  void subscribe(Observer paramObserver, boolean paramBoolean);
+  
+  void unsubscribe(Observer paramObserver);
+  
+  void init(AsyncronousDriverDartPlugin paramAsyncronousDriverDartPlugin) throws HardwareInterfaceException;
+  
+  void init(SynchronousDriverDartPlugin paramSynchronousDriverDartPlugin) throws HardwareInterfaceException;
+  
+  void stop();
+}
+
+
+========================================================================================================================
+ITEM 38: com/gigatronik/dart2/framework/plugins/interfaces/LicenceManagerDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.AuthenticationException;
+import java.util.Date;
+import java.util.Map;
+import javax.security.auth.login.FailedLoginException;
+
+public interface LicenceManagerDartPlugin extends DartPlugin {
+  Licence activate(String paramString) throws AuthenticationException, FailedLoginException;
+  
+  Licence verify(String paramString) throws AuthenticationException, FailedLoginException;
+  
+  Licence create(Map<String, Object> paramMap) throws AuthenticationException;
+  
+  public static interface Licence {
+    String getKey();
+    
+    Date getIssueDate();
+    
+    Map<String, Object> getProperties();
+  }
+}
+
+
+========================================================================================================================
+ITEM 39: com/gigatronik/dart2/framework/plugins/interfaces/LogConsumerDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+public interface LogConsumerDartPlugin extends DartPlugin {}
+
+
+========================================================================================================================
+ITEM 40: com/gigatronik/dart2/framework/plugins/interfaces/Microservice.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import java.net.URL;
+
+public interface Microservice {
+  URL getApplicationContainerURL();
+  
+  String[] getAliases();
+}
+
+
+========================================================================================================================
+ITEM 41: com/gigatronik/dart2/framework/plugins/interfaces/OdxDatabaseDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.DatabaseException;
+import com.gigatronik.dart2.framework.plugins.exceptions.PluginNotFoundException;
+import org.apache.commons.lang3.StringUtils;
+
+public interface OdxDatabaseDartPlugin extends DartPlugin {
+  Service getService(String paramString1, String paramString2) throws PluginNotFoundException, DatabaseException;
+  
+  Ecu getEcu(String paramString) throws DatabaseException, PluginNotFoundException;
+  
+  Ecu[] getBaseVariants();
+  
+  Ecu[] getEcuVariants(Ecu paramEcu);
+  
+  public enum Datatype {
+    INT32("A_INT32"),
+    UINT32("A_UINT32"),
+    FLOAT32("A_FLOAT32"),
+    FLOAT64("A_FLOAT64"),
+    STRING("A_UNICODE2STRING"),
+    TEXTTABLE("A_TEXTTABLE"),
+    BYTEFIELD("A_BYTEFIELD"),
+    BCD("A_BCD"),
+    UNKNOWN("UNKNOWN");
+    
+    private final String xml;
+    
+    Datatype(String text) {
+      this.xml = text;
+    }
+    
+    public static Datatype fromXml(String name) {
+      for (Datatype encoding : values()) {
+        if (encoding.xml.equals(name))
+          return encoding; 
+      } 
+      return UNKNOWN;
+    }
+    
+    public String toXml() {
+      return this.xml;
+    }
+  }
+  
+  public static interface Value {
+    int asInteger();
+    
+    String asString();
+  }
+  
+  public static interface Structure {
+    OdxDatabaseDartPlugin.Parameter[] getParameter();
+    
+    OdxDatabaseDartPlugin.Parameter getParameter(String param1String);
+    
+    OdxDatabaseDartPlugin.Parameter getNestedParameter(String param1String);
+  }
+  
+  public static interface EndOfPduField {
+    int getStructureNumber();
+    
+    int getStructureSize();
+    
+    OdxDatabaseDartPlugin.Structure getStructureByIndex(int param1Int) throws DatabaseException;
+  }
+  
+  public static interface Parameter {
+    String getShortName();
+    
+    boolean isConstant();
+    
+    boolean isStructure();
+    
+    OdxDatabaseDartPlugin.Structure getStructure();
+    
+    OdxDatabaseDartPlugin.EndOfPduField getEndOfPduField();
+    
+    OdxDatabaseDartPlugin.Datatype getDatatype();
+    
+    void setValue(String param1String) throws DatabaseException;
+    
+    void setValue(long param1Long) throws DatabaseException;
+    
+    void setValue(double param1Double) throws DatabaseException;
+    
+    void setValue(byte[] param1ArrayOfbyte) throws DatabaseException;
+    
+    String getPrintableValue();
+    
+    OdxDatabaseDartPlugin.Value getValue();
+    
+    long getLowerLimit();
+    
+    long getUpperLimit();
+  }
+  
+  public static interface Response {
+    boolean isPositive();
+    
+    OdxDatabaseDartPlugin.Parameter[] getParameter();
+    
+    OdxDatabaseDartPlugin.Parameter getParameter(String param1String);
+  }
+  
+  public static interface Request {
+    String getId();
+    
+    OdxDatabaseDartPlugin.Parameter[] getParameter();
+    
+    OdxDatabaseDartPlugin.Parameter getParameter(String param1String);
+    
+    byte[] getPdu();
+  }
+  
+  public static interface Service {
+    boolean isFunctional();
+    
+    boolean isPhysical();
+    
+    String getShortName();
+    
+    OdxDatabaseDartPlugin.Request getRequest();
+    
+    String getId();
+    
+    OdxDatabaseDartPlugin.Response setResponsePDU(byte[] param1ArrayOfbyte) throws DatabaseException;
+    
+    AddressingType getAddressing();
+    
+    public enum AddressingType {
+      PHYSICAL("PHYSICAL"),
+      FUNCTIONAL("FUNCTIONAL"),
+      FUNCTIONAL_OR_PHYSICAL("FUNCTIONAL-OR-PHYSICAL"),
+      UNKNOWN("Unknown");
+      
+      private final String typeValue;
+      
+      AddressingType(String typeValue) {
+        this.typeValue = typeValue;
+      }
+      
+      public static AddressingType fromString(String typeValue) {
+        if (StringUtils.isEmpty(typeValue))
+          return UNKNOWN; 
+        for (AddressingType value : values()) {
+          if (StringUtils.equals(value.typeValue, typeValue))
+            return value; 
+        } 
+        throw new IllegalArgumentException(typeValue + " cannot be transformed to an AdressingType");
+      }
+    }
+  }
+  
+  public static interface Ecu {
+    OdxDatabaseDartPlugin.Service[] getServices();
+    
+    short getCanTxId();
+    
+    short getCanRxId();
+    
+    OdxDatabaseDartPlugin.Service getService(String param1String);
+    
+    String getShortName();
+    
+    String getLongName();
+    
+    String getId();
+    
+    Object getComParameter(String param1String);
+    
+    short getCanFunctionalId();
+  }
+}
+
+
+========================================================================================================================
+ITEM 42: com/gigatronik/dart2/framework/plugins/interfaces/ParameterizationProviderDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.HardwareInterfaceException;
+import com.gigatronik.dart2.framework.plugins.exceptions.ProtocolException;
+
+public interface ParameterizationProviderDartPlugin extends HardwareInterfaceDartPlugin {
+  byte[] readRaw(int paramInt) throws HardwareInterfaceException, ProtocolException;
+  
+  void writeRaw(short paramShort, byte[] paramArrayOfbyte) throws HardwareInterfaceException, ProtocolException;
+}
+
+
+========================================================================================================================
+ITEM 43: com/gigatronik/dart2/framework/plugins/interfaces/RemoteClientDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import java.io.IOException;
+import java.util.Map;
+import java.util.Properties;
+import javax.swing.JFrame;
+
+public interface RemoteClientDartPlugin extends DartPlugin {
+  void connectToClient(String paramString) throws IOException;
+  
+  void disconnectFromClient();
+  
+  void connectToServer();
+  
+  void initialize(JFrame paramJFrame) throws IOException;
+  
+  <T extends DartPlugin> T getRemotePlugin(Class<T> paramClass);
+  
+  Properties getProperties();
+  
+  void logRemote(Map<String, String> paramMap);
+  
+  void addListener(RemoteClientListener paramRemoteClientListener);
+  
+  void removeListener(RemoteClientListener paramRemoteClientListener);
+  
+  public static interface RemoteClientListener {
+    void onClientIDChanged(String param1String);
+    
+    void onConnectionStateChanged(boolean param1Boolean, String param1String);
+    
+    void onSessionStateChanged(boolean param1Boolean, String param1String);
+  }
+}
+
+
+========================================================================================================================
+ITEM 44: com/gigatronik/dart2/framework/plugins/interfaces/ServiceProviderDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.HardwareInterfaceException;
+import com.gigatronik.dart2.framework.plugins.exceptions.ProtocolException;
+
+public interface ServiceProviderDartPlugin extends HardwareInterfaceDartPlugin {
+  OdxDatabaseDartPlugin.Response execute(OdxDatabaseDartPlugin.Ecu paramEcu, OdxDatabaseDartPlugin.Service paramService) throws HardwareInterfaceException, ProtocolException;
+}
+
+
+========================================================================================================================
+ITEM 45: com/gigatronik/dart2/framework/plugins/interfaces/SynchronousDriverDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import java.io.IOException;
+
+public interface SynchronousDriverDartPlugin extends DriverDartPlugin {
+  int rx(DriverDartPlugin.Device paramDevice, byte[] paramArrayOfbyte) throws IOException;
+  
+  int rxTimeout(DriverDartPlugin.Device paramDevice, byte[] paramArrayOfbyte, int paramInt);
+}
+
+
+========================================================================================================================
+ITEM 46: com/gigatronik/dart2/framework/plugins/interfaces/TokenDartPlugin.java
+========================================================================================================================
+package com.gigatronik.dart2.framework.plugins.interfaces;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.TokenInitializationException;
+import java.util.Map;
+
+public interface TokenDartPlugin extends DartPlugin {
+  void initialize() throws TokenInitializationException;
+  
+  void uninitialize() throws TokenInitializationException;
+  
+  boolean isDongleAvailable();
+  
+  Map<String, String> getTokenProperties();
+  
+  String getId();
+  
+  Object encrypt(String paramString, Object paramObject, Map<String, Object> paramMap);
+  
+  Object decrypt(String paramString, Object paramObject, Map<String, Object> paramMap);
+}
+

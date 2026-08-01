@@ -1,0 +1,443 @@
+JAR: task.queue-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\task.queue-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/taskqueue/api/TaskCompletionEvent.java
+========================================================================================================================
+package com.gigatronik.beds.service.taskqueue.api;
+
+public class TaskCompletionEvent {
+  private boolean wasSuccessful;
+  
+  public TaskCompletionEvent(boolean wasSuccessful) {
+    this.wasSuccessful = wasSuccessful;
+  }
+  
+  public boolean wasSuccessful() {
+    return this.wasSuccessful;
+  }
+  
+  public String toString() {
+    return "wasSuccessful = " + this.wasSuccessful;
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/service/taskqueue/api/TaskExecutionObserver.java
+========================================================================================================================
+package com.gigatronik.beds.service.taskqueue.api;
+
+public interface TaskExecutionObserver {
+  void onExecutionFinished(TaskCompletionEvent paramTaskCompletionEvent);
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/service/taskqueue/api/TaskQueue.java
+========================================================================================================================
+package com.gigatronik.beds.service.taskqueue.api;
+
+public interface TaskQueue {
+  TaskReference add(TaskType paramTaskType, Runnable paramRunnable);
+  
+  TaskReference add(TaskType paramTaskType, Runnable paramRunnable, TaskExecutionObserver paramTaskExecutionObserver);
+  
+  boolean isTypeRunning(TaskType paramTaskType);
+  
+  boolean isTypeQueued(TaskType paramTaskType);
+  
+  boolean isAnyRunning();
+  
+  boolean isAnyQueued();
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/service/taskqueue/api/TaskReference.java
+========================================================================================================================
+package com.gigatronik.beds.service.taskqueue.api;
+
+public interface TaskReference {
+  void waitForCompletion() throws InterruptedException;
+  
+  void waitForCompletion(long paramLong) throws InterruptedException;
+  
+  void cancel();
+  
+  boolean isRunning();
+  
+  boolean isDone();
+  
+  boolean isError();
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/service/taskqueue/api/TaskType.java
+========================================================================================================================
+package com.gigatronik.beds.service.taskqueue.api;
+
+public enum TaskType {
+  DIAGNOSTIC_TAB_DATA_READING(5, false),
+  CONFIG_TAB_DATA_READING(3, false),
+  FLASHING(1, true);
+  
+  private int priority;
+  
+  private boolean clearQueueAfterExecution;
+  
+  TaskType(int priority, boolean clearQueueAfterExecution) {
+    this.priority = priority;
+    this.clearQueueAfterExecution = clearQueueAfterExecution;
+  }
+  
+  public int getPriority() {
+    return this.priority;
+  }
+  
+  public boolean shouldQueueBeClearedAfterExecution() {
+    return this.clearQueueAfterExecution;
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/service/taskqueue/impl/ExecutionState.java
+========================================================================================================================
+package com.gigatronik.beds.service.taskqueue.impl;
+
+enum ExecutionState {
+  QUEUED, RUNNING, ABORTING, TERMINATED_SUCCESS, TERMINATED_ERROR;
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/service/taskqueue/impl/Job.java
+========================================================================================================================
+package com.gigatronik.beds.service.taskqueue.impl;
+
+import com.gigatronik.beds.service.taskqueue.api.TaskExecutionObserver;
+import com.gigatronik.beds.service.taskqueue.api.TaskReference;
+import com.gigatronik.beds.service.taskqueue.api.TaskType;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Future;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class Job implements TaskReference {
+  private static final Logger LOGGER = LoggerFactory.getLogger(Job.class);
+  
+  private Runnable task;
+  
+  private TaskType type;
+  
+  private ExecutionState state;
+  
+  private List<TaskExecutionObserver> callbacks = new ArrayList<>();
+  
+  private Future<?> future;
+  
+  Job(Runnable task, TaskType type, ExecutionState state, TaskExecutionObserver callback) {
+    this.task = task;
+    this.type = type;
+    this.state = state;
+    addCallback(callback);
+  }
+  
+  Runnable getTask() {
+    return this.task;
+  }
+  
+  TaskType getType() {
+    return this.type;
+  }
+  
+  ExecutionState getState() {
+    return this.state;
+  }
+  
+  synchronized void setState(ExecutionState state) {
+    this.state = state;
+    LOGGER.debug("Task '{}' state has been updated to '{}'", this, state);
+    if (state == ExecutionState.TERMINATED_SUCCESS || state == ExecutionState.TERMINATED_ERROR)
+      notifyAll(); 
+  }
+  
+  List<TaskExecutionObserver> getCallbacks() {
+    return this.callbacks;
+  }
+  
+  void addCallback(TaskExecutionObserver callback) {
+    if (callback != null)
+      this.callbacks.add(callback); 
+  }
+  
+  void setFuture(Future<?> future) {
+    this.future = future;
+  }
+  
+  public synchronized void waitForCompletion() throws InterruptedException {
+    LOGGER.debug("Start waiting for task='{}' termination without timeout", this.type);
+    while (this.state != ExecutionState.TERMINATED_SUCCESS || this.state != ExecutionState.TERMINATED_ERROR)
+      wait(); 
+    LOGGER.debug("Finish waiting for task='{}'", this.type);
+  }
+  
+  public synchronized void waitForCompletion(long timeout) throws InterruptedException {
+    long scheduledTime = System.currentTimeMillis();
+    long remainingWaitingTime = timeout;
+    boolean timedOut = false;
+    LOGGER.debug("Start waiting for task='{}' termination with timeout limit='{}'", this.type, Long.valueOf(timeout));
+    while (!isTaskTerminated() && !timedOut && remainingWaitingTime > 0L) {
+      wait(remainingWaitingTime);
+      long currentTime = System.currentTimeMillis();
+      timedOut = (currentTime - timeout >= scheduledTime);
+      remainingWaitingTime = scheduledTime - currentTime + timeout;
+    } 
+    LOGGER.debug("Finish waiting for task='{}' (timed out='{}')", this.type, Boolean.valueOf(timedOut));
+  }
+  
+  private boolean isTaskTerminated() {
+    return (this.state == ExecutionState.TERMINATED_SUCCESS || this.state == ExecutionState.TERMINATED_ERROR);
+  }
+  
+  public void cancel() {
+    if (this.future != null) {
+      this.future.cancel(true);
+      setState(ExecutionState.ABORTING);
+    } 
+  }
+  
+  public boolean isRunning() {
+    return (this.state == ExecutionState.RUNNING || this.state == ExecutionState.ABORTING);
+  }
+  
+  public boolean isDone() {
+    return (this.state == ExecutionState.TERMINATED_SUCCESS);
+  }
+  
+  public boolean isError() {
+    return (this.state == ExecutionState.TERMINATED_ERROR);
+  }
+  
+  public String toString() {
+    return this.type.toString();
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/beds/service/taskqueue/impl/TaskQueueFactory.java
+========================================================================================================================
+package com.gigatronik.beds.service.taskqueue.impl;
+
+import com.gigatronik.beds.service.taskqueue.api.TaskQueue;
+import java.util.concurrent.Executors;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+
+public class TaskQueueFactory {
+  private static final TaskQueue INSTANCE = new TaskQueueImpl(
+      Executors.newSingleThreadScheduledExecutor(new BasicThreadFactory.Builder().namingPattern("TaskQueue-%d").build()), new TaskSchedule());
+  
+  public static TaskQueue getInstance() {
+    return INSTANCE;
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/beds/service/taskqueue/impl/TaskQueueImpl.java
+========================================================================================================================
+package com.gigatronik.beds.service.taskqueue.impl;
+
+import com.gigatronik.beds.service.taskqueue.api.TaskCompletionEvent;
+import com.gigatronik.beds.service.taskqueue.api.TaskExecutionObserver;
+import com.gigatronik.beds.service.taskqueue.api.TaskQueue;
+import com.gigatronik.beds.service.taskqueue.api.TaskReference;
+import com.gigatronik.beds.service.taskqueue.api.TaskType;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class TaskQueueImpl implements TaskQueue {
+  private static final Logger LOGGER = LoggerFactory.getLogger(TaskQueueImpl.class);
+  
+  private ScheduledExecutorService executor;
+  
+  private TaskSchedule schedule;
+  
+  private Job runningTask;
+  
+  TaskQueueImpl(ScheduledExecutorService executor, TaskSchedule schedule) {
+    this.executor = executor;
+    this.schedule = schedule;
+  }
+  
+  public TaskReference add(TaskType type, Runnable task) {
+    return add(type, task, null);
+  }
+  
+  public TaskReference add(TaskType type, Runnable task, TaskExecutionObserver callback) {
+    Job job = new Job(task, type, ExecutionState.QUEUED, callback);
+    LOGGER.info("Add new task to queue '{}'", job);
+    this.schedule.push(job);
+    scheduleTaskIfIdle();
+    return job;
+  }
+  
+  private synchronized void scheduleTaskIfIdle() {
+    if (this.runningTask == null)
+      scheduleTask(); 
+  }
+  
+  private void scheduleTask() {
+    this.runningTask = this.schedule.pop();
+    if (this.runningTask != null) {
+      LOGGER.info("Schedule task '{}'", this.runningTask);
+      this.runningTask.setState(ExecutionState.RUNNING);
+      this.runningTask.setFuture(this.executor.schedule(this.runningTask.getTask(), 0L, TimeUnit.MILLISECONDS));
+      queueManagementTask();
+    } 
+  }
+  
+  private void queueManagementTask() {
+    this.executor.schedule(this::onTaskFinished, 0L, TimeUnit.MILLISECONDS);
+  }
+  
+  synchronized void onTaskFinished() {
+    finalizeTask();
+    scheduleTaskIfIdle();
+  }
+  
+  private void finalizeTask() {
+    if (this.runningTask != null) {
+      updateTaskStateUponCompletion();
+      LOGGER.info("Task '{}' terminated with state '{}'", this.runningTask, this.runningTask.getState());
+      fireTaskExecutionFinishedEvent(this.runningTask);
+      this.runningTask = null;
+    } 
+  }
+  
+  private void updateTaskStateUponCompletion() {
+    this.runningTask.setState((this.runningTask.getState() == ExecutionState.RUNNING) ? ExecutionState.TERMINATED_SUCCESS : ExecutionState.TERMINATED_ERROR);
+  }
+  
+  private void fireTaskExecutionFinishedEvent(Job job) {
+    List<TaskExecutionObserver> callbacks = job.getCallbacks();
+    if (!callbacks.isEmpty()) {
+      TaskCompletionEvent event = new TaskCompletionEvent((job.getState() == ExecutionState.TERMINATED_SUCCESS));
+      LOGGER.info("Fire task completion event '{}'", event);
+      callbacks.forEach(callback -> callback.onExecutionFinished(event));
+    } 
+  }
+  
+  public boolean isTypeRunning(TaskType type) {
+    if (this.runningTask != null)
+      return (this.runningTask.getType() == type); 
+    return false;
+  }
+  
+  public boolean isTypeQueued(TaskType type) {
+    return this.schedule.isTypeQueued(type);
+  }
+  
+  public boolean isAnyRunning() {
+    return (this.runningTask != null);
+  }
+  
+  public boolean isAnyQueued() {
+    return Arrays.<TaskType>stream(TaskType.values()).anyMatch(type -> isTypeQueued(type));
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/beds/service/taskqueue/impl/TaskSchedule.java
+========================================================================================================================
+package com.gigatronik.beds.service.taskqueue.impl;
+
+import com.gigatronik.beds.service.taskqueue.api.TaskCompletionEvent;
+import com.gigatronik.beds.service.taskqueue.api.TaskExecutionObserver;
+import com.gigatronik.beds.service.taskqueue.api.TaskType;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class TaskSchedule implements TaskExecutionObserver {
+  private static final Logger LOGGER = LoggerFactory.getLogger(TaskSchedule.class);
+  
+  private List<Job> openJobs;
+  
+  private boolean isRejectionMode = false;
+  
+  TaskSchedule() {
+    this.openJobs = new ArrayList<>();
+  }
+  
+  synchronized void push(Job job) {
+    if (this.isRejectionMode) {
+      rejectJob(job);
+    } else {
+      this.openJobs.add(job);
+    } 
+  }
+  
+  private void rejectJob(Job job) {
+    LOGGER.warn("Rejecting incoming task '{}'", job.getType());
+    job.setState(ExecutionState.TERMINATED_ERROR);
+    TaskCompletionEvent taskRejectEvent = new TaskCompletionEvent(false);
+    job.getCallbacks().forEach(callback -> callback.onExecutionFinished(taskRejectEvent));
+  }
+  
+  synchronized Job pop() {
+    Job highestPriorityJob = determineHighestPriorityJob();
+    if (highestPriorityJob != null)
+      adaptQueueContent(highestPriorityJob); 
+    return highestPriorityJob;
+  }
+  
+  private Job determineHighestPriorityJob() {
+    Optional<Job> element = this.openJobs.stream().max(Comparator.comparingInt(job -> job.getType().getPriority()));
+    if (element.isPresent())
+      return element.get(); 
+    return null;
+  }
+  
+  private void adaptQueueContent(Job scheduledJob) {
+    if (scheduledJob.getType().shouldQueueBeClearedAfterExecution()) {
+      clearSchedule();
+      startRejectionMode(scheduledJob);
+    } else {
+      this.openJobs.remove(scheduledJob);
+    } 
+  }
+  
+  private void clearSchedule() {
+    LOGGER.debug("Reset task queue");
+    this.openJobs.clear();
+  }
+  
+  private void startRejectionMode(Job scheduledJob) {
+    LOGGER.debug("Start job rejection mode");
+    this.isRejectionMode = true;
+    scheduledJob.addCallback(this);
+  }
+  
+  public void onExecutionFinished(TaskCompletionEvent event) {
+    LOGGER.debug("Stop job rejection mode");
+    this.isRejectionMode = false;
+  }
+  
+  boolean isTypeQueued(TaskType type) {
+    return this.openJobs.stream().anyMatch(job -> (job.getType() == type));
+  }
+}
+

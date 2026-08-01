@@ -1,0 +1,193 @@
+JAR: lockservice.client-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\lockservice.client-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/lockserver/client/LockServiceClient.java
+========================================================================================================================
+package com.gigatronik.lockserver.client;
+
+import com.gigatronik.bosch.utils.WinServicesUtil;
+import java.io.IOException;
+
+public interface LockServiceClient {
+  void setLock(boolean paramBoolean) throws LockServiceException;
+  
+  boolean isLocked() throws LockServiceException;
+  
+  void allowKeyEvent(int paramInt) throws LockServiceException;
+  
+  void allowMouseEvent(int paramInt1, int paramInt2) throws LockServiceException;
+  
+  void stopRemoteService() throws LockServiceException;
+  
+  WinServicesUtil.ServiceState startWinService() throws IOException;
+  
+  WinServicesUtil.ServiceState getWinServiceState() throws IOException;
+  
+  WinServicesUtil.ServiceState getWinServiceLastState();
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/lockserver/client/LockServiceClientFactory.java
+========================================================================================================================
+package com.gigatronik.lockserver.client;
+
+import com.gigatronik.dart2.bosch.remote.common.dto.v1.OperatingSystem;
+
+public final class LockServiceClientFactory {
+  public LockServiceClient newClient() {
+    OperatingSystem os = OperatingSystem.getLocal();
+    if (os == OperatingSystem.WINDOWS)
+      return new WindowsLockServiceClient(); 
+    throw new UnsupportedOperationException("OS " + os + " is not supported");
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/lockserver/client/LockServiceException.java
+========================================================================================================================
+package com.gigatronik.lockserver.client;
+
+public class LockServiceException extends Exception {
+  private static final long serialVersionUID = -2513802942294846993L;
+  
+  public LockServiceException(Throwable cause) {
+    super(cause);
+  }
+  
+  public LockServiceException(String string) {
+    super(string);
+  }
+  
+  public LockServiceException(String string, Exception ex) {
+    super(string, ex);
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/lockserver/client/TestLock.java
+========================================================================================================================
+package com.gigatronik.lockserver.client;
+
+public class TestLock {
+  public static void main(String[] args) throws Exception {
+    LockServiceClientFactory factory = new LockServiceClientFactory();
+    LockServiceClient client = factory.newClient();
+    System.out.println("Inputs will be locked now, press Ctrl+Alt+Delete to release the lock");
+    client.setLock(true);
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/lockserver/client/WindowsLockServiceClient.java
+========================================================================================================================
+package com.gigatronik.lockserver.client;
+
+import com.gigatronik.bosch.lockserver.common.AbstractLockService;
+import com.gigatronik.bosch.lockserver.common.ServiceConnection;
+import com.gigatronik.bosch.lockserver.common.ServiceConnectionException;
+import com.gigatronik.bosch.lockserver.common.rmiinterfaces.InputLockInterface;
+import com.gigatronik.bosch.lockserver.common.rmiinterfaces.LockException;
+import com.gigatronik.bosch.utils.WinServicesUtil;
+import java.io.IOException;
+import java.rmi.RemoteException;
+import java.util.concurrent.atomic.AtomicReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class WindowsLockServiceClient implements LockServiceClient {
+  private static final Logger LOGGER = LoggerFactory.getLogger(WindowsLockServiceClient.class);
+  
+  private static final String SERVICE_NAME = "lockService";
+  
+  private final WinServicesUtil serviceUtil = new WinServicesUtil();
+  
+  private final ServiceConnection<InputLockInterface> connection = new ServiceConnection(
+      AbstractLockService.LOCALHOST.getHostName(), "com.gigatronik.dart2.bosch.lockserver.servicesession", 60152);
+  
+  private final AtomicReference<WinServicesUtil.ServiceState> lastServiceState = new AtomicReference<>(WinServicesUtil.ServiceState.UNKNOWN_STATE);
+  
+  public void setLock(boolean locked) throws LockServiceException {
+    LOGGER.debug("Connect to LockService and set lockstate to: {}", Boolean.valueOf(locked));
+    try {
+      getInputLockInterface().setLockState(locked);
+    } catch (LockException|RemoteException e) {
+      LOGGER.error("Error setting lock", (Throwable)e);
+      throw new LockServiceException(e);
+    } 
+  }
+  
+  public boolean isLocked() throws LockServiceException {
+    LOGGER.debug("Connect to LockService and get lockstate");
+    try {
+      return getInputLockInterface().isInputBlocked();
+    } catch (LockException|RemoteException e) {
+      LOGGER.error("Error getting lock", (Throwable)e);
+      throw new LockServiceException(e);
+    } 
+  }
+  
+  public void allowKeyEvent(int eventType) throws LockServiceException {
+    LOGGER.debug("Connect to LockService and allow key event {}", Integer.valueOf(eventType));
+    try {
+      getInputLockInterface().allowKeyEvent(eventType);
+    } catch (LockException|RemoteException e) {
+      LOGGER.error("Error allowing keyboard event", (Throwable)e);
+      throw new LockServiceException(e);
+    } 
+  }
+  
+  public void allowMouseEvent(int eventType, int button) throws LockServiceException {
+    LOGGER.debug("Connect to LockService and allow mouse event {}, button {}", Integer.valueOf(eventType), Integer.valueOf(button));
+    try {
+      getInputLockInterface().allowMouseEvent(eventType, button);
+    } catch (LockException|RemoteException e) {
+      LOGGER.error("Error allowing mouse event", (Throwable)e);
+      throw new LockServiceException(e);
+    } 
+  }
+  
+  public void stopRemoteService() throws LockServiceException {
+    LOGGER.debug("Trying to stop User session service");
+    try {
+      getInputLockInterface().stopUserSessionService();
+    } catch (RemoteException e) {
+      LOGGER.error("Error stop lockstate", (Throwable)e);
+      throw new LockServiceException("Cannot stop lockstate", e);
+    } 
+  }
+  
+  public WinServicesUtil.ServiceState startWinService() throws IOException {
+    return this.serviceUtil.startService("lockService");
+  }
+  
+  public WinServicesUtil.ServiceState getWinServiceState() throws IOException {
+    WinServicesUtil.ServiceState state = WinServicesUtil.ServiceState.UNKNOWN_STATE;
+    try {
+      state = this.serviceUtil.checkService("lockService");
+    } finally {
+      this.lastServiceState.set(state);
+    } 
+    return state;
+  }
+  
+  public WinServicesUtil.ServiceState getWinServiceLastState() {
+    return this.lastServiceState.get();
+  }
+  
+  private InputLockInterface getInputLockInterface() throws LockServiceException {
+    try {
+      if (!this.connection.isConnected())
+        this.connection.connect(); 
+      return (InputLockInterface)this.connection.getInterface();
+    } catch (ServiceConnectionException e) {
+      LOGGER.error("Error connecting to service", (Throwable)e);
+      throw new LockServiceException(e);
+    } 
+  }
+}
+

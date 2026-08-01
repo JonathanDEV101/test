@@ -1,0 +1,3254 @@
+JAR: crm.client-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\crm.client-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/crmclient/LocalDateTypeAdapter.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient;
+
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
+import com.google.gson.stream.JsonWriter;
+import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+
+public class LocalDateTypeAdapter extends TypeAdapter<LocalDate> {
+  private DateTimeFormatter formatter;
+  
+  public LocalDateTypeAdapter() {
+    this(DateTimeFormatter.ISO_LOCAL_DATE);
+  }
+  
+  public LocalDateTypeAdapter(DateTimeFormatter formatter) {
+    this.formatter = formatter;
+  }
+  
+  public void setFormat(DateTimeFormatter dateFormat) {
+    this.formatter = dateFormat;
+  }
+  
+  public void write(JsonWriter out, LocalDate date) throws IOException {
+    if (date == null) {
+      out.nullValue();
+    } else {
+      out.value(this.formatter.format(date));
+    } 
+  }
+  
+  public LocalDate read(JsonReader in) throws IOException {
+    switch (in.peek()) {
+      case NULL:
+        in.nextNull();
+        return null;
+    } 
+    String date = in.nextString();
+    return LocalDate.parse(date, this.formatter);
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/service/crmclient/report/api/CrmReportAliveServerListener.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.report.api;
+
+public interface CrmReportAliveServerListener {
+  void onServerReachable();
+  
+  void onServerNotReachable(String paramString1, String paramString2, boolean paramBoolean);
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/service/crmclient/report/api/CrmReportController.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.report.api;
+
+import com.gigatronik.beds.service.crmclient.xml.EBikeCRMType;
+import com.sun.istack.Nullable;
+import java.io.File;
+import java.util.List;
+
+public interface CrmReportController {
+  void sendReport(EBikeCRMType paramEBikeCRMType, String paramString1, String paramString2, String paramString3, @Nullable List<File> paramList, CrmReportAliveServerListener paramCrmReportAliveServerListener, CrmReportSendListener paramCrmReportSendListener);
+  
+  boolean isCrmServerAvailable(CrmReportAliveServerListener paramCrmReportAliveServerListener);
+  
+  void cancelUpload();
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/service/crmclient/report/api/CrmReportSendListener.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.report.api;
+
+import java.io.File;
+
+public interface CrmReportSendListener {
+  void onUploadSuccess(String paramString, boolean paramBoolean);
+  
+  void onUploadProgress(long paramLong1, long paramLong2, boolean paramBoolean);
+  
+  void onError(int paramInt);
+  
+  void onCancelSuccess();
+  
+  void onUploadAttachmentSuccess(File paramFile);
+  
+  void onUploadAttachmentProgress(long paramLong1, long paramLong2, File paramFile);
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/service/crmclient/report/api/CrmRetrieveReportController.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.report.api;
+
+public interface CrmRetrieveReportController {
+  void retrieveReportAsync(String paramString1, String paramString2, String paramString3, CrmRetrieveReportListener paramCrmRetrieveReportListener);
+  
+  void cancelReceiveRequest();
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/service/crmclient/report/api/CrmRetrieveReportListener.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.report.api;
+
+public interface CrmRetrieveReportListener {
+  void onRetrieveSuccess(RetrievedReportData paramRetrievedReportData);
+  
+  void onRetrieveError(int paramInt);
+  
+  void onRetrieveError(String paramString);
+  
+  void onRetrieveError();
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/service/crmclient/report/api/RetrievedReportData.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.report.api;
+
+import com.gigatronik.beds.service.crmclient.xml.EBikeCRMType;
+import java.time.LocalDate;
+
+public class RetrievedReportData {
+  private String caseNumber;
+  
+  private String accountnumber;
+  
+  private String contactname;
+  
+  private String email;
+  
+  private String language;
+  
+  private String country;
+  
+  private String productfamily;
+  
+  private LocalDate purchasedate;
+  
+  private String version;
+  
+  private String dongleid;
+  
+  private EBikeCRMType report;
+  
+  public String getCaseNumber() {
+    return this.caseNumber;
+  }
+  
+  public void setCaseNumber(String caseNumber) {
+    this.caseNumber = caseNumber;
+  }
+  
+  public String getContactName() {
+    return this.contactname;
+  }
+  
+  public void setContactName(String contactname) {
+    this.contactname = contactname;
+  }
+  
+  public String getAccountnumber() {
+    return this.accountnumber;
+  }
+  
+  public void setAccountnumber(String accountnumber) {
+    this.accountnumber = accountnumber;
+  }
+  
+  public String getEmail() {
+    return this.email;
+  }
+  
+  public void setEmail(String email) {
+    this.email = email;
+  }
+  
+  public String getLanguage() {
+    return this.language;
+  }
+  
+  public void setLanguage(String language) {
+    this.language = language;
+  }
+  
+  public String getCountry() {
+    return this.country;
+  }
+  
+  public void setCountry(String country) {
+    this.country = country;
+  }
+  
+  public String getProductfamily() {
+    return this.productfamily;
+  }
+  
+  public void setProductfamily(String productfamily) {
+    this.productfamily = productfamily;
+  }
+  
+  public LocalDate getPurchasedate() {
+    return this.purchasedate;
+  }
+  
+  public void setPurchasedate(LocalDate purchasedate) {
+    this.purchasedate = purchasedate;
+  }
+  
+  public String getVersion() {
+    return this.version;
+  }
+  
+  public void setVersion(String version) {
+    this.version = version;
+  }
+  
+  public String getDongleid() {
+    return this.dongleid;
+  }
+  
+  public void setDongleid(String dongleid) {
+    this.dongleid = dongleid;
+  }
+  
+  public EBikeCRMType getReport() {
+    return this.report;
+  }
+  
+  public void setReport(EBikeCRMType report) {
+    this.report = report;
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/beds/service/crmclient/report/binding/LocalDateAdapter.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.report.binding;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class LocalDateAdapter {
+  private static final Logger LOGGER = LoggerFactory.getLogger(LocalDateAdapter.class);
+  
+  public static LocalDate unmarshal(String xmlGregorianCalendar) {
+    try {
+      return LocalDate.parse(xmlGregorianCalendar, DateTimeFormatter.ISO_DATE);
+    } catch (DateTimeParseException ex) {
+      LOGGER.error("Could not parse date" + xmlGregorianCalendar, (Throwable)ex);
+      return null;
+    } 
+  }
+  
+  public static String marshal(LocalDate date) {
+    return date.format(DateTimeFormatter.ISO_DATE);
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/beds/service/crmclient/report/binding/OffsetTimeAdapter.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.report.binding;
+
+import java.time.OffsetTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class OffsetTimeAdapter {
+  private static final Logger LOGGER = LoggerFactory.getLogger(OffsetTimeAdapter.class);
+  
+  private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ssxxx");
+  
+  public static OffsetTime unmarshal(String xmlGregorianCalendar) {
+    try {
+      return OffsetTime.parse(xmlGregorianCalendar, TIME_FORMATTER);
+    } catch (DateTimeParseException ex) {
+      LOGGER.error("Could not parse time" + xmlGregorianCalendar, (Throwable)ex);
+      return null;
+    } 
+  }
+  
+  public static String marshal(OffsetTime time) {
+    return time.format(TIME_FORMATTER);
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/beds/service/crmclient/report/impl/AmazonAwsUploadManager.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.report.impl;
+
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.ApiException;
+import com.gigatronik.beds.service.crm.api.attachment.modelPackage.AttachmentDTO;
+import com.gigatronik.beds.service.crmclient.report.api.CrmReportSendListener;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class AmazonAwsUploadManager {
+  private static final Logger LOGGER = LoggerFactory.getLogger(AmazonAwsUploadManager.class);
+  
+  private final AtomicBoolean abortAttachmentUpload;
+  
+  private final CrmInternalFactory crmInternalFactory;
+  
+  AmazonAwsUploadManager(AtomicBoolean abortAttachmentUpload, CrmInternalFactory crmInternalFactory) {
+    this.abortAttachmentUpload = abortAttachmentUpload;
+    this.crmInternalFactory = crmInternalFactory;
+  }
+  
+  void uploadPresignedUrl(List<String> urlList, List<AttachmentDTO> list, CrmReportSendListener crmReportServerListener) throws IOException, ApiException {
+    if (urlList.size() != list.size()) {
+      String message = "Mapping urls to files failed! url size: " + urlList.size() + ", file size " + list.size();
+      throw new IOException(message);
+    } 
+    for (int i = 0; i < list.size(); i++) {
+      if (!this.abortAttachmentUpload.get()) {
+        BufferedOutputStream dataOutputStream;
+        BufferedInputStream fileInputStream;
+        HttpURLConnection connection = null;
+      } 
+    } 
+  }
+  
+  private boolean uploadFile(HttpURLConnection connection, BufferedInputStream fileInputStream, AttachmentDTO actualAttachment, BufferedOutputStream dataOutputStream, CrmReportSendListener crmReportServerListener) throws IOException {
+    File uploadFile = this.crmInternalFactory.getFile(actualAttachment.getFileNameFull());
+    long fileLength = uploadFile.length();
+    if (AttachmentDTO.CategoryEnum.DIAGNOSTICREPORT.equals(actualAttachment.getCategory())) {
+      crmReportServerListener.onUploadProgress(0L, fileLength, false);
+    } else {
+      crmReportServerListener.onUploadAttachmentProgress(0L, fileLength, uploadFile);
+    } 
+    int bufferSize = 524288;
+    byte[] buffer = new byte[bufferSize];
+    long actualLength = 0L;
+    int length;
+    while ((length = fileInputStream.read(buffer)) != -1) {
+      if (this.abortAttachmentUpload.get())
+        return false; 
+      actualLength += (long)length;
+      dataOutputStream.write(buffer, 0, length);
+      if (AttachmentDTO.CategoryEnum.DIAGNOSTICREPORT.equals(actualAttachment.getCategory())) {
+        crmReportServerListener.onUploadProgress(actualLength, fileLength, (actualLength == fileLength));
+        continue;
+      } 
+      crmReportServerListener.onUploadAttachmentProgress(actualLength, fileLength, uploadFile);
+    } 
+    dataOutputStream.flush();
+    return true;
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/beds/service/crmclient/report/impl/CrmInternalFactory.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.report.impl;
+
+import com.gigatronik.dart2.bosch.updateserver.UpdateServerConnection;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.URL;
+import java.net.URLConnection;
+
+class CrmInternalFactory {
+  private final UpdateServerConnection updateServerConnection = new UpdateServerConnection();
+  
+  URLConnection openConnection(URL url) {
+    return this.updateServerConnection.getConnection(url);
+  }
+  
+  BufferedOutputStream getDataOutputStream(OutputStream outputStream) {
+    return new BufferedOutputStream(outputStream);
+  }
+  
+  File getFile(String filename) {
+    return new File(filename);
+  }
+  
+  BufferedInputStream getFileInputStream(String filename) throws FileNotFoundException {
+    return new BufferedInputStream(new FileInputStream(filename));
+  }
+  
+  BufferedInputStream openStream(URL url) throws IOException {
+    return new BufferedInputStream(url.openStream());
+  }
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/beds/service/crmclient/report/impl/CrmReportControllerImpl.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.report.impl;
+
+import com.gigatronik.beds.service.crm.api.attachment.apiPackage.AttachmentApi;
+import com.gigatronik.beds.service.crm.api.attachment.modelPackage.Attachment;
+import com.gigatronik.beds.service.crm.api.attachment.modelPackage.AttachmentDTO;
+import com.gigatronik.beds.service.crm.api.attachment.modelPackage.AttachmentResponse;
+import com.gigatronik.beds.service.crm.api.report.apiPackage.AccountApi;
+import com.gigatronik.beds.service.crm.api.report.apiPackage.CaseApi;
+import com.gigatronik.beds.service.crm.api.report.invokerPackage.ApiException;
+import com.gigatronik.beds.service.crm.api.report.invokerPackage.ApiResponse;
+import com.gigatronik.beds.service.crm.api.report.invokerPackage.auth.HttpBasicAuth;
+import com.gigatronik.beds.service.crm.api.report.modelPackage.CaseCollectionResponse;
+import com.gigatronik.beds.service.crm.api.report.modelPackage.CaseResponse;
+import com.gigatronik.beds.service.crm.api.report.modelPackage.ModelCase;
+import com.gigatronik.beds.service.crmclient.report.api.CrmReportAliveServerListener;
+import com.gigatronik.beds.service.crmclient.report.api.CrmReportController;
+import com.gigatronik.beds.service.crmclient.report.api.CrmReportSendListener;
+import com.gigatronik.beds.service.crmclient.xml.EBikeCRMType;
+import com.gigatronik.beds.service.crmclient.xml.ObjectFactory;
+import com.gigatronik.beds.settings.SettingsProxy;
+import com.gigatronik.bosch.utils.UnMarshalJAXB;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.google.gson.internal.LinkedTreeMap;
+import com.google.gson.reflect.TypeToken;
+import com.squareup.okhttp.Call;
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.time.LocalDate;
+import java.time.OffsetTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+import javax.xml.bind.JAXBElement;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class CrmReportControllerImpl implements CrmReportController {
+  private static final int CONNECT_TIMEOUT_MS = 5000;
+  
+  private static final int READ_TIMEOUT_MS = 30000;
+  
+  private static final String CRM_PROPERTY_LOGGING_ENABLED = "CrmReport_logging";
+  
+  private static final String ALIVE_SCHEDULED_DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ssX";
+  
+  private static final String DART2_HOME_PATH = System.getenv("DART2_HOME");
+  
+  private static final String EXTERNAL_MANUAL_PATH = DART2_HOME_PATH + "\\logs\\";
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(CrmReportControllerImpl.class);
+  
+  private static final String CRM_SF_REPORT_SERVER_PROPERTY = "crm_sf_report_server";
+  
+  private static final String CRM_SF_ATTACHMENT_SERVER_PROPERTY = "crm_sf_attachment_server";
+  
+  private static final String DEFAULT_SF_CRM_REPORT_BASE_PATH = "https://crm-sf-api.prod.connected-biking.cloud";
+  
+  private static final String DEFAULT_SF_CRM_ATTACHMENT_BASE_PATH = "https://crm-sf-attachments.prod.connected-biking.cloud/attachments";
+  
+  private final UnMarshalJAXB marshallingHelper = new UnMarshalJAXB();
+  
+  private final AttachmentApi attachmentApi;
+  
+  private final CaseApi caseApi;
+  
+  private final AccountApi accountApi;
+  
+  private Future taskFuture;
+  
+  private AmazonAwsUploadManager amazonAwsUploadManager;
+  
+  private Call getUrlsCall;
+  
+  private Call findAccountCall;
+  
+  private Call addCaseCall;
+  
+  private Call updateCaseCall;
+  
+  private Call findCaseCall;
+  
+  private CrmReportSendListener sendListener;
+  
+  private AtomicBoolean cancelUpload = new AtomicBoolean(false);
+  
+  private ScheduledExecutorService attachmentAndReportUploadExecutor = Executors.newSingleThreadScheduledExecutor(new BasicThreadFactory.Builder()
+      .namingPattern("ReportAndAttachmentUploadExecutor-%d").build());
+  
+  private CrmInternalFactory crmInternalFactory = new CrmInternalFactory();
+  
+  public CrmReportControllerImpl() {
+    this.caseApi = new CaseApi();
+    this.accountApi = new AccountApi();
+    this.amazonAwsUploadManager = new AmazonAwsUploadManager(this.cancelUpload, this.crmInternalFactory);
+    this.attachmentApi = new AttachmentApi();
+    configureApis();
+  }
+  
+  private void configureApis() {
+    HttpBasicAuth caseApiBasicAuth = (HttpBasicAuth)this.caseApi.getApiClient().getAuthentication("basicAuth");
+    caseApiBasicAuth.setUsername("pctool");
+    caseApiBasicAuth.setPassword("WpWV6NMLhk!aXd-9");
+    this.accountApi.getApiClient()
+      .setBasePath(parseServerUrl("crm_sf_report_server", "https://crm-sf-api.prod.connected-biking.cloud"));
+    this.accountApi.getApiClient().setConnectTimeout(5000);
+    this.accountApi.getApiClient().setReadTimeout(30000);
+    this.attachmentApi.getApiClient()
+      .setBasePath(parseServerUrl("crm_sf_attachment_server", "https://crm-sf-attachments.prod.connected-biking.cloud/attachments"));
+    this.attachmentApi.getApiClient().setConnectTimeout(5000);
+    this.attachmentApi.getApiClient().setReadTimeout(30000);
+  }
+  
+  private String parseServerUrl(String propertyKey, String defaultValue) {
+    LOGGER.trace("Parsing url {}. Default value is {}.", propertyKey, defaultValue);
+    String sCrmUrl = SettingsProxy.getInstance().getGlobalSettingsNoException().getProperty(propertyKey, defaultValue);
+    try {
+      sCrmUrl = StringUtils.trimToEmpty(sCrmUrl);
+      URI crmUri = new URI(sCrmUrl);
+      new URL(sCrmUrl);
+      return crmUri.toString();
+    } catch (URISyntaxException|java.net.MalformedURLException ex) {
+      LOGGER.error("The custom crm url is not valid: {}  - using default url ", sCrmUrl, ex);
+      return defaultValue;
+    } 
+  }
+  
+  public void sendReport(EBikeCRMType ebikeCrmType, String customerNumber, String pcToolLanguage, String caseNr, List<File> attachments, CrmReportAliveServerListener crmReportAliveServerListener, CrmReportSendListener crmReportServerListener) {
+    logFile(ebikeCrmType);
+    if (this.taskFuture != null && !this.taskFuture.isDone()) {
+      LOGGER.trace("rejecting new task to upload report and attachments, an upload task is still running");
+      return;
+    } 
+    uploadReportAndAttachments(customerNumber, ebikeCrmType, caseNr, attachments, crmReportServerListener);
+  }
+  
+  private void uploadReportAndAttachments(String customerNumber, EBikeCRMType ebikeCrmType, String caseNr, List<File> attachments, CrmReportSendListener crmReportSendListener) {
+    this.taskFuture = this.attachmentAndReportUploadExecutor.submit(() -> {
+          this.sendListener = crmReportSendListener;
+          this.cancelUpload.set(false);
+          boolean createCase = StringUtils.isBlank(caseNr);
+          try {
+            for (File file : (Iterable<File>)attachments) {
+              int maxMB = 150;
+              int maxFileLength = maxMB * 1048576;
+              if (file.length() > (long)maxFileLength) {
+                LOGGER.error("Max Filesize of file {} exceeded {}MB", file.getName(), Integer.valueOf(maxMB));
+                this.sendListener.onError(-1);
+                return;
+              } 
+            } 
+            ArrayList<LinkedTreeMap> accountCallResponse = findAccountByCustomerNumber(customerNumber);
+            if (accountCallResponse.isEmpty()) {
+              LOGGER.error("No ID for costumer Number found!");
+              specificServerError(301, true);
+              return;
+            } 
+            LinkedTreeMap linkedTreeMap = accountCallResponse.get(0);
+            String accountId = (String)linkedTreeMap.get("id");
+            List<AttachmentDTO> attachmentDtoList = convertAttachmentFileList(attachments);
+            List<AttachmentDTO> reportAndAttachmentDto = new ArrayList<>(1 + attachmentDtoList.size());
+            reportAndAttachmentDto.add(convertReport(ebikeCrmType));
+            reportAndAttachmentDto.addAll(attachmentDtoList);
+            List<AttachmentResponse> reportAndAttachmentResponse = getUrls(reportAndAttachmentDto);
+            String reportTransactionId = extractReportTransactionId(reportAndAttachmentResponse);
+            List<UUID> attachmentsUuidList = extractAttachmentUuids(reportAndAttachmentResponse);
+            uploadFiles(reportAndAttachmentDto, reportAndAttachmentResponse);
+            if (StringUtils.isNotBlank(caseNr)) {
+              updateCase(customerNumber, caseNr, reportTransactionId, attachmentsUuidList, accountId, ebikeCrmType);
+            } else {
+              createCase(customerNumber, reportTransactionId, attachmentsUuidList, accountId, ebikeCrmType);
+            } 
+          } catch (ApiException reportException) {
+            LOGGER.error("Error with create/update case: ErrorCode: {} \n Response: {}", reportException.getCode(), 
+                reportException.getResponseBody(), reportException);
+            LOGGER.error("ResponseBody: {}", reportException.getResponseBody());
+            specificServerError(reportException.getCode(), createCase);
+          } catch (com.gigatronik.beds.service.crm.api.attachment.invokerPackage.ApiException attachmentException) {
+            LOGGER.error("Error with attachment api: ErrorCode: {} \n Response: {}", attachmentException.getCode(), 
+                attachmentException.getResponseBody(), attachmentException);
+            specificServerError(attachmentException.getCode(), createCase);
+          } catch (IOException ex) {
+            LOGGER.error("Error uploading attachments!", (Throwable)ex);
+            generalServerError();
+          } catch (Exception exc) {
+            LOGGER.error("Error uploading attachments!", (Throwable)exc);
+            generalServerError();
+          } catch (Throwable ex) {
+            LOGGER.error("Fatal error uploading attachments!", ex);
+            this.sendListener.onError(-1);
+          } finally {
+            if (this.cancelUpload.get())
+              this.sendListener.onCancelSuccess(); 
+          } 
+        });
+  }
+  
+  private void specificServerError(int statusCode, boolean createCase) {
+    if (createCase && statusCode == 404) {
+      this.sendListener.onError(400);
+    } else {
+      this.sendListener.onError(statusCode);
+    } 
+  }
+  
+  private void generalServerError() {
+    this.sendListener.onError(500);
+  }
+  
+  private List<UUID> extractAttachmentUuids(List<AttachmentResponse> reportAttachmentResponse) {
+    if (!this.cancelUpload.get() && !reportAttachmentResponse.isEmpty()) {
+      List<UUID> attachmentsUuidList = (List<UUID>)
+        reportAttachmentResponse.stream().filter(attachmentResponse -> (attachmentResponse.getResponse().getCategory() != Attachment.CategoryEnum.DIAGNOSTICREPORT))
+        
+        .map(attachmentResponse -> attachmentResponse.getAttachmentId())
+        .collect(Collectors.toList());
+      return attachmentsUuidList;
+    } 
+    return new ArrayList<>(0);
+  }
+  
+  private String extractReportTransactionId(List<AttachmentResponse> reportResponse) throws ApiException {
+    String reportTransactionId = "";
+    if (!this.cancelUpload.get()) {
+      if (reportResponse.isEmpty())
+        throw new ApiException("no report transaction ID received!"); 
+      for (AttachmentResponse response : reportResponse) {
+        if (response.getResponse().getCategory() == Attachment.CategoryEnum.DIAGNOSTICREPORT)
+          reportTransactionId = response.getResponse().getTransactionId(); 
+      } 
+      LOGGER.info("received reportTransactionId {}", reportTransactionId);
+      return reportTransactionId;
+    } 
+    return null;
+  }
+  
+  private List<AttachmentResponse> getUrls(List<AttachmentDTO> reportAndAttachmentDto) throws com.gigatronik.beds.service.crm.api.attachment.invokerPackage.ApiException {
+    if (!this.cancelUpload.get()) {
+      LOGGER.info("sending request to get upload urls...");
+      this.getUrlsCall = this.attachmentApi.addAttachmentCall(reportAndAttachmentDto, Boolean.valueOf(true), null, null);
+      List<AttachmentResponse> reportResponse = (List<AttachmentResponse>)
+        this.attachmentApi.getApiClient().execute(this.getUrlsCall, new TypeToken<List<AttachmentResponse>>() {
+          
+          }.getType()).getData();
+      LOGGER.info("received AttachmentResponse:");
+      return reportResponse;
+    } 
+    return new ArrayList<>(0);
+  }
+  
+  private void createCase(String customerNumber, String reportTransactionId, List<UUID> attachmentsUuidList, String accountId, EBikeCRMType ebikeCrmType) throws ApiException {
+    if (!this.cancelUpload.get()) {
+      ModelCase createdModelCase = fillModelCase(reportTransactionId, attachmentsUuidList, accountId, ebikeCrmType);
+      LOGGER.info("sending create case: {}", createdModelCase);
+      ModelCase[] modelCaseArray = new ModelCase[1];
+      modelCaseArray[0] = createdModelCase;
+      this.addCaseCall = this.caseApi.addCaseCall(modelCaseArray, Boolean.valueOf(true), null, null);
+      CaseCollectionResponse response = (CaseCollectionResponse)this.caseApi.getApiClient().execute(this.addCaseCall, new TypeToken<CaseCollectionResponse>() {
+          
+          }.getType()).getData();
+      if (response.isSuccess()) {
+        String caseId = response.getResponse().get(0).getId();
+        getCaseNumberFor(caseId);
+      } else {
+        generalServerError();
+      } 
+    } 
+  }
+  
+  private void getCaseNumberFor(String caseId) throws ApiException {
+    Call caseByIdCall = this.caseApi.getCaseByIdCall(caseId, null, null, null);
+    CaseResponse execute = (CaseResponse)this.caseApi.getApiClient().execute(caseByIdCall, new TypeToken<CaseResponse>() {
+        
+        }.getType()).getData();
+    if (execute.isSuccess() && StringUtils.isNotBlank(execute.getResponse().getCaseNumber())) {
+      this.sendListener.onUploadSuccess(execute.getResponse().getCaseNumber(), false);
+    } else {
+      generalServerError();
+    } 
+  }
+  
+  private void updateCase(String customerNumber, String caseNr, String reportTransactionId, List<UUID> attachmentsUuidList, String accountId, EBikeCRMType ebikeCrmType) throws ApiException {
+    if (!this.cancelUpload.get()) {
+      ModelCase updateCase = fillModelCase(reportTransactionId, attachmentsUuidList, accountId, ebikeCrmType);
+      LOGGER.info("sending updating case: {}", updateCase);
+      this.findCaseCall = this.caseApi.findCaseCall(Integer.valueOf(1), null, null, "{\"caseNumber\":\"" + caseNr + "\",\"accountId.spShipToNo\":\"" + customerNumber + "\"}", null, null, null);
+      CaseCollectionResponse findCaseResponse = (CaseCollectionResponse)this.caseApi.getApiClient().execute(this.findCaseCall, new TypeToken<CaseCollectionResponse>() {
+          
+          }.getType()).getData();
+      if (findCaseResponse.isSuccess() && !findCaseResponse.getResponse().isEmpty()) {
+        String caseId = findCaseResponse.getResponse().get(0).getId();
+        this.updateCaseCall = this.caseApi.updateCaseCall(updateCase, caseId, null, null);
+        CaseResponse caseResponse = (CaseResponse)
+          this.caseApi.getApiClient().execute(this.updateCaseCall, new TypeToken<CaseResponse>() {
+            
+            }.getType()).getData();
+        LOGGER.info("received CaseResponse: {}", caseResponse);
+        if (caseResponse.isSuccess()) {
+          this.sendListener.onUploadSuccess(caseNr, true);
+        } else {
+          generalServerError();
+        } 
+      } else {
+        generalServerError();
+      } 
+    } 
+  }
+  
+  private ArrayList<LinkedTreeMap> findAccountByCustomerNumber(String customerNumber) throws ApiException {
+    this.findAccountCall = this.accountApi.findAccountCall(Integer.valueOf(1), null, null, "{\"spShipToNo\":\"" + customerNumber + "\"}", null, null, null);
+    ApiResponse<Object> execute = this.accountApi.getApiClient().execute(this.findAccountCall, new TypeToken<Object>() {
+        
+        }.getType());
+    LinkedTreeMap data = (LinkedTreeMap)execute.getData();
+    return (ArrayList<LinkedTreeMap>)data.get("response");
+  }
+  
+  private void uploadFiles(List<AttachmentDTO> reportAndAttachmentDto, List<AttachmentResponse> reportAttachmentResponse) throws IOException, com.gigatronik.beds.service.crm.api.attachment.invokerPackage.ApiException {
+    if (!this.cancelUpload.get())
+      this.amazonAwsUploadManager.uploadPresignedUrl((List<String>)
+          reportAttachmentResponse.stream()
+          .map(attachmentResponse -> attachmentResponse.getResponse().getUploadUrl())
+          .collect(Collectors.toList()), reportAndAttachmentDto, this.sendListener); 
+  }
+  
+  private List<AttachmentDTO> convertAttachmentFileList(List<File> attachments) {
+    return (List<AttachmentDTO>)attachments.stream().map(file -> {
+          AttachmentDTO attachmentDTO = new AttachmentDTO();
+          attachmentDTO.category(AttachmentDTO.CategoryEnum.OTHER);
+          String fileName = file.getName();
+          if (file.getName().length() > 80)
+            fileName = file.getName().substring(0, 80); 
+          attachmentDTO.fileName(fileName);
+          attachmentDTO.setFileNameFull(file.getAbsolutePath());
+          attachmentDTO.setOrigin(AttachmentDTO.OriginEnum.PCTOOL);
+          return attachmentDTO;
+        }).collect(Collectors.toList());
+  }
+  
+  private ModelCase.CountryEnum mapStringToCountryEnum(String item) {
+    switch (item) {
+      case "BE":
+        return ModelCase.CountryEnum.BE;
+      case "DK":
+        return ModelCase.CountryEnum.DK;
+      case "DE":
+        return ModelCase.CountryEnum.DE;
+      case "FI":
+        return ModelCase.CountryEnum.FI;
+      case "FR":
+        return ModelCase.CountryEnum.FR;
+      case "IT":
+        return ModelCase.CountryEnum.IT;
+      case "LU":
+        return ModelCase.CountryEnum.LU;
+      case "NL":
+        return ModelCase.CountryEnum.NL;
+      case "AT":
+        return ModelCase.CountryEnum.AT;
+      case "PL":
+        return ModelCase.CountryEnum.PL;
+      case "PT":
+        return ModelCase.CountryEnum.PT;
+      case "SE":
+        return ModelCase.CountryEnum.SE;
+      case "ES":
+        return ModelCase.CountryEnum.ES;
+      case "CZ":
+        return ModelCase.CountryEnum.CZ;
+      case "GB":
+        return ModelCase.CountryEnum.GB;
+      case "CH":
+        return ModelCase.CountryEnum.CH;
+      case "NO":
+        return ModelCase.CountryEnum.NO;
+      case "US":
+        return ModelCase.CountryEnum.US;
+      case "CA":
+        return ModelCase.CountryEnum.CA;
+      case "JP":
+        return ModelCase.CountryEnum.JP;
+      case "AU":
+        return ModelCase.CountryEnum.AU;
+      case "NZ":
+        return ModelCase.CountryEnum.NZ;
+      case "KR":
+        return ModelCase.CountryEnum.KR;
+    } 
+    return ModelCase.CountryEnum.OTHER;
+  }
+  
+  private ModelCase fillModelCase(String reportTransActionId, List<UUID> attachments, String accountId, EBikeCRMType ebikeCrmType) {
+    ModelCase modelCase = new ModelCase();
+    modelCase.transactionId(reportTransActionId);
+    modelCase.suppliedEmail(ebikeCrmType.getIbd().getContactEmail());
+    modelCase.suppliedName(ebikeCrmType.getIbd().getContactName());
+    modelCase.country(mapStringToCountryEnum(ebikeCrmType.getIbd().getCountry()));
+    modelCase.reason(ModelCase.ReasonEnum.IBDCOMPLAINT);
+    modelCase.description(ebikeCrmType.getCaseInfo().getErrorDescription());
+    modelCase.accountId(accountId);
+    modelCase.setOrigin(ModelCase.OriginEnum.PCTOOL);
+    modelCase.attachments(attachments);
+    return modelCase;
+  }
+  
+  private AttachmentDTO convertReport(EBikeCRMType ebikeCrmType) {
+    AttachmentDTO dto = new AttachmentDTO();
+    File report = marshallToFile(ebikeCrmType);
+    dto.category(AttachmentDTO.CategoryEnum.DIAGNOSTICREPORT);
+    dto.fileName(report.getName());
+    dto.setFileNameFull(report.getAbsolutePath());
+    dto.setOrigin(AttachmentDTO.OriginEnum.PCTOOL);
+    return dto;
+  }
+  
+  private File marshallToFile(EBikeCRMType data) {
+    try {
+      LOGGER.trace("marshalling EBikeCRMType to File ...");
+      File tempFile = new File(EXTERNAL_MANUAL_PATH + "tmp_crm.xml");
+      tempFile.deleteOnExit();
+      marshallEBikeCRMTypeToFile(data, tempFile);
+      return tempFile;
+    } catch (NullPointerException ex) {
+      LOGGER.error("Error creating File for Crm", (Throwable)ex);
+      return null;
+    } 
+  }
+  
+  private void marshallEBikeCRMTypeToFile(EBikeCRMType data, File file) {
+    JAXBElement<EBikeCRMType> root = new ObjectFactory().createEbike(data);
+    this.marshallingHelper.marshallToFile(new EBikeCRMType(), root, file, this.marshallingHelper.getSchema(getClass().getClassLoader().getResourceAsStream("com/gigatronik/beds/service/crmclient/report/xsd/eBike_CRM_Schema.xsd")));
+  }
+  
+  private void logFile(EBikeCRMType data) {
+    if (isCrmLoggingEnabled()) {
+      LOGGER.trace("Logging crm xml...");
+      OffsetTime calendarTime = data.getReportTime();
+      LocalDate calendarDate = data.getReportDate();
+      DateTimeFormatter formatterTime = DateTimeFormatter.ofPattern("hh-mm-ss");
+      DateTimeFormatter formatterDate = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+      String filename = EXTERNAL_MANUAL_PATH + "Crm_Report_" + EXTERNAL_MANUAL_PATH + "_" + calendarDate.format(formatterDate) + ".xml";
+      marshallEBikeCRMTypeToFile(data, new File(filename));
+    } 
+  }
+  
+  private boolean isCrmLoggingEnabled() {
+    boolean res = false;
+    try {
+      res = SettingsProxy.getInstance().getGlobalSettings().getBoolean("CrmReport_logging");
+    } catch (ConfigurationNotFoundException ex) {
+      LOGGER.info("Property for logging crm not set. Using default.", (Throwable)ex);
+    } 
+    return res;
+  }
+  
+  public boolean isCrmServerAvailable(CrmReportAliveServerListener listener) {
+    listener.onServerReachable();
+    return true;
+  }
+  
+  public void cancelUpload() {
+    this.cancelUpload.set(true);
+    if (this.getUrlsCall != null)
+      this.getUrlsCall.cancel(); 
+    if (this.addCaseCall != null)
+      this.addCaseCall.cancel(); 
+    if (this.updateCaseCall != null)
+      this.updateCaseCall.cancel(); 
+    if (this.findCaseCall != null)
+      this.findCaseCall.cancel(); 
+    if (this.findAccountCall != null)
+      this.findAccountCall.cancel(); 
+  }
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/beds/service/crmclient/report/impl/CrmRetrieveReportControllerImpl.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.report.impl;
+
+import com.gigatronik.beds.service.crm.api.report.apiPackage.CaseApi;
+import com.gigatronik.beds.service.crm.api.report.apiPackage.ExternalFileJunctionApi;
+import com.gigatronik.beds.service.crm.api.report.invokerPackage.ApiException;
+import com.gigatronik.beds.service.crm.api.report.invokerPackage.ApiResponse;
+import com.gigatronik.beds.service.crm.api.report.modelPackage.CaseCollectionResponse;
+import com.gigatronik.beds.service.crm.api.report.modelPackage.ExternalFile;
+import com.gigatronik.beds.service.crm.api.report.modelPackage.ModelCase;
+import com.gigatronik.beds.service.crmclient.report.api.CrmRetrieveReportController;
+import com.gigatronik.beds.service.crmclient.report.api.CrmRetrieveReportListener;
+import com.gigatronik.beds.service.crmclient.report.api.RetrievedReportData;
+import com.google.gson.internal.LinkedTreeMap;
+import com.google.gson.reflect.TypeToken;
+import com.squareup.okhttp.Call;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import javax.xml.bind.JAXBException;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class CrmRetrieveReportControllerImpl implements CrmRetrieveReportController {
+  private static final Logger LOGGER = LoggerFactory.getLogger(CrmRetrieveReportControllerImpl.class);
+  
+  private final ExternalFileJunctionApi externalFileJunctionApi;
+  
+  private final CaseApi caseApi;
+  
+  private final CrmInternalFactory crmInternalFactory;
+  
+  private ReceivedReportDataExtractor dataExtractor;
+  
+  private ScheduledExecutorService reportRetrieveExecutor = Executors.newSingleThreadScheduledExecutor(new BasicThreadFactory.Builder()
+      .namingPattern("ReportRetrieveExecutor-%d").build());
+  
+  private Future taskFuture;
+  
+  private Call findCaseCall;
+  
+  private Call findExternalFileJunctionCall;
+  
+  public CrmRetrieveReportControllerImpl() {
+    this.dataExtractor = new ReceivedReportDataExtractor();
+    this.externalFileJunctionApi = new ExternalFileJunctionApi();
+    this.caseApi = new CaseApi();
+    this.crmInternalFactory = new CrmInternalFactory();
+  }
+  
+  public void retrieveReportAsync(String customerNumber, String caseNumber, String pcToolLanguage, CrmRetrieveReportListener crmRetrieveReportListener) {
+    if (this.taskFuture != null && !this.taskFuture.isDone()) {
+      LOGGER.trace("rejecting new task to receive report , an receive task is still running");
+      return;
+    } 
+    this.taskFuture = this.reportRetrieveExecutor.submit(() -> {
+          try {
+            doReceiveReport(caseNumber, customerNumber, crmRetrieveReportListener);
+          } catch (ApiException e) {
+            LOGGER.error("Error receiving report", (Throwable)e);
+            LOGGER.error("ResponseBody: {}", e.getResponseBody());
+            crmRetrieveReportListener.onRetrieveError(e.getCode());
+          } catch (MalformedURLException e) {
+            LOGGER.error("Error receiving report", (Throwable)e);
+            crmRetrieveReportListener.onRetrieveError();
+          } catch (IOException e) {
+            LOGGER.error("Error receiving report", (Throwable)e);
+            crmRetrieveReportListener.onRetrieveError();
+          } catch (JAXBException e) {
+            LOGGER.error("Error parsing downloaded report", (Throwable)e);
+            crmRetrieveReportListener.onRetrieveError();
+          } catch (Exception e) {
+            LOGGER.error("Error receiving report", (Throwable)e);
+            crmRetrieveReportListener.onRetrieveError();
+          } 
+        });
+  }
+  
+  void doReceiveReport(String caseNumber, String customerNumber, CrmRetrieveReportListener crmRetrieveReportListener) throws ApiException, IOException, JAXBException {
+    this.findCaseCall = this.caseApi.findCaseCall(Integer.valueOf(1), null, null, "{\"caseNumber\":\"" + caseNumber + "\",\"accountId.spShipToNo\":\"" + customerNumber + "\"}", null, null, null);
+    ApiResponse<CaseCollectionResponse> execute = this.caseApi.getApiClient().execute(this.findCaseCall, new TypeToken<CaseCollectionResponse>() {
+        
+        }.getType());
+    CaseCollectionResponse response = (CaseCollectionResponse)execute.getData();
+    LOGGER.info("findCaseCall return: {}", response);
+    String id = "";
+    if (response.isSuccess() && !response.getResponse().isEmpty()) {
+      List<ModelCase> response1 = response.getResponse();
+      id = response1.get(0).getId();
+      if (StringUtils.isBlank(id))
+        throw new ApiException("error retrieving caseId for caseNumber " + caseNumber); 
+      this.findExternalFileJunctionCall = this.externalFileJunctionApi.findExternalFileJunctionCall(null, null, null, "{\"linkedEntityId\":\"" + id + "\"}", "externalFile.fileUrl,externalFile.category", null, null);
+      LinkedTreeMap files = (LinkedTreeMap)this.externalFileJunctionApi.getApiClient().execute(this.findExternalFileJunctionCall, new TypeToken<LinkedTreeMap>() {
+          
+          }.getType()).getData();
+      if ((Boolean)files.get("success")) {
+        ArrayList<LinkedTreeMap> filesResponse = (ArrayList)files.get("response");
+        boolean found = false;
+        for (int i = filesResponse.size() - 1; i >= 0; i--) {
+          LinkedTreeMap reportCandidate = filesResponse.get(i);
+          LinkedTreeMap externalFile = (LinkedTreeMap)reportCandidate.get("externalFile");
+          if (ExternalFile.CategoryEnum.DIAGNOSTICREPORT == 
+            ExternalFile.CategoryEnum.fromValue((String)externalFile.get("category"))) {
+            found = true;
+            downloadReport(caseNumber, crmRetrieveReportListener, externalFile);
+            break;
+          } 
+        } 
+        if (!found)
+          crmRetrieveReportListener.onRetrieveError(); 
+      } else {
+        crmRetrieveReportListener.onRetrieveError();
+      } 
+    } else {
+      crmRetrieveReportListener.onRetrieveError();
+    } 
+  }
+  
+  private void downloadReport(String caseNumber, CrmRetrieveReportListener crmRetrieveReportListener, LinkedTreeMap externalFile) throws IOException, JAXBException {
+    String downloadUrl = (String)externalFile.get("fileUrl");
+    StringBuilder responseStringBuilder = new StringBuilder();
+    BufferedReader in = new BufferedReader(new InputStreamReader(this.crmInternalFactory.openStream(new URL(downloadUrl))));
+    String inputLine;
+    while ((inputLine = in.readLine()) != null)
+      responseStringBuilder.append(inputLine); 
+    in.close();
+    RetrievedReportData retrievedReportData = this.dataExtractor.extractData(responseStringBuilder.toString(), caseNumber);
+    crmRetrieveReportListener.onRetrieveSuccess(retrievedReportData);
+  }
+  
+  public void cancelReceiveRequest() {
+    if (this.findCaseCall != null)
+      this.findCaseCall.cancel(); 
+    if (this.findExternalFileJunctionCall != null)
+      this.findExternalFileJunctionCall.cancel(); 
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/beds/service/crmclient/report/impl/ReceivedReportDataExtractor.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.report.impl;
+
+import com.gigatronik.beds.service.crmclient.report.api.RetrievedReportData;
+import com.gigatronik.beds.service.crmclient.xml.EBikeCRMType;
+import java.io.StringReader;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Unmarshaller;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.Schema;
+import javax.xml.validation.SchemaFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.xml.sax.SAXException;
+
+class ReceivedReportDataExtractor {
+  private static final SchemaFactory SCHEMA_FACTORY = SchemaFactory.newInstance("http://www.w3.org/2001/XMLSchema");
+  
+  private static Schema reportSchema;
+  
+  private static Unmarshaller reportUnmarshaller;
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(ReceivedReportDataExtractor.class);
+  
+  static {
+    try {
+      reportSchema = SCHEMA_FACTORY.newSchema(new StreamSource(ReceivedReportDataExtractor.class.getClassLoader().getResourceAsStream("com/gigatronik/beds/service/crmclient/report/xsd/eBike_CRM_Schema.xsd")));
+      reportUnmarshaller = JAXBContext.newInstance(new Class<?>[] { EBikeCRMType.class }).createUnmarshaller();
+      reportUnmarshaller.setSchema(reportSchema);
+    } catch (SAXException|JAXBException e) {
+      LOGGER.error("Could not create xml parser or schema", (Throwable)e);
+    } 
+  }
+  
+  public RetrievedReportData extractData(String retrieveXml, String caseNumber) throws JAXBException {
+    RetrievedReportData data = new RetrievedReportData();
+    JAXBElement<EBikeCRMType> root = reportUnmarshaller.unmarshal(new StreamSource(new StringReader(retrieveXml.trim())), EBikeCRMType.class);
+    data.setCaseNumber(caseNumber);
+    data.setAccountnumber(((EBikeCRMType)root.getValue()).getIbd().getCustomerNumber());
+    data.setContactName(((EBikeCRMType)root.getValue()).getIbd().getContactName());
+    data.setEmail(((EBikeCRMType)root.getValue()).getIbd().getContactEmail());
+    data.setLanguage("");
+    data.setCountry(((EBikeCRMType)root.getValue()).getIbd().getCountry());
+    data.setProductfamily(((EBikeCRMType)root.getValue()).getCaseInfo().getProductFamily());
+    data.setPurchasedate(((EBikeCRMType)root.getValue()).getCaseInfo().getDateOfPurchase());
+    data.setVersion(((EBikeCRMType)root.getValue()).getPcToolVersion());
+    data.setDongleid(((EBikeCRMType)root.getValue()).getIbd().getDongleId());
+    data.setReport((EBikeCRMType)root.getValue());
+    return data;
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/beds/service/crmclient/xml/Adapter1.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import com.gigatronik.beds.service.crmclient.report.binding.OffsetTimeAdapter;
+import java.time.OffsetTime;
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+
+public class Adapter1 extends XmlAdapter<String, OffsetTime> {
+  public OffsetTime unmarshal(String value) {
+    return OffsetTimeAdapter.unmarshal(value);
+  }
+  
+  public String marshal(OffsetTime value) {
+    return OffsetTimeAdapter.marshal(value);
+  }
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/beds/service/crmclient/xml/Adapter2.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import com.gigatronik.beds.service.crmclient.report.binding.LocalDateAdapter;
+import java.time.LocalDate;
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+
+public class Adapter2 extends XmlAdapter<String, LocalDate> {
+  public LocalDate unmarshal(String value) {
+    return LocalDateAdapter.unmarshal(value);
+  }
+  
+  public String marshal(LocalDate value) {
+    return LocalDateAdapter.marshal(value);
+  }
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/beds/service/crmclient/xml/BAS100Type.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "BAS100Type")
+public class BAS100Type extends ECUType {
+  @XmlAttribute(name = "part-number-hydraulic-unit", required = true)
+  protected String partNumberHydraulicUnit;
+  
+  @XmlAttribute(name = "wss-test-front", required = true)
+  protected String wssTestFront;
+  
+  @XmlAttribute(name = "wss-test-back", required = true)
+  protected String wssTestBack;
+  
+  @XmlAttribute(name = "number-bas-controls-ol", required = true)
+  protected String numberBasControlsOl;
+  
+  @XmlAttribute(name = "assembly-check", required = true)
+  protected String assemblyCheck;
+  
+  @XmlAttribute(name = "number-sw-updates-ol", required = true)
+  protected String numberSwUpdatesOl;
+  
+  @XmlAttribute(name = "eBike-abs-variant", required = true)
+  protected String eBikeAbsVariant;
+  
+  public String getPartNumberHydraulicUnit() {
+    return this.partNumberHydraulicUnit;
+  }
+  
+  public void setPartNumberHydraulicUnit(String value) {
+    this.partNumberHydraulicUnit = value;
+  }
+  
+  public String getWssTestFront() {
+    return this.wssTestFront;
+  }
+  
+  public void setWssTestFront(String value) {
+    this.wssTestFront = value;
+  }
+  
+  public String getWssTestBack() {
+    return this.wssTestBack;
+  }
+  
+  public void setWssTestBack(String value) {
+    this.wssTestBack = value;
+  }
+  
+  public String getNumberBasControlsOl() {
+    return this.numberBasControlsOl;
+  }
+  
+  public void setNumberBasControlsOl(String value) {
+    this.numberBasControlsOl = value;
+  }
+  
+  public String getAssemblyCheck() {
+    return this.assemblyCheck;
+  }
+  
+  public void setAssemblyCheck(String value) {
+    this.assemblyCheck = value;
+  }
+  
+  public String getNumberSwUpdatesOl() {
+    return this.numberSwUpdatesOl;
+  }
+  
+  public void setNumberSwUpdatesOl(String value) {
+    this.numberSwUpdatesOl = value;
+  }
+  
+  public String getEBikeAbsVariant() {
+    return this.eBikeAbsVariant;
+  }
+  
+  public void setEBikeAbsVariant(String value) {
+    this.eBikeAbsVariant = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 18: com/gigatronik/beds/service/crmclient/xml/BBP2XxType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "BBP2xxType")
+public class BBP2XxType extends ECUType {
+  @XmlAttribute(name = "batteryID", required = true)
+  protected int batteryID;
+  
+  @XmlAttribute(name = "battery-voltage", required = true)
+  protected String batteryVoltage;
+  
+  @XmlAttribute(name = "lowest-bttery-cell-voltage", required = true)
+  protected String lowestBtteryCellVoltage;
+  
+  @XmlAttribute(name = "battery-temperature", required = true)
+  protected String batteryTemperature;
+  
+  @XmlAttribute(name = "battery-charge-state", required = true)
+  protected String batteryChargeState;
+  
+  @XmlAttribute(name = "battery-deactivated", required = true)
+  protected String batteryDeactivated;
+  
+  @XmlAttribute(name = "number-full-charge-cycles", required = true)
+  protected String numberFullChargeCycles;
+  
+  @XmlAttribute(name = "max-pack-temperature-ol", required = true)
+  protected String maxPackTemperatureOl;
+  
+  @XmlAttribute(name = "min-pack-temperature-ol", required = true)
+  protected String minPackTemperatureOl;
+  
+  @XmlAttribute(name = "duration-thermal-protection", required = true)
+  protected String durationThermalProtection;
+  
+  @XmlAttribute(name = "batterycode", required = true)
+  protected String batterycode;
+  
+  @XmlAttribute(name = "provided-Ah-ol", required = true)
+  protected String providedAhOl;
+  
+  @XmlAttribute(name = "cell-debalance-value", required = true)
+  protected String cellDebalanceValue;
+  
+  @XmlAttribute(name = "cell-debalance-time", required = true)
+  protected String cellDebalanceTime;
+  
+  @XmlAttribute(name = "cell-type", required = true)
+  protected String cellType;
+  
+  public int getBatteryID() {
+    return this.batteryID;
+  }
+  
+  public void setBatteryID(int value) {
+    this.batteryID = value;
+  }
+  
+  public String getBatteryVoltage() {
+    return this.batteryVoltage;
+  }
+  
+  public void setBatteryVoltage(String value) {
+    this.batteryVoltage = value;
+  }
+  
+  public String getLowestBtteryCellVoltage() {
+    return this.lowestBtteryCellVoltage;
+  }
+  
+  public void setLowestBtteryCellVoltage(String value) {
+    this.lowestBtteryCellVoltage = value;
+  }
+  
+  public String getBatteryTemperature() {
+    return this.batteryTemperature;
+  }
+  
+  public void setBatteryTemperature(String value) {
+    this.batteryTemperature = value;
+  }
+  
+  public String getBatteryChargeState() {
+    return this.batteryChargeState;
+  }
+  
+  public void setBatteryChargeState(String value) {
+    this.batteryChargeState = value;
+  }
+  
+  public String getBatteryDeactivated() {
+    return this.batteryDeactivated;
+  }
+  
+  public void setBatteryDeactivated(String value) {
+    this.batteryDeactivated = value;
+  }
+  
+  public String getNumberFullChargeCycles() {
+    return this.numberFullChargeCycles;
+  }
+  
+  public void setNumberFullChargeCycles(String value) {
+    this.numberFullChargeCycles = value;
+  }
+  
+  public String getMaxPackTemperatureOl() {
+    return this.maxPackTemperatureOl;
+  }
+  
+  public void setMaxPackTemperatureOl(String value) {
+    this.maxPackTemperatureOl = value;
+  }
+  
+  public String getMinPackTemperatureOl() {
+    return this.minPackTemperatureOl;
+  }
+  
+  public void setMinPackTemperatureOl(String value) {
+    this.minPackTemperatureOl = value;
+  }
+  
+  public String getDurationThermalProtection() {
+    return this.durationThermalProtection;
+  }
+  
+  public void setDurationThermalProtection(String value) {
+    this.durationThermalProtection = value;
+  }
+  
+  public String getBatterycode() {
+    return this.batterycode;
+  }
+  
+  public void setBatterycode(String value) {
+    this.batterycode = value;
+  }
+  
+  public String getProvidedAhOl() {
+    return this.providedAhOl;
+  }
+  
+  public void setProvidedAhOl(String value) {
+    this.providedAhOl = value;
+  }
+  
+  public String getCellDebalanceValue() {
+    return this.cellDebalanceValue;
+  }
+  
+  public void setCellDebalanceValue(String value) {
+    this.cellDebalanceValue = value;
+  }
+  
+  public String getCellDebalanceTime() {
+    return this.cellDebalanceTime;
+  }
+  
+  public void setCellDebalanceTime(String value) {
+    this.cellDebalanceTime = value;
+  }
+  
+  public String getCellType() {
+    return this.cellType;
+  }
+  
+  public void setCellType(String value) {
+    this.cellType = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 19: com/gigatronik/beds/service/crmclient/xml/BCS250.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "BCS250")
+public class BCS250 extends ECUType {
+  @XmlAttribute(name = "Ah-delivered-ol", required = true)
+  protected String ahDeliveredOl;
+  
+  @XmlAttribute(name = "last-connected-batteries", required = true)
+  protected String lastConnectedBatteries;
+  
+  public String getAhDeliveredOl() {
+    return this.ahDeliveredOl;
+  }
+  
+  public void setAhDeliveredOl(String value) {
+    this.ahDeliveredOl = value;
+  }
+  
+  public String getLastConnectedBatteries() {
+    return this.lastConnectedBatteries;
+  }
+  
+  public void setLastConnectedBatteries(String value) {
+    this.lastConnectedBatteries = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 20: com/gigatronik/beds/service/crmclient/xml/BCT100Type.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "BCT100Type")
+public class BCT100Type extends ECUType {}
+
+
+========================================================================================================================
+ITEM 21: com/gigatronik/beds/service/crmclient/xml/BDUxxxType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "BDUxxxType")
+public class BDUxxxType extends ECUType {
+  @XmlAttribute(name = "application-id", required = true)
+  protected String applicationId;
+  
+  @XmlAttribute(name = "date-of-manufacture", required = true)
+  protected String dateOfManufacture;
+  
+  @XmlAttribute(name = "bike-id", required = true)
+  protected String bikeId;
+  
+  @XmlAttribute(name = "highest-gear-ratio", required = true)
+  protected String highestGearRatio;
+  
+  @XmlAttribute(name = "lowest-gear-ratio", required = true)
+  protected String lowestGearRatio;
+  
+  @XmlAttribute(name = "wheel-circumference", required = true)
+  protected String wheelCircumference;
+  
+  @XmlAttribute(name = "wheel-size-correction", required = true)
+  protected String wheelSizeCorrection;
+  
+  @XmlAttribute(name = "light-switch-status", required = true)
+  protected String lightSwitchStatus;
+  
+  @XmlAttribute(name = "light-output", required = true)
+  protected String lightOutput;
+  
+  @XmlAttribute(name = "light-power", required = true)
+  protected String lightPower;
+  
+  @XmlAttribute(name = "walk-assist", required = true)
+  protected String walkAssist;
+  
+  @XmlAttribute(name = "drive-off", required = true)
+  protected String driveOff;
+  
+  @XmlAttribute(name = "eBike-abs-variant", required = true)
+  protected String eBikeAbsVariant;
+  
+  @XmlAttribute(name = "hmi-less", required = true)
+  protected String hmiLess;
+  
+  @XmlAttribute(name = "high-power-port", required = true)
+  protected String highPowerPort;
+  
+  @XmlAttribute(name = "eBike-disabler-function", required = true)
+  protected String eBikeDisablerFunction;
+  
+  @XmlAttribute(name = "eBike-disabler-status", required = true)
+  protected String eBikeDisablerStatus;
+  
+  @XmlAttribute(name = "eBike-disabler-ident", required = true)
+  protected String eBikeDisablerIdent;
+  
+  @XmlAttribute(name = "odometer", required = true)
+  protected String odometer;
+  
+  @XmlAttribute(name = "total-active-operating-time", required = true)
+  protected String totalActiveOperatingTime;
+  
+  @XmlAttribute(name = "total-operating-time", required = true)
+  protected String totalOperatingTime;
+  
+  @XmlAttribute(name = "manipulation", required = true)
+  protected String manipulation;
+  
+  @XmlAttribute(name = "number-detected-manipulations", required = true)
+  protected String numberDetectedManipulations;
+  
+  @XmlAttribute(name = "distance-turbo", required = true)
+  protected String distanceTurbo;
+  
+  @XmlAttribute(name = "distance-sport", required = true)
+  protected String distanceSport;
+  
+  @XmlAttribute(name = "distance-tour", required = true)
+  protected String distanceTour;
+  
+  @XmlAttribute(name = "distance-eco", required = true)
+  protected String distanceEco;
+  
+  @XmlAttribute(name = "distance-without-assistance", required = true)
+  protected String distanceWithoutAssistance;
+  
+  @XmlAttribute(name = "energy-comnsumption", required = true)
+  protected String energyComnsumption;
+  
+  @XmlAttribute(name = "distance-udam1", required = true)
+  protected String distanceUdam1;
+  
+  @XmlAttribute(name = "distance-udam2", required = true)
+  protected String distanceUdam2;
+  
+  @XmlAttribute(name = "distance-udam3", required = true)
+  protected String distanceUdam3;
+  
+  @XmlAttribute(name = "distance-udam4", required = true)
+  protected String distanceUdam4;
+  
+  @XmlAttribute(name = "energy-turbo", required = true)
+  protected String energyTurbo;
+  
+  @XmlAttribute(name = "energy-sport", required = true)
+  protected String energySport;
+  
+  @XmlAttribute(name = "energy-eco", required = true)
+  protected String energyEco;
+  
+  @XmlAttribute(name = "energy-tour", required = true)
+  protected String energyTour;
+  
+  @XmlAttribute(name = "energy-udam1", required = true)
+  protected String energyUdam1;
+  
+  @XmlAttribute(name = "energy-udam2", required = true)
+  protected String energyUdam2;
+  
+  @XmlAttribute(name = "energy-udam3", required = true)
+  protected String energyUdam3;
+  
+  @XmlAttribute(name = "energy-udam4", required = true)
+  protected String energyUdam4;
+  
+  @XmlAttribute(name = "product-line", required = true)
+  protected String productLine;
+  
+  @XmlAttribute(name = "bike-type", required = true)
+  protected String bikeType;
+  
+  @XmlAttribute(name = "max-speed-assistance", required = true)
+  protected String maxSpeedAssistance;
+  
+  @XmlAttribute(name = "eshift-auto-gear", required = true)
+  protected String eshiftAutoGear;
+  
+  @XmlAttribute(name = "eshift-auto-down-shift", required = true)
+  protected String eshiftAutoDownShift;
+  
+  @XmlAttribute(name = "eshift-default-gear", required = true)
+  protected String eshiftDefaultGear;
+  
+  public String getApplicationId() {
+    return this.applicationId;
+  }
+  
+  public void setApplicationId(String value) {
+    this.applicationId = value;
+  }
+  
+  public String getDateOfManufacture() {
+    return this.dateOfManufacture;
+  }
+  
+  public void setDateOfManufacture(String value) {
+    this.dateOfManufacture = value;
+  }
+  
+  public String getBikeId() {
+    return this.bikeId;
+  }
+  
+  public void setBikeId(String value) {
+    this.bikeId = value;
+  }
+  
+  public String getHighestGearRatio() {
+    return this.highestGearRatio;
+  }
+  
+  public void setHighestGearRatio(String value) {
+    this.highestGearRatio = value;
+  }
+  
+  public String getLowestGearRatio() {
+    return this.lowestGearRatio;
+  }
+  
+  public void setLowestGearRatio(String value) {
+    this.lowestGearRatio = value;
+  }
+  
+  public String getWheelCircumference() {
+    return this.wheelCircumference;
+  }
+  
+  public void setWheelCircumference(String value) {
+    this.wheelCircumference = value;
+  }
+  
+  public String getWheelSizeCorrection() {
+    return this.wheelSizeCorrection;
+  }
+  
+  public void setWheelSizeCorrection(String value) {
+    this.wheelSizeCorrection = value;
+  }
+  
+  public String getLightSwitchStatus() {
+    return this.lightSwitchStatus;
+  }
+  
+  public void setLightSwitchStatus(String value) {
+    this.lightSwitchStatus = value;
+  }
+  
+  public String getLightOutput() {
+    return this.lightOutput;
+  }
+  
+  public void setLightOutput(String value) {
+    this.lightOutput = value;
+  }
+  
+  public String getLightPower() {
+    return this.lightPower;
+  }
+  
+  public void setLightPower(String value) {
+    this.lightPower = value;
+  }
+  
+  public String getWalkAssist() {
+    return this.walkAssist;
+  }
+  
+  public void setWalkAssist(String value) {
+    this.walkAssist = value;
+  }
+  
+  public String getDriveOff() {
+    return this.driveOff;
+  }
+  
+  public void setDriveOff(String value) {
+    this.driveOff = value;
+  }
+  
+  public String getEBikeAbsVariant() {
+    return this.eBikeAbsVariant;
+  }
+  
+  public void setEBikeAbsVariant(String value) {
+    this.eBikeAbsVariant = value;
+  }
+  
+  public String getHmiLess() {
+    return this.hmiLess;
+  }
+  
+  public void setHmiLess(String value) {
+    this.hmiLess = value;
+  }
+  
+  public String getHighPowerPort() {
+    return this.highPowerPort;
+  }
+  
+  public void setHighPowerPort(String value) {
+    this.highPowerPort = value;
+  }
+  
+  public String getEBikeDisablerFunction() {
+    return this.eBikeDisablerFunction;
+  }
+  
+  public void setEBikeDisablerFunction(String value) {
+    this.eBikeDisablerFunction = value;
+  }
+  
+  public String getEBikeDisablerStatus() {
+    return this.eBikeDisablerStatus;
+  }
+  
+  public void setEBikeDisablerStatus(String value) {
+    this.eBikeDisablerStatus = value;
+  }
+  
+  public String getEBikeDisablerIdent() {
+    return this.eBikeDisablerIdent;
+  }
+  
+  public void setEBikeDisablerIdent(String value) {
+    this.eBikeDisablerIdent = value;
+  }
+  
+  public String getOdometer() {
+    return this.odometer;
+  }
+  
+  public void setOdometer(String value) {
+    this.odometer = value;
+  }
+  
+  public String getTotalActiveOperatingTime() {
+    return this.totalActiveOperatingTime;
+  }
+  
+  public void setTotalActiveOperatingTime(String value) {
+    this.totalActiveOperatingTime = value;
+  }
+  
+  public String getTotalOperatingTime() {
+    return this.totalOperatingTime;
+  }
+  
+  public void setTotalOperatingTime(String value) {
+    this.totalOperatingTime = value;
+  }
+  
+  public String getManipulation() {
+    return this.manipulation;
+  }
+  
+  public void setManipulation(String value) {
+    this.manipulation = value;
+  }
+  
+  public String getNumberDetectedManipulations() {
+    return this.numberDetectedManipulations;
+  }
+  
+  public void setNumberDetectedManipulations(String value) {
+    this.numberDetectedManipulations = value;
+  }
+  
+  public String getDistanceTurbo() {
+    return this.distanceTurbo;
+  }
+  
+  public void setDistanceTurbo(String value) {
+    this.distanceTurbo = value;
+  }
+  
+  public String getDistanceSport() {
+    return this.distanceSport;
+  }
+  
+  public void setDistanceSport(String value) {
+    this.distanceSport = value;
+  }
+  
+  public String getDistanceTour() {
+    return this.distanceTour;
+  }
+  
+  public void setDistanceTour(String value) {
+    this.distanceTour = value;
+  }
+  
+  public String getDistanceEco() {
+    return this.distanceEco;
+  }
+  
+  public void setDistanceEco(String value) {
+    this.distanceEco = value;
+  }
+  
+  public String getDistanceWithoutAssistance() {
+    return this.distanceWithoutAssistance;
+  }
+  
+  public void setDistanceWithoutAssistance(String value) {
+    this.distanceWithoutAssistance = value;
+  }
+  
+  public String getEnergyComnsumption() {
+    return this.energyComnsumption;
+  }
+  
+  public void setEnergyComnsumption(String value) {
+    this.energyComnsumption = value;
+  }
+  
+  public String getDistanceUdam1() {
+    return this.distanceUdam1;
+  }
+  
+  public void setDistanceUdam1(String value) {
+    this.distanceUdam1 = value;
+  }
+  
+  public String getDistanceUdam2() {
+    return this.distanceUdam2;
+  }
+  
+  public void setDistanceUdam2(String value) {
+    this.distanceUdam2 = value;
+  }
+  
+  public String getDistanceUdam3() {
+    return this.distanceUdam3;
+  }
+  
+  public void setDistanceUdam3(String value) {
+    this.distanceUdam3 = value;
+  }
+  
+  public String getDistanceUdam4() {
+    return this.distanceUdam4;
+  }
+  
+  public void setDistanceUdam4(String value) {
+    this.distanceUdam4 = value;
+  }
+  
+  public String getEnergyTurbo() {
+    return this.energyTurbo;
+  }
+  
+  public void setEnergyTurbo(String value) {
+    this.energyTurbo = value;
+  }
+  
+  public String getEnergySport() {
+    return this.energySport;
+  }
+  
+  public void setEnergySport(String value) {
+    this.energySport = value;
+  }
+  
+  public String getEnergyEco() {
+    return this.energyEco;
+  }
+  
+  public void setEnergyEco(String value) {
+    this.energyEco = value;
+  }
+  
+  public String getEnergyTour() {
+    return this.energyTour;
+  }
+  
+  public void setEnergyTour(String value) {
+    this.energyTour = value;
+  }
+  
+  public String getEnergyUdam1() {
+    return this.energyUdam1;
+  }
+  
+  public void setEnergyUdam1(String value) {
+    this.energyUdam1 = value;
+  }
+  
+  public String getEnergyUdam2() {
+    return this.energyUdam2;
+  }
+  
+  public void setEnergyUdam2(String value) {
+    this.energyUdam2 = value;
+  }
+  
+  public String getEnergyUdam3() {
+    return this.energyUdam3;
+  }
+  
+  public void setEnergyUdam3(String value) {
+    this.energyUdam3 = value;
+  }
+  
+  public String getEnergyUdam4() {
+    return this.energyUdam4;
+  }
+  
+  public void setEnergyUdam4(String value) {
+    this.energyUdam4 = value;
+  }
+  
+  public String getProductLine() {
+    return this.productLine;
+  }
+  
+  public void setProductLine(String value) {
+    this.productLine = value;
+  }
+  
+  public String getBikeType() {
+    return this.bikeType;
+  }
+  
+  public void setBikeType(String value) {
+    this.bikeType = value;
+  }
+  
+  public String getMaxSpeedAssistance() {
+    return this.maxSpeedAssistance;
+  }
+  
+  public void setMaxSpeedAssistance(String value) {
+    this.maxSpeedAssistance = value;
+  }
+  
+  public String getEshiftAutoGear() {
+    return this.eshiftAutoGear;
+  }
+  
+  public void setEshiftAutoGear(String value) {
+    this.eshiftAutoGear = value;
+  }
+  
+  public String getEshiftAutoDownShift() {
+    return this.eshiftAutoDownShift;
+  }
+  
+  public void setEshiftAutoDownShift(String value) {
+    this.eshiftAutoDownShift = value;
+  }
+  
+  public String getEshiftDefaultGear() {
+    return this.eshiftDefaultGear;
+  }
+  
+  public void setEshiftDefaultGear(String value) {
+    this.eshiftDefaultGear = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 22: com/gigatronik/beds/service/crmclient/xml/BUI21XType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "BUI21xType")
+public class BUI21XType extends BUIType {
+  @XmlAttribute(name = "distance-unit", required = true)
+  protected String distanceUnit;
+  
+  @XmlAttribute(name = "status-battery", required = true)
+  protected String statusBattery;
+  
+  public String getDistanceUnit() {
+    return this.distanceUnit;
+  }
+  
+  public void setDistanceUnit(String value) {
+    this.distanceUnit = value;
+  }
+  
+  public String getStatusBattery() {
+    return this.statusBattery;
+  }
+  
+  public void setStatusBattery(String value) {
+    this.statusBattery = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 23: com/gigatronik/beds/service/crmclient/xml/BUI25XType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "BUI25xType")
+public class BUI25XType extends BUIType {
+  @XmlAttribute(name = "distance-unit", required = true)
+  protected String distanceUnit;
+  
+  public String getDistanceUnit() {
+    return this.distanceUnit;
+  }
+  
+  public void setDistanceUnit(String value) {
+    this.distanceUnit = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 24: com/gigatronik/beds/service/crmclient/xml/BUI27XType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "BUI27xType")
+public class BUI27XType extends BUIType {
+  @XmlAttribute(name = "sw-version-front-end", required = true)
+  protected String swVersionFrontEnd;
+  
+  @XmlAttribute(name = "sw-version-map", required = true)
+  protected String swVersionMap;
+  
+  @XmlAttribute(name = "battery-charge-state", required = true)
+  protected String batteryChargeState;
+  
+  @XmlAttribute(name = "udam1", required = true)
+  protected String udam1;
+  
+  @XmlAttribute(name = "udam2", required = true)
+  protected String udam2;
+  
+  @XmlAttribute(name = "udam3", required = true)
+  protected String udam3;
+  
+  @XmlAttribute(name = "udam4", required = true)
+  protected String udam4;
+  
+  public String getSwVersionFrontEnd() {
+    return this.swVersionFrontEnd;
+  }
+  
+  public void setSwVersionFrontEnd(String value) {
+    this.swVersionFrontEnd = value;
+  }
+  
+  public String getSwVersionMap() {
+    return this.swVersionMap;
+  }
+  
+  public void setSwVersionMap(String value) {
+    this.swVersionMap = value;
+  }
+  
+  public String getBatteryChargeState() {
+    return this.batteryChargeState;
+  }
+  
+  public void setBatteryChargeState(String value) {
+    this.batteryChargeState = value;
+  }
+  
+  public String getUdam1() {
+    return this.udam1;
+  }
+  
+  public void setUdam1(String value) {
+    this.udam1 = value;
+  }
+  
+  public String getUdam2() {
+    return this.udam2;
+  }
+  
+  public void setUdam2(String value) {
+    this.udam2 = value;
+  }
+  
+  public String getUdam3() {
+    return this.udam3;
+  }
+  
+  public void setUdam3(String value) {
+    this.udam3 = value;
+  }
+  
+  public String getUdam4() {
+    return this.udam4;
+  }
+  
+  public void setUdam4(String value) {
+    this.udam4 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 25: com/gigatronik/beds/service/crmclient/xml/BUI33XType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "BUI33xType")
+public class BUI33XType extends BUIType {
+  @XmlAttribute(name = "battery-charge-state", required = true)
+  protected String batteryChargeState;
+  
+  public String getBatteryChargeState() {
+    return this.batteryChargeState;
+  }
+  
+  public void setBatteryChargeState(String value) {
+    this.batteryChargeState = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 26: com/gigatronik/beds/service/crmclient/xml/BUI35XType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "BUI35xType")
+public class BUI35XType extends BUIType {
+  @XmlAttribute(name = "sw-version-front-end", required = true)
+  protected String swVersionFrontEnd;
+  
+  @XmlAttribute(name = "sw-version-map", required = true)
+  protected String swVersionMap;
+  
+  @XmlAttribute(name = "battery-charge-state", required = true)
+  protected String batteryChargeState;
+  
+  @XmlAttribute(name = "udam1", required = true)
+  protected String udam1;
+  
+  @XmlAttribute(name = "udam2", required = true)
+  protected String udam2;
+  
+  @XmlAttribute(name = "udam3", required = true)
+  protected String udam3;
+  
+  @XmlAttribute(name = "udam4", required = true)
+  protected String udam4;
+  
+  public String getSwVersionFrontEnd() {
+    return this.swVersionFrontEnd;
+  }
+  
+  public void setSwVersionFrontEnd(String value) {
+    this.swVersionFrontEnd = value;
+  }
+  
+  public String getSwVersionMap() {
+    return this.swVersionMap;
+  }
+  
+  public void setSwVersionMap(String value) {
+    this.swVersionMap = value;
+  }
+  
+  public String getBatteryChargeState() {
+    return this.batteryChargeState;
+  }
+  
+  public void setBatteryChargeState(String value) {
+    this.batteryChargeState = value;
+  }
+  
+  public String getUdam1() {
+    return this.udam1;
+  }
+  
+  public void setUdam1(String value) {
+    this.udam1 = value;
+  }
+  
+  public String getUdam2() {
+    return this.udam2;
+  }
+  
+  public void setUdam2(String value) {
+    this.udam2 = value;
+  }
+  
+  public String getUdam3() {
+    return this.udam3;
+  }
+  
+  public void setUdam3(String value) {
+    this.udam3 = value;
+  }
+  
+  public String getUdam4() {
+    return this.udam4;
+  }
+  
+  public void setUdam4(String value) {
+    this.udam4 = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 27: com/gigatronik/beds/service/crmclient/xml/BUIType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlSeeAlso;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "BUIType")
+@XmlSeeAlso({BUI27XType.class, BUI35XType.class, BUI21XType.class, CUI1XxType.class, BUI25XType.class, BUI33XType.class})
+public class BUIType extends ECUType {}
+
+
+========================================================================================================================
+ITEM 28: com/gigatronik/beds/service/crmclient/xml/CaseInfoType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import java.time.LocalDate;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlSchemaType;
+import javax.xml.bind.annotation.XmlType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "caseInfoType")
+public class CaseInfoType {
+  @XmlAttribute(name = "product-family", required = true)
+  protected String productFamily;
+  
+  @XmlAttribute(name = "date-of-purchase", required = true)
+  @XmlJavaTypeAdapter(Adapter2.class)
+  @XmlSchemaType(name = "date")
+  protected LocalDate dateOfPurchase;
+  
+  @XmlAttribute(name = "cross-exchange", required = true)
+  protected boolean crossExchange;
+  
+  @XmlAttribute(name = "error-description")
+  protected String errorDescription;
+  
+  @XmlAttribute(name = "serial-number-manual")
+  protected String serialNumberManual;
+  
+  @XmlAttribute(name = "part-number-manual")
+  protected String partNumberManual;
+  
+  public String getProductFamily() {
+    return this.productFamily;
+  }
+  
+  public void setProductFamily(String value) {
+    this.productFamily = value;
+  }
+  
+  public LocalDate getDateOfPurchase() {
+    return this.dateOfPurchase;
+  }
+  
+  public void setDateOfPurchase(LocalDate value) {
+    this.dateOfPurchase = value;
+  }
+  
+  public boolean isCrossExchange() {
+    return this.crossExchange;
+  }
+  
+  public void setCrossExchange(boolean value) {
+    this.crossExchange = value;
+  }
+  
+  public String getErrorDescription() {
+    return this.errorDescription;
+  }
+  
+  public void setErrorDescription(String value) {
+    this.errorDescription = value;
+  }
+  
+  public String getSerialNumberManual() {
+    return this.serialNumberManual;
+  }
+  
+  public void setSerialNumberManual(String value) {
+    this.serialNumberManual = value;
+  }
+  
+  public String getPartNumberManual() {
+    return this.partNumberManual;
+  }
+  
+  public void setPartNumberManual(String value) {
+    this.partNumberManual = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 29: com/gigatronik/beds/service/crmclient/xml/CUI1XxType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "CUI1xxType")
+public class CUI1XxType extends BUIType {}
+
+
+========================================================================================================================
+ITEM 30: com/gigatronik/beds/service/crmclient/xml/DTCType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "DTCType")
+public class DTCType {
+  @XmlAttribute(name = "error-code", required = true)
+  protected String errorCode;
+  
+  @XmlAttribute(name = "description", required = true)
+  protected String description;
+  
+  public String getErrorCode() {
+    return this.errorCode;
+  }
+  
+  public void setErrorCode(String value) {
+    this.errorCode = value;
+  }
+  
+  public String getDescription() {
+    return this.description;
+  }
+  
+  public void setDescription(String value) {
+    this.description = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 31: com/gigatronik/beds/service/crmclient/xml/DUxxxManualType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "DUxxxManualType")
+public class DUxxxManualType {
+  @XmlAttribute(name = "brand", required = true)
+  protected String brand;
+  
+  @XmlAttribute(name = "external-reference", required = true)
+  protected String externalReference;
+  
+  @XmlAttribute(name = "bike-id", required = true)
+  protected String bikeId;
+  
+  @XmlAttribute(name = "product-line", required = true)
+  protected String productLine;
+  
+  @XmlAttribute(name = "gear-type1", required = true)
+  protected String gearType1;
+  
+  @XmlAttribute(name = "gear-type2", required = true)
+  protected String gearType2;
+  
+  @XmlAttribute(name = "gear-ratio", required = true)
+  protected String gearRatio;
+  
+  @XmlAttribute(name = "highest-gear-ratio", required = true)
+  protected String highestGearRatio;
+  
+  @XmlAttribute(name = "lowest-gear-ratio", required = true)
+  protected String lowestGearRatio;
+  
+  @XmlAttribute(name = "wheel-circumference-unit", required = true)
+  protected String wheelCircumferenceUnit;
+  
+  @XmlAttribute(name = "wheel-circumference-value", required = true)
+  protected String wheelCircumferenceValue;
+  
+  @XmlAttribute(name = "light-switch-status", required = true)
+  protected String lightSwitchStatus;
+  
+  @XmlAttribute(name = "walk-assist", required = true)
+  protected boolean walkAssist;
+  
+  @XmlAttribute(name = "light-output", required = true)
+  protected String lightOutput;
+  
+  @XmlAttribute(name = "light-power", required = true)
+  protected String lightPower;
+  
+  @XmlAttribute(name = "high-power-port", required = true)
+  protected boolean highPowerPort;
+  
+  @XmlAttribute(name = "application-id", required = true)
+  protected String applicationId;
+  
+  @XmlAttribute(name = "eBike-abs-variant", required = true)
+  protected boolean eBikeAbsVariant;
+  
+  public String getBrand() {
+    return this.brand;
+  }
+  
+  public void setBrand(String value) {
+    this.brand = value;
+  }
+  
+  public String getExternalReference() {
+    return this.externalReference;
+  }
+  
+  public void setExternalReference(String value) {
+    this.externalReference = value;
+  }
+  
+  public String getBikeId() {
+    return this.bikeId;
+  }
+  
+  public void setBikeId(String value) {
+    this.bikeId = value;
+  }
+  
+  public String getProductLine() {
+    return this.productLine;
+  }
+  
+  public void setProductLine(String value) {
+    this.productLine = value;
+  }
+  
+  public String getGearType1() {
+    return this.gearType1;
+  }
+  
+  public void setGearType1(String value) {
+    this.gearType1 = value;
+  }
+  
+  public String getGearType2() {
+    return this.gearType2;
+  }
+  
+  public void setGearType2(String value) {
+    this.gearType2 = value;
+  }
+  
+  public String getGearRatio() {
+    return this.gearRatio;
+  }
+  
+  public void setGearRatio(String value) {
+    this.gearRatio = value;
+  }
+  
+  public String getHighestGearRatio() {
+    return this.highestGearRatio;
+  }
+  
+  public void setHighestGearRatio(String value) {
+    this.highestGearRatio = value;
+  }
+  
+  public String getLowestGearRatio() {
+    return this.lowestGearRatio;
+  }
+  
+  public void setLowestGearRatio(String value) {
+    this.lowestGearRatio = value;
+  }
+  
+  public String getWheelCircumferenceUnit() {
+    return this.wheelCircumferenceUnit;
+  }
+  
+  public void setWheelCircumferenceUnit(String value) {
+    this.wheelCircumferenceUnit = value;
+  }
+  
+  public String getWheelCircumferenceValue() {
+    return this.wheelCircumferenceValue;
+  }
+  
+  public void setWheelCircumferenceValue(String value) {
+    this.wheelCircumferenceValue = value;
+  }
+  
+  public String getLightSwitchStatus() {
+    return this.lightSwitchStatus;
+  }
+  
+  public void setLightSwitchStatus(String value) {
+    this.lightSwitchStatus = value;
+  }
+  
+  public boolean isWalkAssist() {
+    return this.walkAssist;
+  }
+  
+  public void setWalkAssist(boolean value) {
+    this.walkAssist = value;
+  }
+  
+  public String getLightOutput() {
+    return this.lightOutput;
+  }
+  
+  public void setLightOutput(String value) {
+    this.lightOutput = value;
+  }
+  
+  public String getLightPower() {
+    return this.lightPower;
+  }
+  
+  public void setLightPower(String value) {
+    this.lightPower = value;
+  }
+  
+  public boolean isHighPowerPort() {
+    return this.highPowerPort;
+  }
+  
+  public void setHighPowerPort(boolean value) {
+    this.highPowerPort = value;
+  }
+  
+  public String getApplicationId() {
+    return this.applicationId;
+  }
+  
+  public void setApplicationId(String value) {
+    this.applicationId = value;
+  }
+  
+  public boolean isEBikeAbsVariant() {
+    return this.eBikeAbsVariant;
+  }
+  
+  public void setEBikeAbsVariant(boolean value) {
+    this.eBikeAbsVariant = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 32: com/gigatronik/beds/service/crmclient/xml/EBikeCRMType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import java.time.LocalDate;
+import java.time.OffsetTime;
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlSchemaType;
+import javax.xml.bind.annotation.XmlType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "eBikeCRMType", propOrder = {"ibd", "caseInfo", "bas100", "bcs250", "bduxxx", "duxxxmanual", "bbp2Xx", "eShift", "bui27X", "bui21X", "bui25X", "bui330", "bui350", "cui1Xx", "bct100", "bbp2XxBct"})
+public class EBikeCRMType {
+  @XmlElement(required = true)
+  protected IBDType ibd;
+  
+  @XmlElement(required = true)
+  protected CaseInfoType caseInfo;
+  
+  protected BAS100Type bas100;
+  
+  protected BCS250 bcs250;
+  
+  protected BDUxxxType bduxxx;
+  
+  protected DUxxxManualType duxxxmanual;
+  
+  @XmlElement(name = "bbp2xx")
+  protected List<BBP2XxType> bbp2Xx;
+  
+  protected EShiftType eShift;
+  
+  @XmlElement(name = "bui27x")
+  protected BUI27XType bui27X;
+  
+  @XmlElement(name = "bui21x")
+  protected BUI21XType bui21X;
+  
+  @XmlElement(name = "bui25x")
+  protected BUI25XType bui25X;
+  
+  protected BUI33XType bui330;
+  
+  protected BUI35XType bui350;
+  
+  @XmlElement(name = "cui1xx")
+  protected CUI1XxType cui1Xx;
+  
+  protected BCT100Type bct100;
+  
+  @XmlElement(name = "bbp2xx_bct")
+  protected BBP2XxType bbp2XxBct;
+  
+  @XmlAttribute(name = "pc-tool-version", required = true)
+  protected String pcToolVersion;
+  
+  @XmlAttribute(name = "report-date")
+  @XmlJavaTypeAdapter(Adapter2.class)
+  @XmlSchemaType(name = "date")
+  protected LocalDate reportDate;
+  
+  @XmlAttribute(name = "report-time", required = true)
+  @XmlJavaTypeAdapter(Adapter1.class)
+  @XmlSchemaType(name = "time")
+  protected OffsetTime reportTime;
+  
+  public IBDType getIbd() {
+    return this.ibd;
+  }
+  
+  public void setIbd(IBDType value) {
+    this.ibd = value;
+  }
+  
+  public CaseInfoType getCaseInfo() {
+    return this.caseInfo;
+  }
+  
+  public void setCaseInfo(CaseInfoType value) {
+    this.caseInfo = value;
+  }
+  
+  public BAS100Type getBas100() {
+    return this.bas100;
+  }
+  
+  public void setBas100(BAS100Type value) {
+    this.bas100 = value;
+  }
+  
+  public BCS250 getBcs250() {
+    return this.bcs250;
+  }
+  
+  public void setBcs250(BCS250 value) {
+    this.bcs250 = value;
+  }
+  
+  public BDUxxxType getBduxxx() {
+    return this.bduxxx;
+  }
+  
+  public void setBduxxx(BDUxxxType value) {
+    this.bduxxx = value;
+  }
+  
+  public DUxxxManualType getDuxxxmanual() {
+    return this.duxxxmanual;
+  }
+  
+  public void setDuxxxmanual(DUxxxManualType value) {
+    this.duxxxmanual = value;
+  }
+  
+  public List<BBP2XxType> getBbp2Xx() {
+    if (this.bbp2Xx == null)
+      this.bbp2Xx = new ArrayList<>(); 
+    return this.bbp2Xx;
+  }
+  
+  public EShiftType getEShift() {
+    return this.eShift;
+  }
+  
+  public void setEShift(EShiftType value) {
+    this.eShift = value;
+  }
+  
+  public BUI27XType getBui27X() {
+    return this.bui27X;
+  }
+  
+  public void setBui27X(BUI27XType value) {
+    this.bui27X = value;
+  }
+  
+  public BUI21XType getBui21X() {
+    return this.bui21X;
+  }
+  
+  public void setBui21X(BUI21XType value) {
+    this.bui21X = value;
+  }
+  
+  public BUI25XType getBui25X() {
+    return this.bui25X;
+  }
+  
+  public void setBui25X(BUI25XType value) {
+    this.bui25X = value;
+  }
+  
+  public BUI33XType getBui330() {
+    return this.bui330;
+  }
+  
+  public void setBui330(BUI33XType value) {
+    this.bui330 = value;
+  }
+  
+  public BUI35XType getBui350() {
+    return this.bui350;
+  }
+  
+  public void setBui350(BUI35XType value) {
+    this.bui350 = value;
+  }
+  
+  public CUI1XxType getCui1Xx() {
+    return this.cui1Xx;
+  }
+  
+  public void setCui1Xx(CUI1XxType value) {
+    this.cui1Xx = value;
+  }
+  
+  public BCT100Type getBct100() {
+    return this.bct100;
+  }
+  
+  public void setBct100(BCT100Type value) {
+    this.bct100 = value;
+  }
+  
+  public BBP2XxType getBbp2XxBct() {
+    return this.bbp2XxBct;
+  }
+  
+  public void setBbp2XxBct(BBP2XxType value) {
+    this.bbp2XxBct = value;
+  }
+  
+  public String getPcToolVersion() {
+    return this.pcToolVersion;
+  }
+  
+  public void setPcToolVersion(String value) {
+    this.pcToolVersion = value;
+  }
+  
+  public LocalDate getReportDate() {
+    return this.reportDate;
+  }
+  
+  public void setReportDate(LocalDate value) {
+    this.reportDate = value;
+  }
+  
+  public OffsetTime getReportTime() {
+    return this.reportTime;
+  }
+  
+  public void setReportTime(OffsetTime value) {
+    this.reportTime = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 33: com/gigatronik/beds/service/crmclient/xml/ECUType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlSeeAlso;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "ECUType", propOrder = {"dtcs"})
+@XmlSeeAlso({BAS100Type.class, BBP2XxType.class, BDUxxxType.class, BCT100Type.class, BCS250.class, BUIType.class})
+public class ECUType {
+  protected List<DTCType> dtcs;
+  
+  @XmlAttribute(name = "part-number", required = true)
+  protected String partNumber;
+  
+  @XmlAttribute(name = "product-code", required = true)
+  protected String productCode;
+  
+  @XmlAttribute(name = "serial-number", required = true)
+  protected String serialNumber;
+  
+  @XmlAttribute(name = "hw-version", required = true)
+  protected String hwVersion;
+  
+  @XmlAttribute(name = "sw-version", required = true)
+  protected String swVersion;
+  
+  @XmlAttribute(name = "fbl-mode", required = true)
+  protected boolean fblMode;
+  
+  @XmlAttribute(name = "sw-sample", required = true)
+  protected boolean swSample;
+  
+  @XmlAttribute(name = "hw-sample", required = true)
+  protected boolean hwSample;
+  
+  public List<DTCType> getDtcs() {
+    if (this.dtcs == null)
+      this.dtcs = new ArrayList<>(); 
+    return this.dtcs;
+  }
+  
+  public String getPartNumber() {
+    return this.partNumber;
+  }
+  
+  public void setPartNumber(String value) {
+    this.partNumber = value;
+  }
+  
+  public String getProductCode() {
+    return this.productCode;
+  }
+  
+  public void setProductCode(String value) {
+    this.productCode = value;
+  }
+  
+  public String getSerialNumber() {
+    return this.serialNumber;
+  }
+  
+  public void setSerialNumber(String value) {
+    this.serialNumber = value;
+  }
+  
+  public String getHwVersion() {
+    return this.hwVersion;
+  }
+  
+  public void setHwVersion(String value) {
+    this.hwVersion = value;
+  }
+  
+  public String getSwVersion() {
+    return this.swVersion;
+  }
+  
+  public void setSwVersion(String value) {
+    this.swVersion = value;
+  }
+  
+  public boolean isFblMode() {
+    return this.fblMode;
+  }
+  
+  public void setFblMode(boolean value) {
+    this.fblMode = value;
+  }
+  
+  public boolean isSwSample() {
+    return this.swSample;
+  }
+  
+  public void setSwSample(boolean value) {
+    this.swSample = value;
+  }
+  
+  public boolean isHwSample() {
+    return this.hwSample;
+  }
+  
+  public void setHwSample(boolean value) {
+    this.hwSample = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 34: com/gigatronik/beds/service/crmclient/xml/EShiftType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "eShiftType")
+public class EShiftType {
+  @XmlAttribute(name = "serial-number", required = true)
+  protected String serialNumber;
+  
+  @XmlAttribute(name = "hw-version", required = true)
+  protected String hwVersion;
+  
+  @XmlAttribute(name = "sw-version", required = true)
+  protected String swVersion;
+  
+  @XmlAttribute(name = "gear-box-type", required = true)
+  protected String gearBoxType;
+  
+  @XmlAttribute(name = "number-of-gears", required = true)
+  protected String numberOfGears;
+  
+  @XmlAttribute(name = "vendor-info", required = true)
+  protected String vendorInfo;
+  
+  public String getSerialNumber() {
+    return this.serialNumber;
+  }
+  
+  public void setSerialNumber(String value) {
+    this.serialNumber = value;
+  }
+  
+  public String getHwVersion() {
+    return this.hwVersion;
+  }
+  
+  public void setHwVersion(String value) {
+    this.hwVersion = value;
+  }
+  
+  public String getSwVersion() {
+    return this.swVersion;
+  }
+  
+  public void setSwVersion(String value) {
+    this.swVersion = value;
+  }
+  
+  public String getGearBoxType() {
+    return this.gearBoxType;
+  }
+  
+  public void setGearBoxType(String value) {
+    this.gearBoxType = value;
+  }
+  
+  public String getNumberOfGears() {
+    return this.numberOfGears;
+  }
+  
+  public void setNumberOfGears(String value) {
+    this.numberOfGears = value;
+  }
+  
+  public String getVendorInfo() {
+    return this.vendorInfo;
+  }
+  
+  public void setVendorInfo(String value) {
+    this.vendorInfo = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 35: com/gigatronik/beds/service/crmclient/xml/IBDType.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "IBDType")
+public class IBDType {
+  @XmlAttribute(name = "customer-number", required = true)
+  protected String customerNumber;
+  
+  @XmlAttribute(name = "country", required = true)
+  protected String country;
+  
+  @XmlAttribute(name = "contact-name", required = true)
+  protected String contactName;
+  
+  @XmlAttribute(name = "contact-email", required = true)
+  protected String contactEmail;
+  
+  @XmlAttribute(name = "dongle-id", required = true)
+  protected String dongleId;
+  
+  public String getCustomerNumber() {
+    return this.customerNumber;
+  }
+  
+  public void setCustomerNumber(String value) {
+    this.customerNumber = value;
+  }
+  
+  public String getCountry() {
+    return this.country;
+  }
+  
+  public void setCountry(String value) {
+    this.country = value;
+  }
+  
+  public String getContactName() {
+    return this.contactName;
+  }
+  
+  public void setContactName(String value) {
+    this.contactName = value;
+  }
+  
+  public String getContactEmail() {
+    return this.contactEmail;
+  }
+  
+  public void setContactEmail(String value) {
+    this.contactEmail = value;
+  }
+  
+  public String getDongleId() {
+    return this.dongleId;
+  }
+  
+  public void setDongleId(String value) {
+    this.dongleId = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 36: com/gigatronik/beds/service/crmclient/xml/ObjectFactory.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.annotation.XmlElementDecl;
+import javax.xml.bind.annotation.XmlRegistry;
+import javax.xml.namespace.QName;
+
+@XmlRegistry
+public class ObjectFactory {
+  private static final QName _Ebike_QNAME = new QName("http://www.bosch-ebike.de/crm/v1", "ebike");
+  
+  public EBikeCRMType createEBikeCRMType() {
+    return new EBikeCRMType();
+  }
+  
+  public ECUType createECUType() {
+    return new ECUType();
+  }
+  
+  public BAS100Type createBAS100Type() {
+    return new BAS100Type();
+  }
+  
+  public BBP2XxType createBBP2XxType() {
+    return new BBP2XxType();
+  }
+  
+  public BDUxxxType createBDUxxxType() {
+    return new BDUxxxType();
+  }
+  
+  public BUIType createBUIType() {
+    return new BUIType();
+  }
+  
+  public BCT100Type createBCT100Type() {
+    return new BCT100Type();
+  }
+  
+  public BCS250 createBCS250() {
+    return new BCS250();
+  }
+  
+  public BUI27XType createBUI27XType() {
+    return new BUI27XType();
+  }
+  
+  public BUI35XType createBUI35XType() {
+    return new BUI35XType();
+  }
+  
+  public DTCType createDTCType() {
+    return new DTCType();
+  }
+  
+  public EShiftType createEShiftType() {
+    return new EShiftType();
+  }
+  
+  public BUI21XType createBUI21XType() {
+    return new BUI21XType();
+  }
+  
+  public CUI1XxType createCUI1XxType() {
+    return new CUI1XxType();
+  }
+  
+  public BUI25XType createBUI25XType() {
+    return new BUI25XType();
+  }
+  
+  public IBDType createIBDType() {
+    return new IBDType();
+  }
+  
+  public CaseInfoType createCaseInfoType() {
+    return new CaseInfoType();
+  }
+  
+  public BUI33XType createBUI33XType() {
+    return new BUI33XType();
+  }
+  
+  public DUxxxManualType createDUxxxManualType() {
+    return new DUxxxManualType();
+  }
+  
+  @XmlElementDecl(namespace = "http://www.bosch-ebike.de/crm/v1", name = "ebike")
+  public JAXBElement<EBikeCRMType> createEbike(EBikeCRMType value) {
+    return new JAXBElement(_Ebike_QNAME, EBikeCRMType.class, null, value);
+  }
+}
+
+
+========================================================================================================================
+ITEM 37: com/gigatronik/beds/service/crmclient/xml/package-info.java
+========================================================================================================================
+package com.gigatronik.beds.service.crmclient.xml;
+
+import javax.xml.bind.annotation.XmlNsForm;
+import javax.xml.bind.annotation.XmlSchema;
+
+

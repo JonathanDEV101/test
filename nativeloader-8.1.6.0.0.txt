@@ -1,0 +1,308 @@
+JAR: nativeloader-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\nativeloader-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/dart2/bosch/service/nativeloader/ControlProcess.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.service.nativeloader;
+
+import com.gigatronik.dart2.bosch.service.internationalization.I18NUtil;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ControlProcess {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ControlProcess.class);
+  
+  private static final String REGKEY_AUTOPLAYHANDLERS = "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\AutoplayHandlers";
+  
+  private static final String FORMAT_DISK_POPUP_BLOCKER = "FormatDiskPopupBlocker.exe";
+  
+  private static final String DRIVE_EJECT_SERVICE = "EjectDrive.exe";
+  
+  private static final int DRIVE_EJECT_TIMEOUT = 5;
+  
+  private static final Locale NORWEGIAN_NYNORSK_LOCALE = new Locale("nn", "NO");
+  
+  public boolean focusApplication() {
+    return executeNativeExecutableFromResource("focusBoschDiagnosticTool.exe", 5L, new ArrayList<>());
+  }
+  
+  public boolean ejectDrive(String drive) {
+    List<String> args = new ArrayList<>();
+    args.add(drive);
+    return executeNativeExecutableFromResource("EjectDrive.exe", 5L, args);
+  }
+  
+  public boolean formatDrive(String drive) {
+    if (drive != null) {
+      String cmd = "format.com " + drive.replace("\\", "") + " /FS:FAT /X /Q /Y";
+      List<String> results = executeShellCommand(cmd);
+      return (results.size() > 1);
+    } 
+    return false;
+  }
+  
+  private boolean executeNativeExecutableFromResource(String executable, long timeout, List<String> args) {
+    try {
+      String exePath = extractFile(getClass().getPackage().getName(), executable);
+      if (StringUtils.isNotBlank(exePath)) {
+        List<String> cmd = new ArrayList<>();
+        cmd.add(exePath);
+        cmd.addAll(args);
+        Process process = new ProcessBuilder(cmd).start();
+        LOGGER.info("Started native executable {}", cmd);
+        int exitValue = 0;
+        if (timeout > 0L)
+          exitValue = process.waitFor(timeout, TimeUnit.SECONDS) ? process.exitValue() : -1; 
+        BufferedReader stdInput = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+        String error = stdError.readLine();
+        if (StringUtils.isNotBlank(error))
+          LOGGER.info("Executed native executable {} with error {}", cmd, error); 
+        List<String> results = new ArrayList<>();
+        String line;
+        while ((line = stdInput.readLine()) != null)
+          results.add(line); 
+        LOGGER.info("Executed native executable {} with exit value {} and result {}", cmd, exitValue, results);
+        return (exitValue == 0);
+      } 
+    } catch (IOException e) {
+      LOGGER.error("Error executing native executable {}", executable, e);
+    } catch (InterruptedException in) {
+      LOGGER.error("Error in the current Thread. The thread was interrupted");
+      Thread.currentThread().interrupt();
+    } 
+    return false;
+  }
+  
+  public String disableAutoPlay() {
+    String cmd = "REG ADD HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\AutoplayHandlers /v DisableAutoplay /t REG_DWORD /d 1 /f";
+    String autoPlaySetting = getAutoPlaySetting();
+    executeShellCommand(cmd);
+    return autoPlaySetting;
+  }
+  
+  public void enableAutoPlay(String autoPlaySetting) {
+    String cmd = StringUtils.isEmpty(autoPlaySetting) ? 
+      "REG DELETE HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\AutoplayHandlers /v DisableAutoplay /f" : ("REG ADD HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\AutoplayHandlers /v DisableAutoplay /t REG_DWORD /d " + 
+      autoPlaySetting + " /f");
+    executeShellCommand(cmd);
+  }
+  
+  private String getAutoPlaySetting() {
+    String cmd = "REG QUERY HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\AutoplayHandlers";
+    List<String> results = executeShellCommand(cmd);
+    for (String result : results) {
+      if (StringUtils.startsWith(result.trim(), "DisableAutoplay"))
+        return StringUtils.right(result, 1); 
+    } 
+    return "";
+  }
+  
+  private List<String> executeShellCommand(String cmd) {
+    List<String> result = new ArrayList<>();
+    try {
+      Process proc = Runtime.getRuntime().exec(cmd);
+      try(BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream())); 
+          BufferedReader stdError = new BufferedReader(new InputStreamReader(proc.getErrorStream()))) {
+        String error = stdError.readLine();
+        if (error != null)
+          LOGGER.info("Executed shell command {} with error {}", cmd, error); 
+        String line;
+        while ((line = stdInput.readLine()) != null)
+          result.add(line); 
+        LOGGER.info("Executed shell command {} with result {}", cmd, result);
+      } 
+    } catch (IOException e) {
+      LOGGER.error("Error executing shell command {}", cmd, e);
+    } 
+    return result;
+  }
+  
+  private String extractFile(String packageName, String fileName) throws IOException {
+    String path = packageName.replaceAll("\\.", "/") + "/" + packageName.replaceAll("\\.", "/");
+    String prefix = FilenameUtils.getFullPath(path) + FilenameUtils.getFullPath(path);
+    String suffix = "." + FilenameUtils.getExtension(path);
+    File temp = File.createTempFile(prefix, suffix);
+    temp.deleteOnExit();
+    if (!temp.exists())
+      throw new FileNotFoundException("File " + temp.getAbsolutePath() + " does not exist."); 
+    InputStream is = getClass().getClassLoader().getResourceAsStream(path);
+    if (is == null)
+      throw new FileNotFoundException("File " + path + " was not found."); 
+    try {
+      try (FileOutputStream os = new FileOutputStream(temp)) {
+        IOUtils.copy(is, os);
+      } 
+      return temp.getPath();
+    } finally {
+      is.close();
+    } 
+  }
+  
+  public void startFormatDiskPopupBlocker() {
+    List<String> argsFormatDiskBlocker = new ArrayList<>();
+    List<String> argsInsertDiskBlocker = new ArrayList<>();
+    String language = System.getProperty("user.language");
+    String country = System.getProperty("user.country");
+    LOGGER.info("Detected OS language is {}", language);
+    Locale systemLocale = new Locale(language, country);
+    if (systemLocale.getISO3Language().equals(Locale.GERMAN.getISO3Language())) {
+      argsFormatDiskBlocker.add("Datenträger formatieren");
+      argsInsertDiskBlocker.add("Datenträger einlegen");
+    } else if (systemLocale.getISO3Language().equals(Locale.FRENCH.getISO3Language())) {
+      argsFormatDiskBlocker.add("Formater le disque");
+      argsInsertDiskBlocker.add("Insérer un disque");
+    } else if (systemLocale.getISO3Language().equals(Locale.ITALIAN.getISO3Language())) {
+      argsFormatDiskBlocker.add("Formatta disco");
+      argsInsertDiskBlocker.add("Inserire il disco");
+    } else if (systemLocale.getISO3Language().equals(I18NUtil.SPANISH_LOCALE.getISO3Language())) {
+      argsFormatDiskBlocker.add("Formatear disco");
+      argsInsertDiskBlocker.add("Insertar disco");
+    } else if (systemLocale.getISO3Language().equals(I18NUtil.DUTCH_LOCALE.getISO3Language())) {
+      argsFormatDiskBlocker.add("Schijf formatteren");
+      argsInsertDiskBlocker.add("Schijf of ander medium plaatsen");
+    } else if (systemLocale.getISO3Language().equals(I18NUtil.PORTUGESE_LOCALE.getISO3Language())) {
+      argsFormatDiskBlocker.add("Formatar disco");
+      argsInsertDiskBlocker.add("Inserir disco");
+    } else if (systemLocale.getISO3Language().equals(I18NUtil.DANISH_LOCALE.getISO3Language())) {
+      argsFormatDiskBlocker.add("Formater disken");
+      argsInsertDiskBlocker.add("Indsæt disken");
+    } else if (systemLocale.getISO3Language().equals(I18NUtil.SWEDISH_LOCALE.getISO3Language())) {
+      argsFormatDiskBlocker.add("Formatera disken");
+      argsInsertDiskBlocker.add("Insätta disken");
+    } else if (systemLocale.getISO3Language().equals(Locale.JAPANESE.getISO3Language())) {
+      argsFormatDiskBlocker.add("ディスクのフォーマット");
+      argsInsertDiskBlocker.add("ディスクを挿入する");
+    } else if (systemLocale.getISO3Language().equals(Locale.CHINESE.getISO3Language())) {
+      argsFormatDiskBlocker.add("格式化磁盘");
+      argsInsertDiskBlocker.add("插入磁盘");
+    } else if (systemLocale.getISO3Language().equals(I18NUtil.FINNISH_LOCALE.getISO3Language())) {
+      argsFormatDiskBlocker.add("Alusta levy");
+      argsInsertDiskBlocker.add("Aseta levyke asemaan");
+    } else if (systemLocale.getISO3Language().equals(I18NUtil.NORWEGIAN_LOCALE.getISO3Language())) {
+      argsFormatDiskBlocker.add("Formater disk");
+      argsInsertDiskBlocker.add("Sett inn disk");
+    } else if (systemLocale.getISO3Language().equals(NORWEGIAN_NYNORSK_LOCALE.getISO3Language())) {
+      argsFormatDiskBlocker.add("Formater disk");
+      argsInsertDiskBlocker.add("Sett inn disk");
+    } else {
+      argsFormatDiskBlocker.add("Format disk");
+      argsInsertDiskBlocker.add("Insert disk");
+    } 
+    ExecutorService executor = Executors.newFixedThreadPool(2);
+    Runnable formatDiskBlocker = () -> executeNativeExecutableFromResource("FormatDiskPopupBlocker.exe", 0L, argsFormatDiskBlocker);
+    executor.execute(formatDiskBlocker);
+    Runnable insertDiskBlocker = () -> executeNativeExecutableFromResource("FormatDiskPopupBlocker.exe", 0L, argsInsertDiskBlocker);
+    executor.execute(insertDiskBlocker);
+  }
+  
+  public void stopFormatDiskPopupBlocker() {
+    String cmd = "taskkill /IM " + "FormatDiskPopupBlocker.exe".replace(".exe", "*") + " /f";
+    try {
+      Runtime.getRuntime().exec(cmd);
+    } catch (IOException ex) {
+      LOGGER.error("Error executing shell command {}", cmd, ex);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/dart2/bosch/service/nativeloader/NativeLoader.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.service.nativeloader;
+
+import com.sun.jna.Native;
+import com.sun.jna.NativeLibrary;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class NativeLoader {
+  private static final Logger LOGGER = LoggerFactory.getLogger(NativeLoader.class);
+  
+  private static final String LIB_EXTENSION_32BIT = "x86";
+  
+  private static final String LIB_EXTENSION_64BIT = "x64";
+  
+  private static final String WIN_LIB_EXTENSION = ".dll";
+  
+  private String basename;
+  
+  public String getLibraryName() {
+    return this.basename;
+  }
+  
+  public <T> T loadLibraryJna(String dllPackage, String name, Class<T> interfaceClass) {
+    try {
+      String dllName = name + name + ".dll";
+      File dll = extractLibrary(dllPackage, dllName);
+      NativeLibrary.addSearchPath(this.basename, dll.getParent());
+      return (T)Native.loadLibrary(this.basename, interfaceClass);
+    } catch (IOException ex) {
+      LOGGER.error("Unable to extract dll", (Throwable)ex);
+      return null;
+    } 
+  }
+  
+  public void loadLibraryJni(String dllPackage, String name) {
+    try {
+      String dllName = name + name + ".dll";
+      File dll = extractLibrary(dllPackage, dllName);
+      System.load(dll.getCanonicalPath());
+    } catch (IOException ex) {
+      LOGGER.error("Unable to extract dll", (Throwable)ex);
+    } 
+  }
+  
+  private File extractLibrary(String libPackage, String libName) throws IOException {
+    File dllFile = extractDll(libPackage, libName);
+    this.basename = FilenameUtils.getBaseName(dllFile.getName());
+    LOGGER.info("Loading {} ...", libName);
+    return dllFile;
+  }
+  
+  private File extractDll(String dllPackage, String dllName) throws IOException {
+    String packageName = dllPackage.replaceAll("\\.", "/") + "/";
+    String path = packageName + packageName;
+    String prefix = FilenameUtils.getFullPath(path) + FilenameUtils.getFullPath(path);
+    String suffix = "." + FilenameUtils.getExtension(path);
+    File temp = File.createTempFile(prefix, suffix);
+    temp.deleteOnExit();
+    if (!temp.exists())
+      throw new FileNotFoundException("File " + temp.getAbsolutePath() + " does not exist."); 
+    InputStream is = getClass().getClassLoader().getResourceAsStream(path);
+    if (is == null)
+      throw new FileNotFoundException("File " + path + " was not found."); 
+    try (FileOutputStream os = new FileOutputStream(temp)) {
+      IOUtils.copy(is, os);
+      return temp;
+    } finally {
+      is.close();
+    } 
+  }
+}
+

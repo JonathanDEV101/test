@@ -1,0 +1,700 @@
+JAR: movie.compression-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\movie.compression-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/moviecompression/api/Compression.java
+========================================================================================================================
+package com.gigatronik.beds.service.moviecompression.api;
+
+import java.io.File;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.ObjLongConsumer;
+
+public interface Compression {
+  Compression onStart(Runnable paramRunnable);
+  
+  Compression onProgress(ObjLongConsumer<Integer> paramObjLongConsumer);
+  
+  Compression onSuccess(Consumer<File> paramConsumer);
+  
+  Compression onFailure(BiConsumer<FailureCode, String> paramBiConsumer);
+  
+  void cancel();
+  
+  public enum FailureCode {
+    INVALID_FILE, CANCELED, EXCEPTION, PROCESS_FAILED;
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/service/moviecompression/api/MovieCompressor.java
+========================================================================================================================
+package com.gigatronik.beds.service.moviecompression.api;
+
+import java.io.File;
+import java.util.function.Consumer;
+
+public interface MovieCompressor {
+  void checkForCompressionAvailable(File paramFile, Consumer<CompressionCheckResults> paramConsumer);
+  
+  Compression compress(File paramFile1, File paramFile2);
+  
+  void cancelAllCompressions();
+  
+  public enum CompressionCheckResults {
+    NO_COMPRESSION_NECESSARY, COMPRESSION_CAN_BE_DONE;
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/service/moviecompression/CompressionImpl.java
+========================================================================================================================
+package com.gigatronik.beds.service.moviecompression;
+
+import com.gigatronik.beds.service.moviecompression.api.Compression;
+import java.io.File;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.ObjLongConsumer;
+
+public class CompressionImpl implements Compression {
+  private final ExecutorService service;
+  
+  private final Consumer<CompressionImpl> doneHandler;
+  
+  private final File videoFile;
+  
+  private File outputFile;
+  
+  private Future future;
+  
+  private Runnable onStartCallback = () -> {
+    
+    };
+  
+  private ObjLongConsumer<Integer> onProgressCallback = (t, u) -> {
+    
+    };
+  
+  private Consumer<File> onSuccessCallback = f -> {
+    
+    };
+  
+  private BiConsumer<Compression.FailureCode, String> onFailureCallback = (c, s) -> {
+    
+    };
+  
+  private boolean started;
+  
+  private int progress;
+  
+  private long estimatedTime;
+  
+  private boolean complete;
+  
+  private boolean converted;
+  
+  private Compression.FailureCode failureCode;
+  
+  private String failureMessage;
+  
+  private static final String CANCELED_BY_CALL = "Canceled by cancel call";
+  
+  static final String CANCELED_INTERNALLY = "Canceled by internal reason";
+  
+  CompressionImpl(ExecutorService service, Consumer<CompressionImpl> doneHandler, File videoFile, File outputFile) {
+    this.service = service;
+    this.doneHandler = doneHandler;
+    this.videoFile = videoFile;
+    this.outputFile = outputFile;
+  }
+  
+  public File getVideoFile() {
+    return this.videoFile;
+  }
+  
+  public File getOutputFile() {
+    return this.outputFile;
+  }
+  
+  synchronized void setFuture(Future future) {
+    this.future = future;
+  }
+  
+  public synchronized Compression onStart(Runnable runnable) {
+    if (this.started) {
+      this.service.execute(runnable);
+    } else {
+      this.onStartCallback = runnable;
+    } 
+    return this;
+  }
+  
+  public Compression onProgress(ObjLongConsumer<Integer> progressConsumer) {
+    if (!this.complete) {
+      this.onProgressCallback = progressConsumer;
+      if (this.started)
+        this.service.execute(() -> progressConsumer.accept(Integer.valueOf(this.progress), this.estimatedTime)); 
+    } 
+    return this;
+  }
+  
+  public synchronized Compression onSuccess(Consumer<File> resultVideoConsumer) {
+    if (this.complete) {
+      if (this.converted)
+        this.service.execute(() -> resultVideoConsumer.accept(this.outputFile)); 
+    } else {
+      this.onSuccessCallback = resultVideoConsumer;
+    } 
+    return this;
+  }
+  
+  public synchronized Compression onFailure(BiConsumer<Compression.FailureCode, String> errorMessageConsumer) {
+    if (this.complete) {
+      if (this.failureCode != null)
+        this.service.execute(() -> errorMessageConsumer.accept(this.failureCode, this.failureMessage)); 
+    } else {
+      this.onFailureCallback = errorMessageConsumer;
+    } 
+    return this;
+  }
+  
+  public void cancel() {
+    cancel("Canceled by cancel call");
+  }
+  
+  synchronized boolean tryStart() {
+    boolean result = (!this.started && !this.complete);
+    if (result)
+      this.started = true; 
+    return result;
+  }
+  
+  public synchronized boolean start() {
+    if (isCanceled())
+      return false; 
+    this.started = true;
+    if (this.onStartCallback != null) {
+      this.service.execute(this.onStartCallback);
+      this.onStartCallback = null;
+    } 
+    return true;
+  }
+  
+  public synchronized boolean progress(int progress, long estimatedTime) {
+    if (isCanceled())
+      return false; 
+    this.progress = progress;
+    this.estimatedTime = estimatedTime;
+    ObjLongConsumer<Integer> callback = this.onProgressCallback;
+    if (callback != null)
+      this.service.execute(() -> callback.accept(Integer.valueOf(progress), estimatedTime)); 
+    return true;
+  }
+  
+  public synchronized void success(File outputFile) {
+    if (isCanceled())
+      return; 
+    Consumer<File> callback = this.onSuccessCallback;
+    this.complete = true;
+    this.converted = true;
+    this.outputFile = outputFile;
+    this.onProgressCallback = null;
+    this.onFailureCallback = null;
+    this.onSuccessCallback = null;
+    if (callback != null)
+      this.service.execute(() -> {
+            this.doneHandler.accept(this);
+            callback.accept(outputFile);
+          }); 
+  }
+  
+  public synchronized void failure(Compression.FailureCode failureCode, String failureMessage) {
+    if (isCanceled())
+      return; 
+    BiConsumer<Compression.FailureCode, String> callback = this.onFailureCallback;
+    this.complete = true;
+    this.failureCode = failureCode;
+    this.failureMessage = failureMessage;
+    this.onStartCallback = null;
+    this.onProgressCallback = null;
+    this.onSuccessCallback = null;
+    this.onFailureCallback = null;
+    if (callback != null)
+      this.service.execute(() -> {
+            this.doneHandler.accept(this);
+            callback.accept(failureCode, failureMessage);
+          }); 
+  }
+  
+  public synchronized void cancel(String reason) {
+    if (this.future != null)
+      this.future.cancel(true); 
+    failure(Compression.FailureCode.CANCELED, reason);
+  }
+  
+  private boolean isCanceled() {
+    return (this.complete && !this.converted && this.failureCode == null);
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/service/moviecompression/ffmpeg/FFmpegCompressor.java
+========================================================================================================================
+package com.gigatronik.beds.service.moviecompression.ffmpeg;
+
+import com.gigatronik.beds.service.moviecompression.CompressionImpl;
+import com.gigatronik.beds.service.moviecompression.api.Compression;
+import com.gigatronik.beds.service.moviecompression.ffmpeg.model.CompressionQuality;
+import com.gigatronik.beds.service.moviecompression.ffmpeg.model.Info;
+import com.gigatronik.bosch.utils.process.Execution;
+import com.gigatronik.bosch.utils.process.ProcessUtil;
+import com.gigatronik.dart2.framework.util.benchmark.Stopwatch;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class FFmpegCompressor {
+  private static final Logger LOGGER = LoggerFactory.getLogger(FFmpegCompressor.class);
+  
+  private static final int GET_INFO_TIMEOUT = 5000;
+  
+  private static final String COMMAND = "ffmpeg.exe";
+  
+  private final ProcessUtil processUtil;
+  
+  private final ExecutorService service;
+  
+  public FFmpegCompressor(ProcessUtil processUtil, ExecutorService service) {
+    this.processUtil = processUtil;
+    this.service = service;
+  }
+  
+  public boolean canBeConverted(File file) {
+    Info info = getVideoInfo(file);
+    CompressionQuality quality = CompressionQuality.fromVideoInfo(info);
+    if (info == null || quality == CompressionQuality.NONE || info.getDuration() == 0.0D)
+      return false; 
+    return (file.length() > quality.getEstimatedSizeForEncodedVideo(info.getDuration()));
+  }
+  
+  public void compress(CompressionImpl compression) {
+    try {
+      Stopwatch stopwatch = new Stopwatch();
+      stopwatch.start();
+      LOGGER.info("Starting video conversion of '{}'", compression.getVideoFile());
+      compression.start();
+      Info info = getVideoInfo(compression.getVideoFile());
+      if (info == null) {
+        LOGGER.error("Failed to read info of '{}'", compression.getVideoFile());
+        compression.failure(Compression.FailureCode.INVALID_FILE, "Failed to receive video information");
+        return;
+      } 
+      CompressionQuality quality = CompressionQuality.fromVideoInfo(info);
+      if (quality == CompressionQuality.NONE) {
+        LOGGER.info("Compression is not necessary for '{}'", compression.getVideoFile());
+        compression.success(compression.getVideoFile());
+        return;
+      } 
+      double fps = (info.getVideoFramerate() > 30.0D) ? 30.0D : info.getVideoFramerate();
+      String inputFilePath = compression.getVideoFile().getAbsolutePath();
+      String outputFilePath = compression.getOutputFile().getAbsolutePath();
+      Execution execution = this.processUtil.execute(inputStream -> this.service.execute(() -> readProgressOutput(compression, info, stopwatch, inputStream)), new String[] { 
+            "ffmpeg.exe", "-hide_banner", "-y", "-i", inputFilePath, "-c:v", "mpeg4", "-b:v", String.format("%dk", quality.getVideoBitrate()), "-vf", 
+            String.format("scale='min(%d,iw)':-1", quality.getVideoSize()), "-c:a", "aac", "-b:a", 
+            
+            String.format("%dk", quality.getAudioBitrate()), "-r", 
+            String.format("%.2f", fps), "-f", "mp4", outputFilePath });
+      if (execution.getExitCode() == 0) {
+        LOGGER.info("Video conversion completed successfully");
+        compression.success(compression.getOutputFile());
+      } else {
+        LOGGER.error("Video conversion failed with exit code {} and message {}", Integer.valueOf(execution.getExitCode()), execution.getErr());
+        compression.failure(Compression.FailureCode.PROCESS_FAILED, execution.getErr());
+      } 
+    } catch (Exception e) {
+      LOGGER.error("Video conversion failed", (Throwable)e);
+      compression.failure(Compression.FailureCode.EXCEPTION, e.getMessage());
+    } 
+  }
+  
+  private void readProgressOutput(CompressionImpl compression, Info info, Stopwatch stopwatch, InputStream inputStream) {
+    try (Scanner errScanner = new Scanner(inputStream)) {
+      String line;
+      while ((line = errScanner.findWithinHorizon(FFmpegOutputParser.PROGRESS_PATTERN, 0)) != null) {
+        double elapsedDuration = FFmpegOutputParser.parseProgress(line);
+        double elapsedSeconds = (double)stopwatch.getMillisecondsElapsed() / 1000.0D;
+        int progress = (int)(elapsedDuration * 100.0D / info.getDuration());
+        double estimationTime = (elapsedDuration == 0.0D) ? 0.0D : ((info.getDuration() - elapsedDuration) * elapsedSeconds / elapsedDuration);
+        LOGGER.trace("readProgressOutput, read={}, progress={}, estimationTime={}", line, progress, estimationTime);
+        compression.progress(progress, (long)estimationTime * 1000L);
+      } 
+    } 
+  }
+  
+  private Info getVideoInfo(File file) {
+    try {
+      LOGGER.trace("getVideoInfo({})", file);
+      Execution execution = this.processUtil.execute(5000L, new String[] { "ffmpeg.exe", "-hide_banner", "-i", 
+            
+            file.getAbsolutePath() });
+      Info info = FFmpegOutputParser.parseInfo(execution.getErr());
+      LOGGER.trace("getVideoInfo({}), info={}", file, info);
+      return info;
+    } catch (IOException e) {
+      LOGGER.error("Failed get info for file {}", file.toString(), e);
+      return null;
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/service/moviecompression/ffmpeg/FFmpegOutputParser.java
+========================================================================================================================
+package com.gigatronik.beds.service.moviecompression.ffmpeg;
+
+import com.gigatronik.beds.service.moviecompression.ffmpeg.model.Info;
+import java.io.IOException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+class FFmpegOutputParser {
+  private static final Pattern INFO_INPUT_PATTERN = Pattern.compile("Input.*");
+  
+  private static final Pattern INFO_DURATION_PATTERN = Pattern.compile("\\s+Duration[:]\\s(\\d{2,})[:](\\d{2})[:](\\d{2})[.](\\d{2})[,].*");
+  
+  private static final Pattern INFO_STREAM_PATTERN = Pattern.compile("\\s+Stream\\s.*Video[:]\\s([\\d\\w]+).*[,]\\s([\\d\\w]+)([(].*[)])?[,]\\s(\\d+)x(\\d+).*?([,]\\s(\\d+).*)?[,]\\s([\\d.]+)\\sfps[,].*");
+  
+  private static final Pattern INFO_ERROR_PATTERN = Pattern.compile(".*\\sInvalid data found when processing input");
+  
+  static final Pattern DURATION_PATTERN = Pattern.compile("(?<=time=)(\\d{2,})[:](\\d{2})[:](\\d{2})[.](\\d{2})\\s");
+  
+  static final Pattern PROGRESS_PATTERN = Pattern.compile("(\\d{2,})[:](\\d{2})[:](\\d{2})[.](\\d{2})\\s");
+  
+  static Info parseInfo(String ffmpegOutput) throws IOException {
+    int inputState = 0;
+    int durationState = 1;
+    int streamState = 2;
+    int state = 0;
+    Info info = new Info();
+    String[] lines = ffmpegOutput.split("\r\n");
+    for (String line : lines) {
+      Matcher durationMatcher, streamMatcher;
+      switch (state) {
+        case 0:
+          if (INFO_INPUT_PATTERN.matcher(line).matches()) {
+            state = 1;
+            break;
+          } 
+          if (INFO_ERROR_PATTERN.matcher(line).matches())
+            throw new IOException("Failed to parse information output: file is not a video"); 
+          break;
+        case 1:
+          durationMatcher = INFO_DURATION_PATTERN.matcher(line);
+          if (durationMatcher.matches()) {
+            state = 2;
+            info.setDuration(parseDuration(durationMatcher));
+          } 
+          break;
+        case 2:
+          streamMatcher = INFO_STREAM_PATTERN.matcher(line);
+          if (streamMatcher.matches()) {
+            info.setFormat(streamMatcher.group(2));
+            info.setWidth(Long.parseLong(streamMatcher.group(4)));
+            info.setHeight(Long.parseLong(streamMatcher.group(5)));
+            info.setVideoFramerate(Double.parseDouble(streamMatcher.group(8)));
+          } 
+          return info;
+        default:
+          throw new IllegalArgumentException("Should never happen");
+      } 
+    } 
+    return info;
+  }
+  
+  static double parseProgress(String duration) {
+    Matcher matcher = PROGRESS_PATTERN.matcher(duration);
+    if (matcher.matches())
+      return parseDuration(matcher); 
+    return 0.0D;
+  }
+  
+  private static double parseDuration(Matcher matcher) {
+    return 
+      
+      (double)(Integer.parseInt(matcher.group(1)) * 3600 + Integer.parseInt(matcher.group(2)) * 60 + Integer.parseInt(matcher.group(3))) + 
+      (double)Integer.parseInt(matcher.group(4)) / 1000.0D;
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/service/moviecompression/ffmpeg/model/CompressionQuality.java
+========================================================================================================================
+package com.gigatronik.beds.service.moviecompression.ffmpeg.model;
+
+public enum CompressionQuality {
+  NONE(0, 0, 0, 0),
+  LOW(640, 1500, 64, 200000),
+  MEDIUM(960, 2000, 96, 267000),
+  HIGH(1280, 3000, 128, 400000);
+  
+  private static final int TEN_MINUTES_IN_SECONDS = 600;
+  
+  private static final int FIVE_MINUTES_IN_SECONDS = 300;
+  
+  private final int size;
+  
+  private final int videoBitrate;
+  
+  private final int audioBitrate;
+  
+  private final int compressionEstimationFactor;
+  
+  CompressionQuality(int size, int videoBitrate, int audioBitrate, int compressionEstimationFactor) {
+    this.size = size;
+    this.videoBitrate = videoBitrate;
+    this.audioBitrate = audioBitrate;
+    this.compressionEstimationFactor = compressionEstimationFactor;
+  }
+  
+  public int getVideoSize() {
+    return this.size;
+  }
+  
+  public int getVideoBitrate() {
+    return this.videoBitrate;
+  }
+  
+  public int getAudioBitrate() {
+    return this.audioBitrate;
+  }
+  
+  public long getEstimatedSizeForEncodedVideo(double duration) {
+    return (long)((double)this.compressionEstimationFactor * duration);
+  }
+  
+  public static CompressionQuality fromVideoInfo(Info info) {
+    if (info == null)
+      return NONE; 
+    if (info.getDuration() > 600.0D)
+      return LOW; 
+    if (info.getDuration() > 300.0D)
+      return MEDIUM; 
+    return HIGH;
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/service/moviecompression/ffmpeg/model/Info.java
+========================================================================================================================
+package com.gigatronik.beds.service.moviecompression.ffmpeg.model;
+
+public class Info {
+  private double duration;
+  
+  private long width;
+  
+  private long height;
+  
+  private String format;
+  
+  private double videoFramerate;
+  
+  public double getDuration() {
+    return this.duration;
+  }
+  
+  public long getWidth() {
+    return this.width;
+  }
+  
+  public long getHeight() {
+    return this.height;
+  }
+  
+  public double getVideoFramerate() {
+    return this.videoFramerate;
+  }
+  
+  public void setDuration(double duration) {
+    this.duration = duration;
+  }
+  
+  public void setWidth(long width) {
+    this.width = width;
+  }
+  
+  public void setHeight(long height) {
+    this.height = height;
+  }
+  
+  public String getFormat() {
+    return this.format;
+  }
+  
+  public void setFormat(String format) {
+    this.format = format;
+  }
+  
+  public void setVideoFramerate(double videoFramerate) {
+    this.videoFramerate = videoFramerate;
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/beds/service/moviecompression/InvalidFileCompression.java
+========================================================================================================================
+package com.gigatronik.beds.service.moviecompression;
+
+import com.gigatronik.beds.service.moviecompression.api.Compression;
+import java.io.File;
+import java.util.concurrent.ExecutorService;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.ObjLongConsumer;
+
+public class InvalidFileCompression implements Compression {
+  private final ExecutorService service;
+  
+  private final File file;
+  
+  InvalidFileCompression(ExecutorService service, File file) {
+    this.service = service;
+    this.file = file;
+  }
+  
+  public Compression onStart(Runnable runnable) {
+    this.service.execute(runnable);
+    return this;
+  }
+  
+  public Compression onProgress(ObjLongConsumer<Integer> progressConsumer) {
+    return this;
+  }
+  
+  public Compression onSuccess(Consumer<File> resultVideoConsumer) {
+    return this;
+  }
+  
+  public Compression onFailure(BiConsumer<Compression.FailureCode, String> errorMessageConsumer) {
+    this.service.execute(() -> errorMessageConsumer.accept(Compression.FailureCode.INVALID_FILE, this.file.getAbsolutePath()));
+    return this;
+  }
+  
+  public void cancel() {}
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/beds/service/moviecompression/MovieCompressorImpl.java
+========================================================================================================================
+package com.gigatronik.beds.service.moviecompression;
+
+import com.gigatronik.beds.service.moviecompression.api.Compression;
+import com.gigatronik.beds.service.moviecompression.api.MovieCompressor;
+import com.gigatronik.beds.service.moviecompression.ffmpeg.FFmpegCompressor;
+import com.gigatronik.beds.service.moviecompression.util.FifoQueue;
+import java.awt.EventQueue;
+import java.io.File;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.function.Consumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class MovieCompressorImpl implements MovieCompressor {
+  private static final Logger LOGGER = LoggerFactory.getLogger(MovieCompressorImpl.class);
+  
+  private final ExecutorService service;
+  
+  private final FFmpegCompressor compressor;
+  
+  private final FifoQueue<CompressionImpl> compressionQueue = new FifoQueue<>();
+  
+  public MovieCompressorImpl(ExecutorService service, FFmpegCompressor compressor) {
+    this.service = service;
+    this.compressor = compressor;
+  }
+  
+  public void checkForCompressionAvailable(File file, Consumer<MovieCompressor.CompressionCheckResults> resultConsumer) {
+    if (!file.exists() || !file.isFile()) {
+      resultConsumer.accept(MovieCompressor.CompressionCheckResults.NO_COMPRESSION_NECESSARY);
+      return;
+    } 
+    this.service.execute(() -> {
+          boolean canBeCompressed = this.compressor.canBeConverted(file);
+          resultConsumer.accept(canBeCompressed ? MovieCompressor.CompressionCheckResults.COMPRESSION_CAN_BE_DONE : MovieCompressor.CompressionCheckResults.NO_COMPRESSION_NECESSARY);
+        });
+  }
+  
+  public Compression compress(File file, File outputFile) {
+    if (!file.exists() || !file.isFile())
+      return new InvalidFileCompression(this.service, file); 
+    CompressionImpl compression = new CompressionImpl(this.service, this::onCompressionDone, file, outputFile);
+    if (this.compressionQueue.queue(compression))
+      submitCompression(compression); 
+    return compression;
+  }
+  
+  public void cancelAllCompressions() {
+    this.compressionQueue.clear().forEach(compression -> compression.cancel("Canceled by internal reason"));
+  }
+  
+  private void onCompressionDone(CompressionImpl compression) {
+    EventQueue.invokeLater(() -> this.compressionQueue.remove(compression).ifPresent(this::submitCompression));
+  }
+  
+  private synchronized void submitCompression(CompressionImpl compression) {
+    if (compression.tryStart()) {
+      LOGGER.debug("Starting compression of {}", compression.getVideoFile());
+      Future<?> future = this.service.submit(() -> this.compressor.compress(compression));
+      compression.setFuture(future);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/beds/service/moviecompression/util/FifoQueue.java
+========================================================================================================================
+package com.gigatronik.beds.service.moviecompression.util;
+
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
+
+public class FifoQueue<T> {
+  private final List<T> objects = new LinkedList<>();
+  
+  public synchronized boolean queue(T object) {
+    this.objects.add(object);
+    return (this.objects.size() == 1);
+  }
+  
+  public synchronized Optional<T> remove(T object) {
+    this.objects.remove(object);
+    return this.objects.isEmpty() ? Optional.<T>empty() : Optional.<T>of(this.objects.get(0));
+  }
+  
+  public synchronized List<T> clear() {
+    List<T> result = new ArrayList<>(this.objects);
+    this.objects.clear();
+    return result;
+  }
+}
+

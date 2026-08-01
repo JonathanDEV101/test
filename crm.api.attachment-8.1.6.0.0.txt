@@ -1,0 +1,2707 @@
+JAR: crm.api.attachment-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\crm.api.attachment-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/crm/api/attachment/apiPackage/AttachmentApi.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.apiPackage;
+
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.ApiCallback;
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.ApiClient;
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.ApiException;
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.ApiResponse;
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.Configuration;
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.Pair;
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.ProgressRequestBody;
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.ProgressResponseBody;
+import com.gigatronik.beds.service.crm.api.attachment.modelPackage.AttachmentDTO;
+import com.gigatronik.beds.service.crm.api.attachment.modelPackage.AttachmentResponse;
+import com.google.gson.reflect.TypeToken;
+import com.squareup.okhttp.Call;
+import com.squareup.okhttp.Interceptor;
+import com.squareup.okhttp.Response;
+import java.io.IOException;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class AttachmentApi {
+  private ApiClient apiClient;
+  
+  public AttachmentApi() {
+    this(Configuration.getDefaultApiClient());
+  }
+  
+  public AttachmentApi(ApiClient apiClient) {
+    this.apiClient = apiClient;
+  }
+  
+  public ApiClient getApiClient() {
+    return this.apiClient;
+  }
+  
+  public void setApiClient(ApiClient apiClient) {
+    this.apiClient = apiClient;
+  }
+  
+  public Call addAttachmentCall(List<AttachmentDTO> body, Boolean allOrNone, final ProgressResponseBody.ProgressListener progressListener, ProgressRequestBody.ProgressRequestListener progressRequestListener) throws ApiException {
+    Object<AttachmentDTO> localVarPostBody = (Object<AttachmentDTO>)body;
+    String localVarPath = "/";
+    List<Pair> localVarQueryParams = new ArrayList<>();
+    List<Pair> localVarCollectionQueryParams = new ArrayList<>();
+    if (allOrNone != null)
+      localVarQueryParams.addAll(this.apiClient.parameterToPair("allOrNone", allOrNone)); 
+    Map<String, String> localVarHeaderParams = new HashMap<>();
+    Map<String, Object> localVarFormParams = new HashMap<>();
+    String[] localVarAccepts = { "application/json" };
+    String localVarAccept = this.apiClient.selectHeaderAccept(localVarAccepts);
+    if (localVarAccept != null)
+      localVarHeaderParams.put("Accept", localVarAccept); 
+    String[] localVarContentTypes = { "application/json" };
+    String localVarContentType = this.apiClient.selectHeaderContentType(localVarContentTypes);
+    localVarHeaderParams.put("Content-Type", localVarContentType);
+    if (progressListener != null)
+      this.apiClient.getHttpClient().networkInterceptors().add(new Interceptor() {
+            public Response intercept(Interceptor.Chain chain) throws IOException {
+              Response originalResponse = chain.proceed(chain.request());
+              return originalResponse.newBuilder()
+                .body(new ProgressResponseBody(originalResponse.body(), progressListener))
+                .build();
+            }
+          }); 
+    String[] localVarAuthNames = new String[0];
+    return this.apiClient.buildCall(localVarPath, "POST", localVarQueryParams, localVarCollectionQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarAuthNames, progressRequestListener);
+  }
+  
+  private Call addAttachmentValidateBeforeCall(List<AttachmentDTO> body, Boolean allOrNone, ProgressResponseBody.ProgressListener progressListener, ProgressRequestBody.ProgressRequestListener progressRequestListener) throws ApiException {
+    if (body == null)
+      throw new ApiException("Missing the required parameter 'body' when calling addAttachment(Async)"); 
+    Call call = addAttachmentCall(body, allOrNone, progressListener, progressRequestListener);
+    return call;
+  }
+  
+  public List<AttachmentResponse> addAttachment(List<AttachmentDTO> body, Boolean allOrNone) throws ApiException {
+    ApiResponse<List<AttachmentResponse>> resp = addAttachmentWithHttpInfo(body, allOrNone);
+    return resp.getData();
+  }
+  
+  public ApiResponse<List<AttachmentResponse>> addAttachmentWithHttpInfo(List<AttachmentDTO> body, Boolean allOrNone) throws ApiException {
+    Call call = addAttachmentValidateBeforeCall(body, allOrNone, null, null);
+    Type localVarReturnType = new TypeToken<List<AttachmentResponse>>() {
+      
+      }.getType();
+    return this.apiClient.execute(call, localVarReturnType);
+  }
+  
+  public Call addAttachmentAsync(List<AttachmentDTO> body, Boolean allOrNone, final ApiCallback<List<AttachmentResponse>> callback) throws ApiException {
+    ProgressResponseBody.ProgressListener progressListener = null;
+    ProgressRequestBody.ProgressRequestListener progressRequestListener = null;
+    if (callback != null) {
+      progressListener = new ProgressResponseBody.ProgressListener() {
+          public void update(long bytesRead, long contentLength, boolean done) {
+            callback.onDownloadProgress(bytesRead, contentLength, done);
+          }
+        };
+      progressRequestListener = new ProgressRequestBody.ProgressRequestListener() {
+          public void onRequestProgress(long bytesWritten, long contentLength, boolean done) {
+            callback.onUploadProgress(bytesWritten, contentLength, done);
+          }
+        };
+    } 
+    Call call = addAttachmentValidateBeforeCall(body, allOrNone, progressListener, progressRequestListener);
+    Type localVarReturnType = new TypeToken<List<AttachmentResponse>>() {
+      
+      }.getType();
+    this.apiClient.executeAsync(call, localVarReturnType, callback);
+    return call;
+  }
+  
+  public Call getAttachmentByIdCall(String id, final ProgressResponseBody.ProgressListener progressListener, ProgressRequestBody.ProgressRequestListener progressRequestListener) throws ApiException {
+    Object localVarPostBody = null;
+    String localVarPath = "/{id}"
+      .replaceAll("\\{id\\}", this.apiClient.escapeString(id.toString()));
+    List<Pair> localVarQueryParams = new ArrayList<>();
+    List<Pair> localVarCollectionQueryParams = new ArrayList<>();
+    Map<String, String> localVarHeaderParams = new HashMap<>();
+    Map<String, Object> localVarFormParams = new HashMap<>();
+    String[] localVarAccepts = { "application/json" };
+    String localVarAccept = this.apiClient.selectHeaderAccept(localVarAccepts);
+    if (localVarAccept != null)
+      localVarHeaderParams.put("Accept", localVarAccept); 
+    String[] localVarContentTypes = new String[0];
+    String localVarContentType = this.apiClient.selectHeaderContentType(localVarContentTypes);
+    localVarHeaderParams.put("Content-Type", localVarContentType);
+    if (progressListener != null)
+      this.apiClient.getHttpClient().networkInterceptors().add(new Interceptor() {
+            public Response intercept(Interceptor.Chain chain) throws IOException {
+              Response originalResponse = chain.proceed(chain.request());
+              return originalResponse.newBuilder()
+                .body(new ProgressResponseBody(originalResponse.body(), progressListener))
+                .build();
+            }
+          }); 
+    String[] localVarAuthNames = new String[0];
+    return this.apiClient.buildCall(localVarPath, "GET", localVarQueryParams, localVarCollectionQueryParams, localVarPostBody, localVarHeaderParams, localVarFormParams, localVarAuthNames, progressRequestListener);
+  }
+  
+  private Call getAttachmentByIdValidateBeforeCall(String id, ProgressResponseBody.ProgressListener progressListener, ProgressRequestBody.ProgressRequestListener progressRequestListener) throws ApiException {
+    if (id == null)
+      throw new ApiException("Missing the required parameter 'id' when calling getAttachmentById(Async)"); 
+    Call call = getAttachmentByIdCall(id, progressListener, progressRequestListener);
+    return call;
+  }
+  
+  public AttachmentResponse getAttachmentById(String id) throws ApiException {
+    ApiResponse<AttachmentResponse> resp = getAttachmentByIdWithHttpInfo(id);
+    return resp.getData();
+  }
+  
+  public ApiResponse<AttachmentResponse> getAttachmentByIdWithHttpInfo(String id) throws ApiException {
+    Call call = getAttachmentByIdValidateBeforeCall(id, null, null);
+    Type localVarReturnType = new TypeToken<AttachmentResponse>() {
+      
+      }.getType();
+    return this.apiClient.execute(call, localVarReturnType);
+  }
+  
+  public Call getAttachmentByIdAsync(String id, final ApiCallback<AttachmentResponse> callback) throws ApiException {
+    ProgressResponseBody.ProgressListener progressListener = null;
+    ProgressRequestBody.ProgressRequestListener progressRequestListener = null;
+    if (callback != null) {
+      progressListener = new ProgressResponseBody.ProgressListener() {
+          public void update(long bytesRead, long contentLength, boolean done) {
+            callback.onDownloadProgress(bytesRead, contentLength, done);
+          }
+        };
+      progressRequestListener = new ProgressRequestBody.ProgressRequestListener() {
+          public void onRequestProgress(long bytesWritten, long contentLength, boolean done) {
+            callback.onUploadProgress(bytesWritten, contentLength, done);
+          }
+        };
+    } 
+    Call call = getAttachmentByIdValidateBeforeCall(id, progressListener, progressRequestListener);
+    Type localVarReturnType = new TypeToken<AttachmentResponse>() {
+      
+      }.getType();
+    this.apiClient.executeAsync(call, localVarReturnType, callback);
+    return call;
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/ApiCallback.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage;
+
+import java.util.List;
+import java.util.Map;
+
+public interface ApiCallback<T> {
+  void onFailure(ApiException paramApiException, int paramInt, Map<String, List<String>> paramMap);
+  
+  void onSuccess(T paramT, int paramInt, Map<String, List<String>> paramMap);
+  
+  void onUploadProgress(long paramLong1, long paramLong2, boolean paramBoolean);
+  
+  void onDownloadProgress(long paramLong1, long paramLong2, boolean paramBoolean);
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/ApiClient.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage;
+
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.auth.ApiKeyAuth;
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.auth.Authentication;
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.auth.HttpBasicAuth;
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.auth.OAuth;
+import com.squareup.okhttp.Call;
+import com.squareup.okhttp.Callback;
+import com.squareup.okhttp.FormEncodingBuilder;
+import com.squareup.okhttp.Headers;
+import com.squareup.okhttp.MediaType;
+import com.squareup.okhttp.MultipartBuilder;
+import com.squareup.okhttp.OkHttpClient;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.RequestBody;
+import com.squareup.okhttp.Response;
+import com.squareup.okhttp.internal.http.HttpMethod;
+import com.squareup.okhttp.logging.HttpLoggingInterceptor;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Type;
+import java.net.URLConnection;
+import java.net.URLEncoder;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
+import java.security.SecureRandom;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.text.DateFormat;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
+import okio.BufferedSink;
+import okio.Okio;
+import okio.Source;
+
+public class ApiClient {
+  private String basePath = "https://crm-sf-attachments.prod.connected-biking.cloud/attachments";
+  
+  private boolean debugging = false;
+  
+  private Map<String, String> defaultHeaderMap = new HashMap<>();
+  
+  private String tempFolderPath = null;
+  
+  private Map<String, Authentication> authentications;
+  
+  private DateFormat dateFormat;
+  
+  private DateFormat datetimeFormat;
+  
+  private boolean lenientDatetimeFormat;
+  
+  private int dateLength;
+  
+  private InputStream sslCaCert;
+  
+  private boolean verifyingSsl;
+  
+  private KeyManager[] keyManagers;
+  
+  private OkHttpClient httpClient;
+  
+  private JSON json;
+  
+  private HttpLoggingInterceptor loggingInterceptor;
+  
+  public ApiClient() {
+    this.httpClient = new OkHttpClient();
+    this.verifyingSsl = true;
+    this.json = new JSON();
+    setUserAgent("Swagger-Codegen/1.0.0/java");
+    this.authentications = new HashMap<>();
+    this.authentications = Collections.unmodifiableMap(this.authentications);
+  }
+  
+  public String getBasePath() {
+    return this.basePath;
+  }
+  
+  public ApiClient setBasePath(String basePath) {
+    this.basePath = basePath;
+    return this;
+  }
+  
+  public OkHttpClient getHttpClient() {
+    return this.httpClient;
+  }
+  
+  public ApiClient setHttpClient(OkHttpClient httpClient) {
+    this.httpClient = httpClient;
+    return this;
+  }
+  
+  public JSON getJSON() {
+    return this.json;
+  }
+  
+  public ApiClient setJSON(JSON json) {
+    this.json = json;
+    return this;
+  }
+  
+  public boolean isVerifyingSsl() {
+    return this.verifyingSsl;
+  }
+  
+  public ApiClient setVerifyingSsl(boolean verifyingSsl) {
+    this.verifyingSsl = verifyingSsl;
+    applySslSettings();
+    return this;
+  }
+  
+  public InputStream getSslCaCert() {
+    return this.sslCaCert;
+  }
+  
+  public ApiClient setSslCaCert(InputStream sslCaCert) {
+    this.sslCaCert = sslCaCert;
+    applySslSettings();
+    return this;
+  }
+  
+  public KeyManager[] getKeyManagers() {
+    return this.keyManagers;
+  }
+  
+  public ApiClient setKeyManagers(KeyManager[] managers) {
+    this.keyManagers = managers;
+    applySslSettings();
+    return this;
+  }
+  
+  public DateFormat getDateFormat() {
+    return this.dateFormat;
+  }
+  
+  public ApiClient setDateFormat(DateFormat dateFormat) {
+    this.json.setDateFormat(dateFormat);
+    return this;
+  }
+  
+  public ApiClient setSqlDateFormat(DateFormat dateFormat) {
+    this.json.setSqlDateFormat(dateFormat);
+    return this;
+  }
+  
+  public ApiClient setOffsetDateTimeFormat(DateTimeFormatter dateFormat) {
+    this.json.setOffsetDateTimeFormat(dateFormat);
+    return this;
+  }
+  
+  public ApiClient setLocalDateFormat(DateTimeFormatter dateFormat) {
+    this.json.setLocalDateFormat(dateFormat);
+    return this;
+  }
+  
+  public ApiClient setLenientOnJson(boolean lenientOnJson) {
+    this.json.setLenientOnJson(lenientOnJson);
+    return this;
+  }
+  
+  public Map<String, Authentication> getAuthentications() {
+    return this.authentications;
+  }
+  
+  public Authentication getAuthentication(String authName) {
+    return this.authentications.get(authName);
+  }
+  
+  public void setUsername(String username) {
+    for (Authentication auth : this.authentications.values()) {
+      if (auth instanceof HttpBasicAuth) {
+        ((HttpBasicAuth)auth).setUsername(username);
+        return;
+      } 
+    } 
+    throw new RuntimeException("No HTTP basic authentication configured!");
+  }
+  
+  public void setPassword(String password) {
+    for (Authentication auth : this.authentications.values()) {
+      if (auth instanceof HttpBasicAuth) {
+        ((HttpBasicAuth)auth).setPassword(password);
+        return;
+      } 
+    } 
+    throw new RuntimeException("No HTTP basic authentication configured!");
+  }
+  
+  public void setApiKey(String apiKey) {
+    for (Authentication auth : this.authentications.values()) {
+      if (auth instanceof ApiKeyAuth) {
+        ((ApiKeyAuth)auth).setApiKey(apiKey);
+        return;
+      } 
+    } 
+    throw new RuntimeException("No API key authentication configured!");
+  }
+  
+  public void setApiKeyPrefix(String apiKeyPrefix) {
+    for (Authentication auth : this.authentications.values()) {
+      if (auth instanceof ApiKeyAuth) {
+        ((ApiKeyAuth)auth).setApiKeyPrefix(apiKeyPrefix);
+        return;
+      } 
+    } 
+    throw new RuntimeException("No API key authentication configured!");
+  }
+  
+  public void setAccessToken(String accessToken) {
+    for (Authentication auth : this.authentications.values()) {
+      if (auth instanceof OAuth) {
+        ((OAuth)auth).setAccessToken(accessToken);
+        return;
+      } 
+    } 
+    throw new RuntimeException("No OAuth2 authentication configured!");
+  }
+  
+  public ApiClient setUserAgent(String userAgent) {
+    addDefaultHeader("User-Agent", userAgent);
+    return this;
+  }
+  
+  public ApiClient addDefaultHeader(String key, String value) {
+    this.defaultHeaderMap.put(key, value);
+    return this;
+  }
+  
+  public boolean isDebugging() {
+    return this.debugging;
+  }
+  
+  public ApiClient setDebugging(boolean debugging) {
+    if (debugging != this.debugging)
+      if (debugging) {
+        this.loggingInterceptor = new HttpLoggingInterceptor();
+        this.loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
+        this.httpClient.interceptors().add(this.loggingInterceptor);
+      } else {
+        this.httpClient.interceptors().remove(this.loggingInterceptor);
+        this.loggingInterceptor = null;
+      }  
+    this.debugging = debugging;
+    return this;
+  }
+  
+  public String getTempFolderPath() {
+    return this.tempFolderPath;
+  }
+  
+  public ApiClient setTempFolderPath(String tempFolderPath) {
+    this.tempFolderPath = tempFolderPath;
+    return this;
+  }
+  
+  public int getConnectTimeout() {
+    return this.httpClient.getConnectTimeout();
+  }
+  
+  public ApiClient setConnectTimeout(int connectionTimeout) {
+    this.httpClient.setConnectTimeout((long)connectionTimeout, TimeUnit.MILLISECONDS);
+    return this;
+  }
+  
+  public int getReadTimeout() {
+    return this.httpClient.getReadTimeout();
+  }
+  
+  public ApiClient setReadTimeout(int readTimeout) {
+    this.httpClient.setReadTimeout((long)readTimeout, TimeUnit.MILLISECONDS);
+    return this;
+  }
+  
+  public int getWriteTimeout() {
+    return this.httpClient.getWriteTimeout();
+  }
+  
+  public ApiClient setWriteTimeout(int writeTimeout) {
+    this.httpClient.setWriteTimeout((long)writeTimeout, TimeUnit.MILLISECONDS);
+    return this;
+  }
+  
+  public String parameterToString(Object param) {
+    if (param == null)
+      return ""; 
+    if (param instanceof java.util.Date || param instanceof java.time.OffsetDateTime || param instanceof java.time.LocalDate) {
+      String jsonStr = this.json.serialize(param);
+      return jsonStr.substring(1, jsonStr.length() - 1);
+    } 
+    if (param instanceof Collection) {
+      StringBuilder b = new StringBuilder();
+      for (Object o : (Iterable<Object>)param) {
+        if (b.length() > 0)
+          b.append(","); 
+        b.append(String.valueOf(o));
+      } 
+      return b.toString();
+    } 
+    return String.valueOf(param);
+  }
+  
+  public List<Pair> parameterToPair(String name, Object value) {
+    List<Pair> params = new ArrayList<>();
+    if (name == null || name.isEmpty() || value == null || value instanceof Collection)
+      return params; 
+    params.add(new Pair(name, parameterToString(value)));
+    return params;
+  }
+  
+  public List<Pair> parameterToPairs(String collectionFormat, String name, Collection value) {
+    List<Pair> params = new ArrayList<>();
+    if (name == null || name.isEmpty() || value == null || value.isEmpty())
+      return params; 
+    if ("multi".equals(collectionFormat)) {
+      for (Object item : (Iterable<Object>)value)
+        params.add(new Pair(name, escapeString(parameterToString(item)))); 
+      return params;
+    } 
+    String delimiter = ",";
+    if ("ssv".equals(collectionFormat)) {
+      delimiter = escapeString(" ");
+    } else if ("tsv".equals(collectionFormat)) {
+      delimiter = escapeString("\t");
+    } else if ("pipes".equals(collectionFormat)) {
+      delimiter = escapeString("|");
+    } 
+    StringBuilder sb = new StringBuilder();
+    for (Object item : (Iterable<Object>)value) {
+      sb.append(delimiter);
+      sb.append(escapeString(parameterToString(item)));
+    } 
+    params.add(new Pair(name, sb.substring(delimiter.length())));
+    return params;
+  }
+  
+  public String sanitizeFilename(String filename) {
+    return filename.replaceAll(".*[/\\\\]", "");
+  }
+  
+  public boolean isJsonMime(String mime) {
+    String jsonMime = "(?i)^(application/json|[^;/ \t]+/[^;/ \t]+[+]json)[ \t]*(;.*)?$";
+    return (mime != null && (mime.matches(jsonMime) || mime.equals("*/*")));
+  }
+  
+  public String selectHeaderAccept(String[] accepts) {
+    if (accepts.length == 0)
+      return null; 
+    for (String accept : accepts) {
+      if (isJsonMime(accept))
+        return accept; 
+    } 
+    return StringUtil.join(accepts, ",");
+  }
+  
+  public String selectHeaderContentType(String[] contentTypes) {
+    if (contentTypes.length == 0 || contentTypes[0].equals("*/*"))
+      return "application/json"; 
+    for (String contentType : contentTypes) {
+      if (isJsonMime(contentType))
+        return contentType; 
+    } 
+    return contentTypes[0];
+  }
+  
+  public String escapeString(String str) {
+    try {
+      return URLEncoder.encode(str, "utf8").replaceAll("\\+", "%20");
+    } catch (UnsupportedEncodingException e) {
+      return str;
+    } 
+  }
+  
+  public <T> T deserialize(Response response, Type returnType) throws ApiException {
+    String respBody;
+    if (response == null || returnType == null)
+      return null; 
+    if ("byte[]".equals(returnType.toString()))
+      try {
+        return (T)response.body().bytes();
+      } catch (IOException e) {
+        throw new ApiException(e);
+      }  
+    if (returnType.equals(File.class))
+      return (T)downloadFileFromResponse(response); 
+    try {
+      if (response.body() != null) {
+        respBody = response.body().string();
+      } else {
+        respBody = null;
+      } 
+    } catch (IOException e) {
+      throw new ApiException(e);
+    } 
+    if (respBody == null || "".equals(respBody))
+      return null; 
+    String contentType = response.headers().get("Content-Type");
+    if (contentType == null)
+      contentType = "application/json"; 
+    if (isJsonMime(contentType))
+      return this.json.deserialize(respBody, returnType); 
+    if (returnType.equals(String.class))
+      return (T)respBody; 
+    throw new ApiException("Content type \"" + contentType + "\" is not supported for type: " + returnType, 
+        
+        response.code(), 
+        response.headers().toMultimap(), respBody);
+  }
+  
+  public RequestBody serialize(Object obj, String contentType) throws ApiException {
+    if (obj instanceof byte[])
+      return RequestBody.create(MediaType.parse(contentType), (byte[])obj); 
+    if (obj instanceof File)
+      return RequestBody.create(MediaType.parse(contentType), (File)obj); 
+    if (isJsonMime(contentType)) {
+      String content;
+      if (obj != null) {
+        content = this.json.serialize(obj);
+      } else {
+        content = null;
+      } 
+      return RequestBody.create(MediaType.parse(contentType), content);
+    } 
+    throw new ApiException("Content type \"" + contentType + "\" is not supported");
+  }
+  
+  public File downloadFileFromResponse(Response response) throws ApiException {
+    try {
+      File file = prepareDownloadFile(response);
+      BufferedSink sink = Okio.buffer(Okio.sink(file));
+      sink.writeAll((Source)response.body().source());
+      sink.close();
+      return file;
+    } catch (IOException e) {
+      throw new ApiException(e);
+    } 
+  }
+  
+  public File prepareDownloadFile(Response response) throws IOException {
+    String filename = null;
+    String contentDisposition = response.header("Content-Disposition");
+    if (contentDisposition != null && !"".equals(contentDisposition)) {
+      Pattern pattern = Pattern.compile("filename=['\"]?([^'\"\\s]+)['\"]?");
+      Matcher matcher = pattern.matcher(contentDisposition);
+      if (matcher.find())
+        filename = sanitizeFilename(matcher.group(1)); 
+    } 
+    String prefix = null;
+    String suffix = null;
+    if (filename == null) {
+      prefix = "download-";
+      suffix = "";
+    } else {
+      int pos = filename.lastIndexOf(".");
+      if (pos == -1) {
+        prefix = filename + "-";
+      } else {
+        prefix = filename.substring(0, pos) + "-";
+        suffix = filename.substring(pos);
+      } 
+      if (prefix.length() < 3)
+        prefix = "download-"; 
+    } 
+    if (this.tempFolderPath == null)
+      return File.createTempFile(prefix, suffix); 
+    return File.createTempFile(prefix, suffix, new File(this.tempFolderPath));
+  }
+  
+  public <T> ApiResponse<T> execute(Call call) throws ApiException {
+    return execute(call, null);
+  }
+  
+  public <T> ApiResponse<T> execute(Call call, Type returnType) throws ApiException {
+    try {
+      Response response = call.execute();
+      T data = handleResponse(response, returnType);
+      return new ApiResponse<>(response.code(), response.headers().toMultimap(), data);
+    } catch (IOException e) {
+      throw new ApiException(e);
+    } 
+  }
+  
+  public <T> void executeAsync(Call call, ApiCallback<T> callback) {
+    executeAsync(call, null, callback);
+  }
+  
+  public <T> void executeAsync(Call call, final Type returnType, final ApiCallback<T> callback) {
+    call.enqueue(new Callback() {
+          public void onFailure(Request request, IOException e) {
+            callback.onFailure(new ApiException(e), 0, null);
+          }
+          
+          public void onResponse(Response response) throws IOException {
+            T result;
+            try {
+              result = ApiClient.this.handleResponse(response, returnType);
+            } catch (ApiException e) {
+              callback.onFailure(e, response.code(), response.headers().toMultimap());
+              return;
+            } 
+            callback.onSuccess(result, response.code(), response.headers().toMultimap());
+          }
+        });
+  }
+  
+  public <T> T handleResponse(Response response, Type returnType) throws ApiException {
+    if (response.isSuccessful()) {
+      if (returnType == null || response.code() == 204) {
+        if (response.body() != null)
+          try {
+            response.body().close();
+          } catch (IOException e) {
+            throw new ApiException(response.message(), e, response.code(), response.headers().toMultimap());
+          }  
+        return null;
+      } 
+      return deserialize(response, returnType);
+    } 
+    String respBody = null;
+    if (response.body() != null)
+      try {
+        respBody = response.body().string();
+      } catch (IOException e) {
+        throw new ApiException(response.message(), e, response.code(), response.headers().toMultimap());
+      }  
+    throw new ApiException(response.message(), response.code(), response.headers().toMultimap(), respBody);
+  }
+  
+  public Call buildCall(String path, String method, List<Pair> queryParams, List<Pair> collectionQueryParams, Object body, Map<String, String> headerParams, Map<String, Object> formParams, String[] authNames, ProgressRequestBody.ProgressRequestListener progressRequestListener) throws ApiException {
+    Request request = buildRequest(path, method, queryParams, collectionQueryParams, body, headerParams, formParams, authNames, progressRequestListener);
+    return this.httpClient.newCall(request);
+  }
+  
+  public Request buildRequest(String path, String method, List<Pair> queryParams, List<Pair> collectionQueryParams, Object body, Map<String, String> headerParams, Map<String, Object> formParams, String[] authNames, ProgressRequestBody.ProgressRequestListener progressRequestListener) throws ApiException {
+    RequestBody reqBody;
+    updateParamsForAuth(authNames, queryParams, headerParams);
+    String url = buildUrl(path, queryParams, collectionQueryParams);
+    Request.Builder reqBuilder = new Request.Builder().url(url);
+    processHeaderParams(headerParams, reqBuilder);
+    String contentType = headerParams.get("Content-Type");
+    if (contentType == null)
+      contentType = "application/json"; 
+    if (!HttpMethod.permitsRequestBody(method)) {
+      reqBody = null;
+    } else if ("application/x-www-form-urlencoded".equals(contentType)) {
+      reqBody = buildRequestBodyFormEncoding(formParams);
+    } else if ("multipart/form-data".equals(contentType)) {
+      reqBody = buildRequestBodyMultipart(formParams);
+    } else if (body == null) {
+      if ("DELETE".equals(method)) {
+        reqBody = null;
+      } else {
+        reqBody = RequestBody.create(MediaType.parse(contentType), "");
+      } 
+    } else {
+      reqBody = serialize(body, contentType);
+    } 
+    Request request = null;
+    if (progressRequestListener != null && reqBody != null) {
+      ProgressRequestBody progressRequestBody = new ProgressRequestBody(reqBody, progressRequestListener);
+      request = reqBuilder.method(method, progressRequestBody).build();
+    } else {
+      request = reqBuilder.method(method, reqBody).build();
+    } 
+    return request;
+  }
+  
+  public String buildUrl(String path, List<Pair> queryParams, List<Pair> collectionQueryParams) {
+    StringBuilder url = new StringBuilder();
+    url.append(this.basePath).append(path);
+    if (queryParams != null && !queryParams.isEmpty()) {
+      String prefix = path.contains("?") ? "&" : "?";
+      for (Pair param : queryParams) {
+        if (param.getValue() != null) {
+          if (prefix != null) {
+            url.append(prefix);
+            prefix = null;
+          } else {
+            url.append("&");
+          } 
+          String value = parameterToString(param.getValue());
+          url.append(escapeString(param.getName())).append("=").append(escapeString(value));
+        } 
+      } 
+    } 
+    if (collectionQueryParams != null && !collectionQueryParams.isEmpty()) {
+      String prefix = url.toString().contains("?") ? "&" : "?";
+      for (Pair param : collectionQueryParams) {
+        if (param.getValue() != null) {
+          if (prefix != null) {
+            url.append(prefix);
+            prefix = null;
+          } else {
+            url.append("&");
+          } 
+          String value = parameterToString(param.getValue());
+          url.append(escapeString(param.getName())).append("=").append(value);
+        } 
+      } 
+    } 
+    return url.toString();
+  }
+  
+  public void processHeaderParams(Map<String, String> headerParams, Request.Builder reqBuilder) {
+    for (Map.Entry<String, String> param : headerParams.entrySet())
+      reqBuilder.header(param.getKey(), parameterToString(param.getValue())); 
+    for (Map.Entry<String, String> header : this.defaultHeaderMap.entrySet()) {
+      if (!headerParams.containsKey(header.getKey()))
+        reqBuilder.header(header.getKey(), parameterToString(header.getValue())); 
+    } 
+  }
+  
+  public void updateParamsForAuth(String[] authNames, List<Pair> queryParams, Map<String, String> headerParams) {
+    for (String authName : authNames) {
+      Authentication auth = this.authentications.get(authName);
+      if (auth == null)
+        throw new RuntimeException("Authentication undefined: " + authName); 
+      auth.applyToParams(queryParams, headerParams);
+    } 
+  }
+  
+  public RequestBody buildRequestBodyFormEncoding(Map<String, Object> formParams) {
+    FormEncodingBuilder formBuilder = new FormEncodingBuilder();
+    for (Map.Entry<String, Object> param : formParams.entrySet())
+      formBuilder.add(param.getKey(), parameterToString(param.getValue())); 
+    return formBuilder.build();
+  }
+  
+  public RequestBody buildRequestBodyMultipart(Map<String, Object> formParams) {
+    MultipartBuilder mpBuilder = new MultipartBuilder().type(MultipartBuilder.FORM);
+    for (Map.Entry<String, Object> param : formParams.entrySet()) {
+      if (param.getValue() instanceof File) {
+        File file = (File)param.getValue();
+        Headers headers = Headers.of(new String[] { "Content-Disposition", "form-data; name=\"" + (String)param.getKey() + "\"; filename=\"" + file.getName() + "\"" });
+        MediaType mediaType = MediaType.parse(guessContentTypeFromFile(file));
+        mpBuilder.addPart(headers, RequestBody.create(mediaType, file));
+        continue;
+      } 
+      Headers partHeaders = Headers.of(new String[] { "Content-Disposition", "form-data; name=\"" + (String)param.getKey() + "\"" });
+      mpBuilder.addPart(partHeaders, RequestBody.create(null, parameterToString(param.getValue())));
+    } 
+    return mpBuilder.build();
+  }
+  
+  public String guessContentTypeFromFile(File file) {
+    String contentType = URLConnection.guessContentTypeFromName(file.getName());
+    if (contentType == null)
+      return "application/octet-stream"; 
+    return contentType;
+  }
+  
+  private void applySslSettings() {
+    try {
+      TrustManager[] trustManagers = null;
+      HostnameVerifier hostnameVerifier = null;
+      if (!this.verifyingSsl) {
+        TrustManager trustAll = new X509TrustManager() {
+            public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {}
+            
+            public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {}
+            
+            public X509Certificate[] getAcceptedIssuers() {
+              return null;
+            }
+          };
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        trustManagers = new TrustManager[] { trustAll };
+        hostnameVerifier = new HostnameVerifier() {
+            public boolean verify(String hostname, SSLSession session) {
+              return true;
+            }
+          };
+      } else if (this.sslCaCert != null) {
+        char[] password = null;
+        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+        Collection<? extends Certificate> certificates = certificateFactory.generateCertificates(this.sslCaCert);
+        if (certificates.isEmpty())
+          throw new IllegalArgumentException("expected non-empty set of trusted certificates"); 
+        KeyStore caKeyStore = newEmptyKeyStore(password);
+        int index = 0;
+        for (Certificate certificate : certificates) {
+          String certificateAlias = "ca" + Integer.toString(index++);
+          caKeyStore.setCertificateEntry(certificateAlias, certificate);
+        } 
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        trustManagerFactory.init(caKeyStore);
+        trustManagers = trustManagerFactory.getTrustManagers();
+      } 
+      if (this.keyManagers != null || trustManagers != null) {
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(this.keyManagers, trustManagers, new SecureRandom());
+        this.httpClient.setSslSocketFactory(sslContext.getSocketFactory());
+      } else {
+        this.httpClient.setSslSocketFactory(null);
+      } 
+      this.httpClient.setHostnameVerifier(hostnameVerifier);
+    } catch (GeneralSecurityException e) {
+      throw new RuntimeException(e);
+    } 
+  }
+  
+  private KeyStore newEmptyKeyStore(char[] password) throws GeneralSecurityException {
+    try {
+      KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+      keyStore.load(null, password);
+      return keyStore;
+    } catch (IOException e) {
+      throw new AssertionError(e);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/ApiException.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage;
+
+import java.util.List;
+import java.util.Map;
+
+public class ApiException extends Exception {
+  private int code = 0;
+  
+  private Map<String, List<String>> responseHeaders = null;
+  
+  private String responseBody = null;
+  
+  public ApiException() {}
+  
+  public ApiException(Throwable throwable) {
+    super(throwable);
+  }
+  
+  public ApiException(String message) {
+    super(message);
+  }
+  
+  public ApiException(String message, Throwable throwable, int code, Map<String, List<String>> responseHeaders, String responseBody) {
+    super(message, throwable);
+    this.code = code;
+    this.responseHeaders = responseHeaders;
+    this.responseBody = responseBody;
+  }
+  
+  public ApiException(String message, int code, Map<String, List<String>> responseHeaders, String responseBody) {
+    this(message, null, code, responseHeaders, responseBody);
+  }
+  
+  public ApiException(String message, Throwable throwable, int code, Map<String, List<String>> responseHeaders) {
+    this(message, throwable, code, responseHeaders, null);
+  }
+  
+  public ApiException(int code, Map<String, List<String>> responseHeaders, String responseBody) {
+    this(null, null, code, responseHeaders, responseBody);
+  }
+  
+  public ApiException(int code, String message) {
+    super(message);
+    this.code = code;
+  }
+  
+  public ApiException(int code, String message, Map<String, List<String>> responseHeaders, String responseBody) {
+    this(code, message);
+    this.responseHeaders = responseHeaders;
+    this.responseBody = responseBody;
+  }
+  
+  public int getCode() {
+    return this.code;
+  }
+  
+  public Map<String, List<String>> getResponseHeaders() {
+    return this.responseHeaders;
+  }
+  
+  public String getResponseBody() {
+    return this.responseBody;
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/ApiResponse.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage;
+
+import java.util.List;
+import java.util.Map;
+
+public class ApiResponse<T> {
+  private final int statusCode;
+  
+  private final Map<String, List<String>> headers;
+  
+  private final T data;
+  
+  public ApiResponse(int statusCode, Map<String, List<String>> headers) {
+    this(statusCode, headers, null);
+  }
+  
+  public ApiResponse(int statusCode, Map<String, List<String>> headers, T data) {
+    this.statusCode = statusCode;
+    this.headers = headers;
+    this.data = data;
+  }
+  
+  public int getStatusCode() {
+    return this.statusCode;
+  }
+  
+  public Map<String, List<String>> getHeaders() {
+    return this.headers;
+  }
+  
+  public T getData() {
+    return this.data;
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/auth/ApiKeyAuth.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage.auth;
+
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.Pair;
+import java.util.List;
+import java.util.Map;
+
+public class ApiKeyAuth implements Authentication {
+  private final String location;
+  
+  private final String paramName;
+  
+  private String apiKey;
+  
+  private String apiKeyPrefix;
+  
+  public ApiKeyAuth(String location, String paramName) {
+    this.location = location;
+    this.paramName = paramName;
+  }
+  
+  public String getLocation() {
+    return this.location;
+  }
+  
+  public String getParamName() {
+    return this.paramName;
+  }
+  
+  public String getApiKey() {
+    return this.apiKey;
+  }
+  
+  public void setApiKey(String apiKey) {
+    this.apiKey = apiKey;
+  }
+  
+  public String getApiKeyPrefix() {
+    return this.apiKeyPrefix;
+  }
+  
+  public void setApiKeyPrefix(String apiKeyPrefix) {
+    this.apiKeyPrefix = apiKeyPrefix;
+  }
+  
+  public void applyToParams(List<Pair> queryParams, Map<String, String> headerParams) {
+    String value;
+    if (this.apiKey == null)
+      return; 
+    if (this.apiKeyPrefix != null) {
+      value = this.apiKeyPrefix + " " + this.apiKey;
+    } else {
+      value = this.apiKey;
+    } 
+    if ("query".equals(this.location)) {
+      queryParams.add(new Pair(this.paramName, value));
+    } else if ("header".equals(this.location)) {
+      headerParams.put(this.paramName, value);
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/auth/Authentication.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage.auth;
+
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.Pair;
+import java.util.List;
+import java.util.Map;
+
+public interface Authentication {
+  void applyToParams(List<Pair> paramList, Map<String, String> paramMap);
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/auth/HttpBasicAuth.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage.auth;
+
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.Pair;
+import com.squareup.okhttp.Credentials;
+import java.util.List;
+import java.util.Map;
+
+public class HttpBasicAuth implements Authentication {
+  private String username;
+  
+  private String password;
+  
+  public String getUsername() {
+    return this.username;
+  }
+  
+  public void setUsername(String username) {
+    this.username = username;
+  }
+  
+  public String getPassword() {
+    return this.password;
+  }
+  
+  public void setPassword(String password) {
+    this.password = password;
+  }
+  
+  public void applyToParams(List<Pair> queryParams, Map<String, String> headerParams) {
+    if (this.username == null && this.password == null)
+      return; 
+    headerParams.put("Authorization", Credentials.basic(
+          (this.username == null) ? "" : this.username, 
+          (this.password == null) ? "" : this.password));
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/auth/OAuth.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage.auth;
+
+import com.gigatronik.beds.service.crm.api.attachment.invokerPackage.Pair;
+import java.util.List;
+import java.util.Map;
+
+public class OAuth implements Authentication {
+  private String accessToken;
+  
+  public String getAccessToken() {
+    return this.accessToken;
+  }
+  
+  public void setAccessToken(String accessToken) {
+    this.accessToken = accessToken;
+  }
+  
+  public void applyToParams(List<Pair> queryParams, Map<String, String> headerParams) {
+    if (this.accessToken != null)
+      headerParams.put("Authorization", "Bearer " + this.accessToken); 
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/auth/OAuthFlow.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage.auth;
+
+public enum OAuthFlow {
+  accessCode, implicit, password, application;
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/Configuration.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage;
+
+public class Configuration {
+  private static ApiClient defaultApiClient = new ApiClient();
+  
+  public static ApiClient getDefaultApiClient() {
+    return defaultApiClient;
+  }
+  
+  public static void setDefaultApiClient(ApiClient apiClient) {
+    defaultApiClient = apiClient;
+  }
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/GzipRequestInterceptor.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage;
+
+import com.squareup.okhttp.Interceptor;
+import com.squareup.okhttp.MediaType;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.RequestBody;
+import com.squareup.okhttp.Response;
+import java.io.IOException;
+import okio.Buffer;
+import okio.BufferedSink;
+import okio.GzipSink;
+import okio.Okio;
+import okio.Sink;
+
+class GzipRequestInterceptor implements Interceptor {
+  public Response intercept(Interceptor.Chain chain) throws IOException {
+    Request originalRequest = chain.request();
+    if (originalRequest.body() == null || originalRequest.header("Content-Encoding") != null)
+      return chain.proceed(originalRequest); 
+    Request compressedRequest = originalRequest.newBuilder()
+      .header("Content-Encoding", "gzip")
+      .method(originalRequest.method(), forceContentLength(gzip(originalRequest.body())))
+      .build();
+    return chain.proceed(compressedRequest);
+  }
+  
+  private RequestBody forceContentLength(final RequestBody requestBody) throws IOException {
+    final Buffer buffer = new Buffer();
+    requestBody.writeTo((BufferedSink)buffer);
+    return new RequestBody() {
+        public MediaType contentType() {
+          return requestBody.contentType();
+        }
+        
+        public long contentLength() {
+          return buffer.size();
+        }
+        
+        public void writeTo(BufferedSink sink) throws IOException {
+          sink.write(buffer.snapshot());
+        }
+      };
+  }
+  
+  private RequestBody gzip(final RequestBody body) {
+    return new RequestBody() {
+        public MediaType contentType() {
+          return body.contentType();
+        }
+        
+        public long contentLength() {
+          return -1L;
+        }
+        
+        public void writeTo(BufferedSink sink) throws IOException {
+          BufferedSink gzipSink = Okio.buffer(new GzipSink((Sink)sink));
+          body.writeTo(gzipSink);
+          gzipSink.close();
+        }
+      };
+  }
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/JSON.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
+import com.google.gson.TypeAdapter;
+import com.google.gson.internal.bind.util.ISO8601Utils;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
+import com.google.gson.stream.JsonWriter;
+import io.gsonfire.GsonFireBuilder;
+import java.io.IOException;
+import java.io.StringReader;
+import java.lang.reflect.Type;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.ParsePosition;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Date;
+import java.util.Map;
+
+public class JSON {
+  private boolean isLenientOnJson = false;
+  
+  private DateTypeAdapter dateTypeAdapter = new DateTypeAdapter();
+  
+  private SqlDateTypeAdapter sqlDateTypeAdapter = new SqlDateTypeAdapter();
+  
+  private OffsetDateTimeTypeAdapter offsetDateTimeTypeAdapter = new OffsetDateTimeTypeAdapter();
+  
+  private LocalDateTypeAdapter localDateTypeAdapter = new LocalDateTypeAdapter();
+  
+  public static GsonBuilder createGson() {
+    GsonFireBuilder fireBuilder = new GsonFireBuilder();
+    return fireBuilder.createGsonBuilder();
+  }
+  
+  private static String getDiscriminatorValue(JsonElement readElement, String discriminatorField) {
+    JsonElement element = readElement.getAsJsonObject().get(discriminatorField);
+    if (null == element)
+      throw new IllegalArgumentException("missing discriminator field: <" + discriminatorField + ">"); 
+    return element.getAsString();
+  }
+  
+  private static <T> Class<? extends T> getClassByDiscriminator(Map<String, Class<? extends T>> classByDiscriminatorValue, String discriminatorValue) {
+    Class<? extends T> clazz = classByDiscriminatorValue.get(discriminatorValue.toUpperCase());
+    if (null == clazz)
+      throw new IllegalArgumentException("cannot determine model class of name: <" + discriminatorValue + ">"); 
+    return clazz;
+  }
+  
+  private Gson gson = createGson()
+    .registerTypeAdapter(Date.class, this.dateTypeAdapter)
+    .registerTypeAdapter(java.sql.Date.class, this.sqlDateTypeAdapter)
+    .registerTypeAdapter(OffsetDateTime.class, this.offsetDateTimeTypeAdapter)
+    .registerTypeAdapter(LocalDate.class, this.localDateTypeAdapter)
+    .create();
+  
+  public Gson getGson() {
+    return this.gson;
+  }
+  
+  public JSON setGson(Gson gson) {
+    this.gson = gson;
+    return this;
+  }
+  
+  public JSON setLenientOnJson(boolean lenientOnJson) {
+    this.isLenientOnJson = lenientOnJson;
+    return this;
+  }
+  
+  public String serialize(Object obj) {
+    return this.gson.toJson(obj);
+  }
+  
+  public <T> T deserialize(String body, Type returnType) {
+    try {
+      if (this.isLenientOnJson) {
+        JsonReader jsonReader = new JsonReader(new StringReader(body));
+        jsonReader.setLenient(true);
+        return (T)this.gson.fromJson(jsonReader, returnType);
+      } 
+      return (T)this.gson.fromJson(body, returnType);
+    } catch (JsonParseException e) {
+      if (returnType.equals(String.class))
+        return (T)body; 
+      throw e;
+    } 
+  }
+  
+  public static class OffsetDateTimeTypeAdapter extends TypeAdapter<OffsetDateTime> {
+    private DateTimeFormatter formatter;
+    
+    public OffsetDateTimeTypeAdapter() {
+      this(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+    }
+    
+    public OffsetDateTimeTypeAdapter(DateTimeFormatter formatter) {
+      this.formatter = formatter;
+    }
+    
+    public void setFormat(DateTimeFormatter dateFormat) {
+      this.formatter = dateFormat;
+    }
+    
+    public void write(JsonWriter out, OffsetDateTime date) throws IOException {
+      if (date == null) {
+        out.nullValue();
+      } else {
+        out.value(this.formatter.format(date));
+      } 
+    }
+    
+    public OffsetDateTime read(JsonReader in) throws IOException {
+      switch (in.peek()) {
+        case NULL:
+          in.nextNull();
+          return null;
+      } 
+      String date = in.nextString();
+      if (date.endsWith("+0000"))
+        date = date.substring(0, date.length() - 5) + "Z"; 
+      return OffsetDateTime.parse(date, this.formatter);
+    }
+  }
+  
+  public class LocalDateTypeAdapter extends TypeAdapter<LocalDate> {
+    private DateTimeFormatter formatter;
+    
+    public LocalDateTypeAdapter() {
+      this(DateTimeFormatter.ISO_LOCAL_DATE);
+    }
+    
+    public LocalDateTypeAdapter(DateTimeFormatter formatter) {
+      this.formatter = formatter;
+    }
+    
+    public void setFormat(DateTimeFormatter dateFormat) {
+      this.formatter = dateFormat;
+    }
+    
+    public void write(JsonWriter out, LocalDate date) throws IOException {
+      if (date == null) {
+        out.nullValue();
+      } else {
+        out.value(this.formatter.format(date));
+      } 
+    }
+    
+    public LocalDate read(JsonReader in) throws IOException {
+      switch (in.peek()) {
+        case NULL:
+          in.nextNull();
+          return null;
+      } 
+      String date = in.nextString();
+      return LocalDate.parse(date, this.formatter);
+    }
+  }
+  
+  public JSON setOffsetDateTimeFormat(DateTimeFormatter dateFormat) {
+    this.offsetDateTimeTypeAdapter.setFormat(dateFormat);
+    return this;
+  }
+  
+  public JSON setLocalDateFormat(DateTimeFormatter dateFormat) {
+    this.localDateTypeAdapter.setFormat(dateFormat);
+    return this;
+  }
+  
+  public static class SqlDateTypeAdapter extends TypeAdapter<java.sql.Date> {
+    private DateFormat dateFormat;
+    
+    public SqlDateTypeAdapter() {}
+    
+    public SqlDateTypeAdapter(DateFormat dateFormat) {
+      this.dateFormat = dateFormat;
+    }
+    
+    public void setFormat(DateFormat dateFormat) {
+      this.dateFormat = dateFormat;
+    }
+    
+    public void write(JsonWriter out, java.sql.Date date) throws IOException {
+      if (date == null) {
+        out.nullValue();
+      } else {
+        String value;
+        if (this.dateFormat != null) {
+          value = this.dateFormat.format((Date)date);
+        } else {
+          value = date.toString();
+        } 
+        out.value(value);
+      } 
+    }
+    
+    public java.sql.Date read(JsonReader in) throws IOException {
+      switch (in.peek()) {
+        case NULL:
+          in.nextNull();
+          return null;
+      } 
+      String date = in.nextString();
+      try {
+        if (this.dateFormat != null)
+          return new java.sql.Date(this.dateFormat.parse(date).getTime()); 
+        return new java.sql.Date(ISO8601Utils.parse(date, new ParsePosition(0)).getTime());
+      } catch (ParseException e) {
+        throw new JsonParseException(e);
+      } 
+    }
+  }
+  
+  public static class DateTypeAdapter extends TypeAdapter<Date> {
+    private DateFormat dateFormat;
+    
+    public DateTypeAdapter() {}
+    
+    public DateTypeAdapter(DateFormat dateFormat) {
+      this.dateFormat = dateFormat;
+    }
+    
+    public void setFormat(DateFormat dateFormat) {
+      this.dateFormat = dateFormat;
+    }
+    
+    public void write(JsonWriter out, Date date) throws IOException {
+      if (date == null) {
+        out.nullValue();
+      } else {
+        String value;
+        if (this.dateFormat != null) {
+          value = this.dateFormat.format(date);
+        } else {
+          value = ISO8601Utils.format(date, true);
+        } 
+        out.value(value);
+      } 
+    }
+    
+    public Date read(JsonReader in) throws IOException {
+      try {
+        switch (in.peek()) {
+          case NULL:
+            in.nextNull();
+            return null;
+        } 
+        String date = in.nextString();
+        try {
+          if (this.dateFormat != null)
+            return this.dateFormat.parse(date); 
+          return ISO8601Utils.parse(date, new ParsePosition(0));
+        } catch (ParseException e) {
+          throw new JsonParseException(e);
+        } 
+      } catch (IllegalArgumentException e) {
+        throw new JsonParseException(e);
+      } 
+    }
+  }
+  
+  public JSON setDateFormat(DateFormat dateFormat) {
+    this.dateTypeAdapter.setFormat(dateFormat);
+    return this;
+  }
+  
+  public JSON setSqlDateFormat(DateFormat dateFormat) {
+    this.sqlDateTypeAdapter.setFormat(dateFormat);
+    return this;
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/Pair.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage;
+
+public class Pair {
+  private String name = "";
+  
+  private String value = "";
+  
+  public Pair(String name, String value) {
+    setName(name);
+    setValue(value);
+  }
+  
+  private void setName(String name) {
+    if (!isValidString(name))
+      return; 
+    this.name = name;
+  }
+  
+  private void setValue(String value) {
+    if (!isValidString(value))
+      return; 
+    this.value = value;
+  }
+  
+  public String getName() {
+    return this.name;
+  }
+  
+  public String getValue() {
+    return this.value;
+  }
+  
+  private boolean isValidString(String arg) {
+    if (arg == null)
+      return false; 
+    if (arg.trim().isEmpty())
+      return false; 
+    return true;
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/ProgressRequestBody.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage;
+
+import com.squareup.okhttp.MediaType;
+import com.squareup.okhttp.RequestBody;
+import java.io.IOException;
+import okio.Buffer;
+import okio.BufferedSink;
+import okio.ForwardingSink;
+import okio.Okio;
+import okio.Sink;
+
+public class ProgressRequestBody extends RequestBody {
+  private final RequestBody requestBody;
+  
+  private final ProgressRequestListener progressListener;
+  
+  public ProgressRequestBody(RequestBody requestBody, ProgressRequestListener progressListener) {
+    this.requestBody = requestBody;
+    this.progressListener = progressListener;
+  }
+  
+  public MediaType contentType() {
+    return this.requestBody.contentType();
+  }
+  
+  public long contentLength() throws IOException {
+    return this.requestBody.contentLength();
+  }
+  
+  public void writeTo(BufferedSink sink) throws IOException {
+    BufferedSink bufferedSink = Okio.buffer(sink((Sink)sink));
+    this.requestBody.writeTo(bufferedSink);
+    bufferedSink.flush();
+  }
+  
+  private Sink sink(Sink sink) {
+    return new ForwardingSink(sink) {
+        long bytesWritten = 0L;
+        
+        long contentLength = 0L;
+        
+        public void write(Buffer source, long byteCount) throws IOException {
+          super.write(source, byteCount);
+          if (this.contentLength == 0L)
+            this.contentLength = ProgressRequestBody.this.contentLength(); 
+          this.bytesWritten += byteCount;
+          ProgressRequestBody.this.progressListener.onRequestProgress(this.bytesWritten, this.contentLength, (this.bytesWritten == this.contentLength));
+        }
+      };
+  }
+  
+  public static interface ProgressRequestListener {
+    void onRequestProgress(long param1Long1, long param1Long2, boolean param1Boolean);
+  }
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/ProgressResponseBody.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage;
+
+import com.squareup.okhttp.MediaType;
+import com.squareup.okhttp.ResponseBody;
+import java.io.IOException;
+import okio.Buffer;
+import okio.BufferedSource;
+import okio.ForwardingSource;
+import okio.Okio;
+import okio.Source;
+
+public class ProgressResponseBody extends ResponseBody {
+  private final ResponseBody responseBody;
+  
+  private final ProgressListener progressListener;
+  
+  private BufferedSource bufferedSource;
+  
+  public ProgressResponseBody(ResponseBody responseBody, ProgressListener progressListener) {
+    this.responseBody = responseBody;
+    this.progressListener = progressListener;
+  }
+  
+  public MediaType contentType() {
+    return this.responseBody.contentType();
+  }
+  
+  public long contentLength() throws IOException {
+    return this.responseBody.contentLength();
+  }
+  
+  public BufferedSource source() throws IOException {
+    if (this.bufferedSource == null)
+      this.bufferedSource = Okio.buffer(source((Source)this.responseBody.source())); 
+    return this.bufferedSource;
+  }
+  
+  private Source source(Source source) {
+    return new ForwardingSource(source) {
+        long totalBytesRead;
+        
+        {
+          this.totalBytesRead = 0L;
+        }
+        
+        public long read(Buffer sink, long byteCount) throws IOException {
+          long bytesRead = super.read(sink, byteCount);
+          this.totalBytesRead += (bytesRead != -1L) ? bytesRead : 0L;
+          ProgressResponseBody.this.progressListener.update(this.totalBytesRead, ProgressResponseBody.this.responseBody.contentLength(), (bytesRead == -1L));
+          return bytesRead;
+        }
+      };
+  }
+  
+  public static interface ProgressListener {
+    void update(long param1Long1, long param1Long2, boolean param1Boolean);
+  }
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/beds/service/crm/api/attachment/invokerPackage/StringUtil.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.invokerPackage;
+
+public class StringUtil {
+  public static boolean containsIgnoreCase(String[] array, String value) {
+    for (String str : array) {
+      if (value == null && str == null)
+        return true; 
+      if (value != null && value.equalsIgnoreCase(str))
+        return true; 
+    } 
+    return false;
+  }
+  
+  public static String join(String[] array, String separator) {
+    int len = array.length;
+    if (len == 0)
+      return ""; 
+    StringBuilder out = new StringBuilder();
+    out.append(array[0]);
+    for (int i = 1; i < len; i++)
+      out.append(separator).append(array[i]); 
+    return out.toString();
+  }
+}
+
+
+========================================================================================================================
+ITEM 18: com/gigatronik/beds/service/crm/api/attachment/modelPackage/Attachment.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.modelPackage;
+
+import com.google.gson.TypeAdapter;
+import com.google.gson.annotations.JsonAdapter;
+import com.google.gson.annotations.SerializedName;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
+import io.swagger.v3.oas.annotations.media.Schema;
+import java.io.IOException;
+import java.util.Objects;
+import java.util.UUID;
+
+public class Attachment {
+  @SerializedName("attachmentId")
+  private UUID attachmentId = null;
+  
+  @SerializedName("bucket")
+  private String bucket = null;
+  
+  @SerializedName("objectKey")
+  private String objectKey = null;
+  
+  @SerializedName("transactionId")
+  private String transactionId = null;
+  
+  @SerializedName("referenceId")
+  private String referenceId = null;
+  
+  @JsonAdapter(OriginEnum.Adapter.class)
+  public enum OriginEnum {
+    EMAILATTACHMENT("EmailAttachment"),
+    BDPTOOL("BdpTool"),
+    PCTOOL("PcTool"),
+    AGENTUPLOAD("AgentUpload"),
+    FORMHANDLER("FormHandler");
+    
+    private String value;
+    
+    OriginEnum(String value) {
+      this.value = value;
+    }
+    
+    public String getValue() {
+      return this.value;
+    }
+    
+    public String toString() {
+      return String.valueOf(this.value);
+    }
+    
+    public static OriginEnum fromValue(String text) {
+      for (OriginEnum b : values()) {
+        if (String.valueOf(b.value).equals(text))
+          return b; 
+      } 
+      return null;
+    }
+    
+    public static class Adapter extends TypeAdapter<OriginEnum> {
+      public void write(JsonWriter jsonWriter, Attachment.OriginEnum enumeration) throws IOException {
+        jsonWriter.value(enumeration.getValue());
+      }
+      
+      public Attachment.OriginEnum read(JsonReader jsonReader) throws IOException {
+        String value = jsonReader.nextString();
+        return Attachment.OriginEnum.fromValue(String.valueOf(value));
+      }
+    }
+  }
+  
+  @SerializedName("origin")
+  private OriginEnum origin = null;
+  
+  @JsonAdapter(CategoryEnum.Adapter.class)
+  public enum CategoryEnum {
+    DIAGNOSTICREPORT("DiagnosticReport"),
+    INVOICEDOCUMENT("InvoiceDocument"),
+    SHIPPINGDOCUMENT("ShippingDocument"),
+    LETTER("Letter"),
+    PICTUREREFERENCE("PictureReference"),
+    BUGREPORT("BugReport"),
+    OTHER("Other"),
+    UNCLASSIFIED("Unclassified");
+    
+    private String value;
+    
+    CategoryEnum(String value) {
+      this.value = value;
+    }
+    
+    public String getValue() {
+      return this.value;
+    }
+    
+    public String toString() {
+      return String.valueOf(this.value);
+    }
+    
+    public static CategoryEnum fromValue(String text) {
+      for (CategoryEnum b : values()) {
+        if (String.valueOf(b.value).equals(text))
+          return b; 
+      } 
+      return null;
+    }
+    
+    public static class Adapter extends TypeAdapter<CategoryEnum> {
+      public void write(JsonWriter jsonWriter, Attachment.CategoryEnum enumeration) throws IOException {
+        jsonWriter.value(enumeration.getValue());
+      }
+      
+      public Attachment.CategoryEnum read(JsonReader jsonReader) throws IOException {
+        String value = jsonReader.nextString();
+        return Attachment.CategoryEnum.fromValue(String.valueOf(value));
+      }
+    }
+  }
+  
+  @SerializedName("category")
+  private CategoryEnum category = null;
+  
+  @SerializedName("fileName")
+  private String fileName = null;
+  
+  @SerializedName("fileExtension")
+  private String fileExtension = null;
+  
+  @SerializedName("mimeType")
+  private String mimeType = null;
+  
+  @SerializedName("createdAt")
+  private Long createdAt = null;
+  
+  @SerializedName("uploadUrl")
+  private String uploadUrl = null;
+  
+  @SerializedName("uploadUrlExpiration")
+  private Long uploadUrlExpiration = null;
+  
+  @SerializedName("downloadUrl")
+  private String downloadUrl = null;
+  
+  @SerializedName("downloadUrlExpiration")
+  private Long downloadUrlExpiration = null;
+  
+  @SerializedName("redirectUrls")
+  private AttachmentRedirectUrls redirectUrls = null;
+  
+  public Attachment attachmentId(UUID attachmentId) {
+    this.attachmentId = attachmentId;
+    return this;
+  }
+  
+  @Schema(description = "identifying uuid v4 which is used to resolve this attachment via api's.")
+  public UUID getAttachmentId() {
+    return this.attachmentId;
+  }
+  
+  public void setAttachmentId(UUID attachmentId) {
+    this.attachmentId = attachmentId;
+  }
+  
+  public Attachment bucket(String bucket) {
+    this.bucket = bucket;
+    return this;
+  }
+  
+  @Schema(description = "s3 bucket this attachment is stored on")
+  public String getBucket() {
+    return this.bucket;
+  }
+  
+  public void setBucket(String bucket) {
+    this.bucket = bucket;
+  }
+  
+  public Attachment objectKey(String objectKey) {
+    this.objectKey = objectKey;
+    return this;
+  }
+  
+  @Schema(description = "s3 bucket object key this attachment can be resolved by")
+  public String getObjectKey() {
+    return this.objectKey;
+  }
+  
+  public void setObjectKey(String objectKey) {
+    this.objectKey = objectKey;
+  }
+  
+  public Attachment transactionId(String transactionId) {
+    this.transactionId = transactionId;
+    return this;
+  }
+  
+  @Schema(description = "An Id that describes the transaction, Salesforce provides its own Id here, could be a timestamp in ISO format in the BDP tool, for example. Is intended for debugging, if you want to understand from which transaction the file comes.")
+  public String getTransactionId() {
+    return this.transactionId;
+  }
+  
+  public void setTransactionId(String transactionId) {
+    this.transactionId = transactionId;
+  }
+  
+  public Attachment referenceId(String referenceId) {
+    this.referenceId = referenceId;
+    return this;
+  }
+  
+  @Schema(description = "A Reference Id, from Salesforce the Id of the Content Document, does not exist in the PC/BDP. Helpful if several URLs are requested, since this is also returned with the error messages, in order to be able to assign the error.")
+  public String getReferenceId() {
+    return this.referenceId;
+  }
+  
+  public void setReferenceId(String referenceId) {
+    this.referenceId = referenceId;
+  }
+  
+  public Attachment origin(OriginEnum origin) {
+    this.origin = origin;
+    return this;
+  }
+  
+  @Schema(description = "Which Process this attachment originates from")
+  public OriginEnum getOrigin() {
+    return this.origin;
+  }
+  
+  public void setOrigin(OriginEnum origin) {
+    this.origin = origin;
+  }
+  
+  public Attachment category(CategoryEnum category) {
+    this.category = category;
+    return this;
+  }
+  
+  @Schema(description = "Categorizes the contents of the attachment")
+  public CategoryEnum getCategory() {
+    return this.category;
+  }
+  
+  public void setCategory(CategoryEnum category) {
+    this.category = category;
+  }
+  
+  public Attachment fileName(String fileName) {
+    this.fileName = fileName;
+    return this;
+  }
+  
+  @Schema(description = "")
+  public String getFileName() {
+    return this.fileName;
+  }
+  
+  public void setFileName(String fileName) {
+    this.fileName = fileName;
+  }
+  
+  public Attachment fileExtension(String fileExtension) {
+    this.fileExtension = fileExtension;
+    return this;
+  }
+  
+  @Schema(description = "")
+  public String getFileExtension() {
+    return this.fileExtension;
+  }
+  
+  public void setFileExtension(String fileExtension) {
+    this.fileExtension = fileExtension;
+  }
+  
+  public Attachment mimeType(String mimeType) {
+    this.mimeType = mimeType;
+    return this;
+  }
+  
+  @Schema(description = "")
+  public String getMimeType() {
+    return this.mimeType;
+  }
+  
+  public void setMimeType(String mimeType) {
+    this.mimeType = mimeType;
+  }
+  
+  public Attachment createdAt(Long createdAt) {
+    this.createdAt = createdAt;
+    return this;
+  }
+  
+  @Schema(description = "")
+  public Long getCreatedAt() {
+    return this.createdAt;
+  }
+  
+  public void setCreatedAt(Long createdAt) {
+    this.createdAt = createdAt;
+  }
+  
+  public Attachment uploadUrl(String uploadUrl) {
+    this.uploadUrl = uploadUrl;
+    return this;
+  }
+  
+  @Schema(description = "S3 presigned upload url, which expires at `uploadUrlExpiration`. See [AWS Presigned Url Upload Object](https://docs.aws.amazon.com/AmazonS3/latest/userguide/PresignedUrlUploadObject.html) for usage examples")
+  public String getUploadUrl() {
+    return this.uploadUrl;
+  }
+  
+  public void setUploadUrl(String uploadUrl) {
+    this.uploadUrl = uploadUrl;
+  }
+  
+  public Attachment uploadUrlExpiration(Long uploadUrlExpiration) {
+    this.uploadUrlExpiration = uploadUrlExpiration;
+    return this;
+  }
+  
+  @Schema(description = "as unix timestamp")
+  public Long getUploadUrlExpiration() {
+    return this.uploadUrlExpiration;
+  }
+  
+  public void setUploadUrlExpiration(Long uploadUrlExpiration) {
+    this.uploadUrlExpiration = uploadUrlExpiration;
+  }
+  
+  public Attachment downloadUrl(String downloadUrl) {
+    this.downloadUrl = downloadUrl;
+    return this;
+  }
+  
+  @Schema(description = "File download url, which expires at `downloadUrlExpiration`")
+  public String getDownloadUrl() {
+    return this.downloadUrl;
+  }
+  
+  public void setDownloadUrl(String downloadUrl) {
+    this.downloadUrl = downloadUrl;
+  }
+  
+  public Attachment downloadUrlExpiration(Long downloadUrlExpiration) {
+    this.downloadUrlExpiration = downloadUrlExpiration;
+    return this;
+  }
+  
+  @Schema(description = "as unix timestamp")
+  public Long getDownloadUrlExpiration() {
+    return this.downloadUrlExpiration;
+  }
+  
+  public void setDownloadUrlExpiration(Long downloadUrlExpiration) {
+    this.downloadUrlExpiration = downloadUrlExpiration;
+  }
+  
+  public Attachment redirectUrls(AttachmentRedirectUrls redirectUrls) {
+    this.redirectUrls = redirectUrls;
+    return this;
+  }
+  
+  @Schema(description = "")
+  public AttachmentRedirectUrls getRedirectUrls() {
+    return this.redirectUrls;
+  }
+  
+  public void setRedirectUrls(AttachmentRedirectUrls redirectUrls) {
+    this.redirectUrls = redirectUrls;
+  }
+  
+  public boolean equals(Object o) {
+    if (this == o)
+      return true; 
+    if (o == null || getClass() != o.getClass())
+      return false; 
+    Attachment attachment = (Attachment)o;
+    return (Objects.equals(this.attachmentId, attachment.attachmentId) && 
+      Objects.equals(this.bucket, attachment.bucket) && 
+      Objects.equals(this.objectKey, attachment.objectKey) && 
+      Objects.equals(this.transactionId, attachment.transactionId) && 
+      Objects.equals(this.referenceId, attachment.referenceId) && 
+      Objects.equals(this.origin, attachment.origin) && 
+      Objects.equals(this.category, attachment.category) && 
+      Objects.equals(this.fileName, attachment.fileName) && 
+      Objects.equals(this.fileExtension, attachment.fileExtension) && 
+      Objects.equals(this.mimeType, attachment.mimeType) && 
+      Objects.equals(this.createdAt, attachment.createdAt) && 
+      Objects.equals(this.uploadUrl, attachment.uploadUrl) && 
+      Objects.equals(this.uploadUrlExpiration, attachment.uploadUrlExpiration) && 
+      Objects.equals(this.downloadUrl, attachment.downloadUrl) && 
+      Objects.equals(this.downloadUrlExpiration, attachment.downloadUrlExpiration) && 
+      Objects.equals(this.redirectUrls, attachment.redirectUrls));
+  }
+  
+  public int hashCode() {
+    return Objects.hash(this.attachmentId, this.bucket, this.objectKey, this.transactionId, this.referenceId, this.origin, this.category, this.fileName, this.fileExtension, this.mimeType, this.createdAt, this.uploadUrl, this.uploadUrlExpiration, this.downloadUrl, this.downloadUrlExpiration, this.redirectUrls);
+  }
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("class Attachment {\n");
+    sb.append("    attachmentId: ").append(toIndentedString(this.attachmentId)).append("\n");
+    sb.append("    bucket: ").append(toIndentedString(this.bucket)).append("\n");
+    sb.append("    objectKey: ").append(toIndentedString(this.objectKey)).append("\n");
+    sb.append("    transactionId: ").append(toIndentedString(this.transactionId)).append("\n");
+    sb.append("    referenceId: ").append(toIndentedString(this.referenceId)).append("\n");
+    sb.append("    origin: ").append(toIndentedString(this.origin)).append("\n");
+    sb.append("    category: ").append(toIndentedString(this.category)).append("\n");
+    sb.append("    fileName: ").append(toIndentedString(this.fileName)).append("\n");
+    sb.append("    fileExtension: ").append(toIndentedString(this.fileExtension)).append("\n");
+    sb.append("    mimeType: ").append(toIndentedString(this.mimeType)).append("\n");
+    sb.append("    createdAt: ").append(toIndentedString(this.createdAt)).append("\n");
+    sb.append("    uploadUrl: ").append(toIndentedString(this.uploadUrl)).append("\n");
+    sb.append("    uploadUrlExpiration: ").append(toIndentedString(this.uploadUrlExpiration)).append("\n");
+    sb.append("    downloadUrl: ").append(toIndentedString(this.downloadUrl)).append("\n");
+    sb.append("    downloadUrlExpiration: ").append(toIndentedString(this.downloadUrlExpiration)).append("\n");
+    sb.append("    redirectUrls: ").append(toIndentedString(this.redirectUrls)).append("\n");
+    sb.append("}");
+    return sb.toString();
+  }
+  
+  private String toIndentedString(Object o) {
+    if (o == null)
+      return "null"; 
+    return o.toString().replace("\n", "\n    ");
+  }
+}
+
+
+========================================================================================================================
+ITEM 19: com/gigatronik/beds/service/crm/api/attachment/modelPackage/AttachmentDTO.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.modelPackage;
+
+import com.google.gson.TypeAdapter;
+import com.google.gson.annotations.JsonAdapter;
+import com.google.gson.annotations.SerializedName;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
+import io.swagger.v3.oas.annotations.media.Schema;
+import java.io.IOException;
+import java.util.Objects;
+
+public class AttachmentDTO {
+  @SerializedName("transactionId")
+  private String transactionId = null;
+  
+  @SerializedName("referenceId")
+  private String referenceId = null;
+  
+  @JsonAdapter(OriginEnum.Adapter.class)
+  public enum OriginEnum {
+    EMAILATTACHMENT("EmailAttachment"),
+    BDPTOOL("BdpTool"),
+    PCTOOL("PcTool"),
+    AGENTUPLOAD("AgentUpload"),
+    FORMHANDLER("FormHandler");
+    
+    private String value;
+    
+    OriginEnum(String value) {
+      this.value = value;
+    }
+    
+    public String getValue() {
+      return this.value;
+    }
+    
+    public String toString() {
+      return String.valueOf(this.value);
+    }
+    
+    public static OriginEnum fromValue(String text) {
+      for (OriginEnum b : values()) {
+        if (String.valueOf(b.value).equals(text))
+          return b; 
+      } 
+      return null;
+    }
+    
+    public static class Adapter extends TypeAdapter<OriginEnum> {
+      public void write(JsonWriter jsonWriter, AttachmentDTO.OriginEnum enumeration) throws IOException {
+        jsonWriter.value(enumeration.getValue());
+      }
+      
+      public AttachmentDTO.OriginEnum read(JsonReader jsonReader) throws IOException {
+        String value = jsonReader.nextString();
+        return AttachmentDTO.OriginEnum.fromValue(String.valueOf(value));
+      }
+    }
+  }
+  
+  @SerializedName("origin")
+  private OriginEnum origin = null;
+  
+  @JsonAdapter(CategoryEnum.Adapter.class)
+  public enum CategoryEnum {
+    DIAGNOSTICREPORT("DiagnosticReport"),
+    INVOICEDOCUMENT("InvoiceDocument"),
+    SHIPPINGDOCUMENT("ShippingDocument"),
+    LETTER("Letter"),
+    PICTUREREFERENCE("PictureReference"),
+    BUGREPORT("BugReport"),
+    OTHER("Other"),
+    UNCLASSIFIED("Unclassified");
+    
+    private String value;
+    
+    CategoryEnum(String value) {
+      this.value = value;
+    }
+    
+    public String getValue() {
+      return this.value;
+    }
+    
+    public String toString() {
+      return String.valueOf(this.value);
+    }
+    
+    public static CategoryEnum fromValue(String text) {
+      for (CategoryEnum b : values()) {
+        if (String.valueOf(b.value).equals(text))
+          return b; 
+      } 
+      return null;
+    }
+    
+    public static class Adapter extends TypeAdapter<CategoryEnum> {
+      public void write(JsonWriter jsonWriter, AttachmentDTO.CategoryEnum enumeration) throws IOException {
+        jsonWriter.value(enumeration.getValue());
+      }
+      
+      public AttachmentDTO.CategoryEnum read(JsonReader jsonReader) throws IOException {
+        String value = jsonReader.nextString();
+        return AttachmentDTO.CategoryEnum.fromValue(String.valueOf(value));
+      }
+    }
+  }
+  
+  @SerializedName("category")
+  private CategoryEnum category = null;
+  
+  @SerializedName("fileName")
+  private String fileName = null;
+  
+  public AttachmentDTO transactionId(String transactionId) {
+    this.transactionId = transactionId;
+    return this;
+  }
+  
+  private String fileNameFull = null;
+  
+  public void setFileNameFull(String fileNameFull) {
+    this.fileNameFull = fileNameFull;
+  }
+  
+  public String getFileNameFull() {
+    return this.fileNameFull;
+  }
+  
+  @Schema(description = "An Id that describes the transaction, Salesforce provides its own Id here, could be a timestamp in ISO format in the BDP tool, for example. Is intended for debugging, if you want to understand from which transaction the file comes.")
+  public String getTransactionId() {
+    return this.transactionId;
+  }
+  
+  public void setTransactionId(String transactionId) {
+    this.transactionId = transactionId;
+  }
+  
+  public AttachmentDTO referenceId(String referenceId) {
+    this.referenceId = referenceId;
+    return this;
+  }
+  
+  @Schema(description = "A Reference Id, from Salesforce the Id of the Content Document, does not exist in the PC/BDP. Helpful if several URLs are requested, since this is also returned with the error messages, in order to be able to assign the error.")
+  public String getReferenceId() {
+    return this.referenceId;
+  }
+  
+  public void setReferenceId(String referenceId) {
+    this.referenceId = referenceId;
+  }
+  
+  public AttachmentDTO origin(OriginEnum origin) {
+    this.origin = origin;
+    return this;
+  }
+  
+  @Schema(description = "")
+  public OriginEnum getOrigin() {
+    return this.origin;
+  }
+  
+  public void setOrigin(OriginEnum origin) {
+    this.origin = origin;
+  }
+  
+  public AttachmentDTO category(CategoryEnum category) {
+    this.category = category;
+    return this;
+  }
+  
+  @Schema(description = "")
+  public CategoryEnum getCategory() {
+    return this.category;
+  }
+  
+  public void setCategory(CategoryEnum category) {
+    this.category = category;
+  }
+  
+  public AttachmentDTO fileName(String fileName) {
+    this.fileName = fileName;
+    return this;
+  }
+  
+  @Schema(description = "expects filename and extension")
+  public String getFileName() {
+    return this.fileName;
+  }
+  
+  public void setFileName(String fileName) {
+    this.fileName = fileName;
+  }
+  
+  public boolean equals(Object o) {
+    if (this == o)
+      return true; 
+    if (o == null || getClass() != o.getClass())
+      return false; 
+    AttachmentDTO attachmentDTO = (AttachmentDTO)o;
+    return (Objects.equals(this.transactionId, attachmentDTO.transactionId) && 
+      Objects.equals(this.referenceId, attachmentDTO.referenceId) && 
+      Objects.equals(this.origin, attachmentDTO.origin) && 
+      Objects.equals(this.category, attachmentDTO.category) && 
+      Objects.equals(this.fileName, attachmentDTO.fileName));
+  }
+  
+  public int hashCode() {
+    return Objects.hash(this.transactionId, this.referenceId, this.origin, this.category, this.fileName);
+  }
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("class AttachmentDTO {\n");
+    sb.append("    transactionId: ").append(toIndentedString(this.transactionId)).append("\n");
+    sb.append("    referenceId: ").append(toIndentedString(this.referenceId)).append("\n");
+    sb.append("    origin: ").append(toIndentedString(this.origin)).append("\n");
+    sb.append("    category: ").append(toIndentedString(this.category)).append("\n");
+    sb.append("    fileName: ").append(toIndentedString(this.fileName)).append("\n");
+    sb.append("}");
+    return sb.toString();
+  }
+  
+  private String toIndentedString(Object o) {
+    if (o == null)
+      return "null"; 
+    return o.toString().replace("\n", "\n    ");
+  }
+}
+
+
+========================================================================================================================
+ITEM 20: com/gigatronik/beds/service/crm/api/attachment/modelPackage/AttachmentRedirectUrls.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.modelPackage;
+
+import com.google.gson.annotations.SerializedName;
+import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.Objects;
+
+@Schema(description = "locations which take this attachment as input")
+public class AttachmentRedirectUrls {
+  @SerializedName("caseCreate")
+  private String caseCreate = null;
+  
+  @SerializedName("caseUpdate")
+  private String caseUpdate = null;
+  
+  public AttachmentRedirectUrls caseCreate(String caseCreate) {
+    this.caseCreate = caseCreate;
+    return this;
+  }
+  
+  @Schema(description = "location of the case create form")
+  public String getCaseCreate() {
+    return this.caseCreate;
+  }
+  
+  public void setCaseCreate(String caseCreate) {
+    this.caseCreate = caseCreate;
+  }
+  
+  public AttachmentRedirectUrls caseUpdate(String caseUpdate) {
+    this.caseUpdate = caseUpdate;
+    return this;
+  }
+  
+  @Schema(description = "location of the case update form")
+  public String getCaseUpdate() {
+    return this.caseUpdate;
+  }
+  
+  public void setCaseUpdate(String caseUpdate) {
+    this.caseUpdate = caseUpdate;
+  }
+  
+  public boolean equals(Object o) {
+    if (this == o)
+      return true; 
+    if (o == null || getClass() != o.getClass())
+      return false; 
+    AttachmentRedirectUrls attachmentRedirectUrls = (AttachmentRedirectUrls)o;
+    return (Objects.equals(this.caseCreate, attachmentRedirectUrls.caseCreate) && 
+      Objects.equals(this.caseUpdate, attachmentRedirectUrls.caseUpdate));
+  }
+  
+  public int hashCode() {
+    return Objects.hash(this.caseCreate, this.caseUpdate);
+  }
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("class AttachmentRedirectUrls {\n");
+    sb.append("    caseCreate: ").append(toIndentedString(this.caseCreate)).append("\n");
+    sb.append("    caseUpdate: ").append(toIndentedString(this.caseUpdate)).append("\n");
+    sb.append("}");
+    return sb.toString();
+  }
+  
+  private String toIndentedString(Object o) {
+    if (o == null)
+      return "null"; 
+    return o.toString().replace("\n", "\n    ");
+  }
+}
+
+
+========================================================================================================================
+ITEM 21: com/gigatronik/beds/service/crm/api/attachment/modelPackage/AttachmentResponse.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.modelPackage;
+
+import com.google.gson.annotations.SerializedName;
+import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.Objects;
+import java.util.UUID;
+
+public class AttachmentResponse {
+  @SerializedName("success")
+  private Boolean success = null;
+  
+  @SerializedName("attachmentId")
+  private UUID attachmentId = null;
+  
+  @SerializedName("referenceId")
+  private UUID referenceId = null;
+  
+  @SerializedName("response")
+  private Attachment response = null;
+  
+  public AttachmentResponse success(Boolean success) {
+    this.success = success;
+    return this;
+  }
+  
+  @Schema(description = "wether the request was successfully executed")
+  public Boolean isSuccess() {
+    return this.success;
+  }
+  
+  public void setSuccess(Boolean success) {
+    this.success = success;
+  }
+  
+  public AttachmentResponse attachmentId(UUID attachmentId) {
+    this.attachmentId = attachmentId;
+    return this;
+  }
+  
+  @Schema(description = "identifying uuid for the resulting attachment")
+  public UUID getAttachmentId() {
+    return this.attachmentId;
+  }
+  
+  public void setAttachmentId(UUID attachmentId) {
+    this.attachmentId = attachmentId;
+  }
+  
+  public AttachmentResponse referenceId(UUID referenceId) {
+    this.referenceId = referenceId;
+    return this;
+  }
+  
+  @Schema(description = "A Reference Id, from Salesforce the Id of the Content Document, does not exist in the PC/BDP. Helpful if several URLs are requested, since this is also returned with the error messages, in order to be able to assign the error.")
+  public UUID getReferenceId() {
+    return this.referenceId;
+  }
+  
+  public void setReferenceId(UUID referenceId) {
+    this.referenceId = referenceId;
+  }
+  
+  public AttachmentResponse response(Attachment response) {
+    this.response = response;
+    return this;
+  }
+  
+  @Schema(description = "")
+  public Attachment getResponse() {
+    return this.response;
+  }
+  
+  public void setResponse(Attachment response) {
+    this.response = response;
+  }
+  
+  public boolean equals(Object o) {
+    if (this == o)
+      return true; 
+    if (o == null || getClass() != o.getClass())
+      return false; 
+    AttachmentResponse attachmentResponse = (AttachmentResponse)o;
+    return (Objects.equals(this.success, attachmentResponse.success) && 
+      Objects.equals(this.attachmentId, attachmentResponse.attachmentId) && 
+      Objects.equals(this.referenceId, attachmentResponse.referenceId) && 
+      Objects.equals(this.response, attachmentResponse.response));
+  }
+  
+  public int hashCode() {
+    return Objects.hash(this.success, this.attachmentId, this.referenceId, this.response);
+  }
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("class AttachmentResponse {\n");
+    sb.append("    success: ").append(toIndentedString(this.success)).append("\n");
+    sb.append("    attachmentId: ").append(toIndentedString(this.attachmentId)).append("\n");
+    sb.append("    referenceId: ").append(toIndentedString(this.referenceId)).append("\n");
+    sb.append("    response: ").append(toIndentedString(this.response)).append("\n");
+    sb.append("}");
+    return sb.toString();
+  }
+  
+  private String toIndentedString(Object o) {
+    if (o == null)
+      return "null"; 
+    return o.toString().replace("\n", "\n    ");
+  }
+}
+
+
+========================================================================================================================
+ITEM 22: com/gigatronik/beds/service/crm/api/attachment/modelPackage/ErrorResponse.java
+========================================================================================================================
+package com.gigatronik.beds.service.crm.api.attachment.modelPackage;
+
+import com.google.gson.annotations.SerializedName;
+import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.Objects;
+
+public class ErrorResponse {
+  @SerializedName("success")
+  private Boolean success = null;
+  
+  @SerializedName("message")
+  private String message = null;
+  
+  public ErrorResponse success(Boolean success) {
+    this.success = success;
+    return this;
+  }
+  
+  @Schema(description = "wether the request was successfully executed")
+  public Boolean isSuccess() {
+    return this.success;
+  }
+  
+  public void setSuccess(Boolean success) {
+    this.success = success;
+  }
+  
+  public ErrorResponse message(String message) {
+    this.message = message;
+    return this;
+  }
+  
+  @Schema(description = "failure cause")
+  public String getMessage() {
+    return this.message;
+  }
+  
+  public void setMessage(String message) {
+    this.message = message;
+  }
+  
+  public boolean equals(Object o) {
+    if (this == o)
+      return true; 
+    if (o == null || getClass() != o.getClass())
+      return false; 
+    ErrorResponse errorResponse = (ErrorResponse)o;
+    return (Objects.equals(this.success, errorResponse.success) && 
+      Objects.equals(this.message, errorResponse.message));
+  }
+  
+  public int hashCode() {
+    return Objects.hash(this.success, this.message);
+  }
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("class ErrorResponse {\n");
+    sb.append("    success: ").append(toIndentedString(this.success)).append("\n");
+    sb.append("    message: ").append(toIndentedString(this.message)).append("\n");
+    sb.append("}");
+    return sb.toString();
+  }
+  
+  private String toIndentedString(Object o) {
+    if (o == null)
+      return "null"; 
+    return o.toString().replace("\n", "\n    ");
+  }
+}
+

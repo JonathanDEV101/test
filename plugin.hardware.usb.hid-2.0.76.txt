@@ -1,0 +1,1035 @@
+JAR: plugin.hardware.usb.hid-2.0.76.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\plugin.hardware.usb.hid-2.0.76.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/framework/plugin/hardware/usb/hid/HidDevice.java
+========================================================================================================================
+package com.gigatronik.framework.plugin.hardware.usb.hid;
+
+import com.gigatronik.dart2.framework.plugins.interfaces.DriverDartPlugin;
+
+public interface HidDevice extends DriverDartPlugin.Device {
+  short getProductId();
+  
+  short getVendorId();
+  
+  @Deprecated
+  String getSerialNumber();
+  
+  String getProperty(HidDeviceProperties paramHidDeviceProperties);
+  
+  public enum HidDeviceProperties {
+    DEVICE_ID, SERIAL_NR, PRODUCT_STRING, MANUFACTURER_STRING;
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/framework/plugin/hardware/usb/hid/HidDeviceImpl.java
+========================================================================================================================
+package com.gigatronik.framework.plugin.hardware.usb.hid;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.gigatronik.dart2.framework.plugins.exceptions.HardwareInterfaceException;
+import com.gigatronik.dart2.framework.settings.SettingsFactory;
+import com.gigatronik.framework.plugin.hardware.usb.hid.nativewrapper.HidApi;
+import com.gigatronik.framework.plugin.hardware.usb.hid.nativewrapper.jna.DllApi;
+import com.sun.jna.Pointer;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class HidDeviceImpl implements HidDevice {
+  final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private static final int DEVICE_TURNAROUND_TIME = 5;
+  
+  public static final int RX_BUFFER_SIZE = 66;
+  
+  protected final short pid;
+  
+  protected final short vid;
+  
+  protected final Map<HidDevice.HidDeviceProperties, String> properties;
+  
+  protected final String TYPE;
+  
+  private DllApi.hid_device handle;
+  
+  private boolean isConnected;
+  
+  private final HidDeviceList PARENT;
+  
+  private RxPoller worker;
+  
+  private boolean rxPollerEnabled = true;
+  
+  boolean isOpen() {
+    return (this.handle != null);
+  }
+  
+  private synchronized void open() {
+    if (!isOpen()) {
+      this.handle = HidApi.getInstance().open(this.vid, this.pid, null);
+      if (this.handle != null) {
+        this.logger.debug("{} opened", toString());
+        HidApi.getInstance().setNonBlocking(this.handle, true);
+        if (this.rxPollerEnabled)
+          this.worker = new RxPoller(this); 
+      } else {
+        this.logger.debug("{} Error opening device", toString());
+      } 
+    } 
+  }
+  
+  public void close() {
+    if (isOpen()) {
+      if (this.worker != null) {
+        this.worker.stop();
+        this.worker = null;
+      } 
+      synchronized (this) {
+        HidApi.getInstance().close(this.handle);
+      } 
+      this.handle = null;
+      this.logger.debug("{} closed", toString());
+    } 
+  }
+  
+  public synchronized void enableRxPoller(boolean enabled) {
+    this.rxPollerEnabled = enabled;
+    if (!this.rxPollerEnabled && this.worker != null) {
+      this.worker.stop();
+      this.worker = null;
+    } 
+  }
+  
+  public synchronized int read(byte[] buffer, int timeoutMillis) throws HardwareInterfaceException {
+    openOrFail();
+    return HidApi.getInstance().read(this.handle, buffer, timeoutMillis);
+  }
+  
+  public synchronized void tx(byte[] data) throws HardwareInterfaceException {
+    tx((byte)0, data);
+  }
+  
+  public synchronized void tx(byte reportId, byte[] data) throws HardwareInterfaceException {
+    openOrFail();
+    int result = HidApi.getInstance().write(this.handle, data, data.length, reportId);
+    if (result == -1) {
+      String message = HidApi.getInstance().getLastErrorMessage(this.handle);
+      int code = HidApi.getInstance().getLastErrorCode();
+      throw new HardwareInterfaceException("Error writing to device. Code " + code + " message: " + message);
+    } 
+  }
+  
+  public HidDeviceImpl(HidDeviceList hidDeviceList, short product_id, short vendor_id, Pointer props) {
+    this.pid = product_id;
+    this.vid = vendor_id;
+    this.properties = extractProperties(props);
+    this.TYPE = getDeviceTag();
+    this.PARENT = hidDeviceList;
+    setConnected(true);
+  }
+  
+  private synchronized void openOrFail() throws HardwareInterfaceException {
+    if (!this.isConnected)
+      throw new HardwareInterfaceException("Device " + this + " is not connected"); 
+    if (!isOpen()) {
+      open();
+      if (!isOpen())
+        throw new HardwareInterfaceException("Unable to open device " + this + ". Error " + HidApi.getInstance().getLastErrorCode()); 
+    } 
+  }
+  
+  public Object getId() {
+    return String.format("%d-%d-%s", this.pid, this.vid, this.properties.get(HidDevice.HidDeviceProperties.DEVICE_ID));
+  }
+  
+  void setConnected(boolean b) {
+    if (b != this.isConnected) {
+      this.isConnected = b;
+      if (!this.isConnected)
+        close(); 
+      this.logger.info("{} {}", this, b ? "connected" : "disconnected");
+    } 
+  }
+  
+  private String getDeviceTag() {
+    try {
+      List<Map<String, String>> deviceConfigs = SettingsFactory.getInstance().getInternalSettings().getListByPrefix("com.gigatronik.framework.plugin.hardware.usb.hid.device%d.");
+      for (Map<String, String> deviceConfig : deviceConfigs) {
+        if (deviceConfig.containsKey("vendor_id") && deviceConfig.containsKey("product_id") && deviceConfig.containsKey("type")) {
+          int vendorid = Integer.parseInt(deviceConfig.get("vendor_id").substring(2), 16);
+          int productid = Integer.parseInt(deviceConfig.get("product_id").substring(2), 16);
+          if (vendorid == this.vid && productid == this.pid)
+            return deviceConfig.get("type"); 
+        } 
+      } 
+    } catch (ConfigurationNotFoundException e) {
+      this.logger.error("Config not found", (Throwable)e);
+    } 
+    return null;
+  }
+  
+  public Object getType() {
+    return this.TYPE;
+  }
+  
+  public boolean isConnected() {
+    return this.isConnected;
+  }
+  
+  public String toString() {
+    return String.format("HID-Device[PID: 0x%02x, VID: 0x%02x, DevID: %s, SN: %s, Prod: %s, Manu: %s, Type: %s]", this.pid, 
+        this.vid, this.properties.get(HidDevice.HidDeviceProperties.DEVICE_ID), this.properties.get(HidDevice.HidDeviceProperties.SERIAL_NR), this.properties.get(HidDevice.HidDeviceProperties.PRODUCT_STRING), this.properties.get(HidDevice.HidDeviceProperties.MANUFACTURER_STRING), this.TYPE);
+  }
+  
+  public void invalidate() {
+    this.logger.debug("{} Invalidation requested", this);
+    close();
+  }
+  
+  public void onData(byte[] rxbuffer) {
+    this.PARENT.onData(this, rxbuffer);
+  }
+  
+  public long getTurnaroundTime() {
+    return 5L;
+  }
+  
+  public short getProductId() {
+    return this.pid;
+  }
+  
+  public short getVendorId() {
+    return this.vid;
+  }
+  
+  @Deprecated
+  public String getSerialNumber() {
+    return this.properties.get(HidDevice.HidDeviceProperties.SERIAL_NR);
+  }
+  
+  public String getProperty(HidDevice.HidDeviceProperties property) {
+    return this.properties.get(property);
+  }
+  
+  private static Map<HidDevice.HidDeviceProperties, String> extractProperties(Pointer p) {
+    Map<HidDevice.HidDeviceProperties, String> resultMap = new HashMap<>();
+    if (p != null) {
+      String[] strArray = p.getWideStringArray(0L);
+      HidDevice.HidDeviceProperties[] enumArray = HidDevice.HidDeviceProperties.values();
+      for (int i = 0; i < strArray.length && i < enumArray.length; i++)
+        resultMap.put(enumArray[i], strArray[i].equals("") ? null : strArray[i]); 
+    } 
+    return resultMap;
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/framework/plugin/hardware/usb/hid/HidDeviceList.java
+========================================================================================================================
+package com.gigatronik.framework.plugin.hardware.usb.hid;
+
+import com.gigatronik.framework.plugin.hardware.usb.hid.nativewrapper.HidApi;
+import com.gigatronik.framework.plugin.hardware.usb.hid.nativewrapper.jna.DllApi;
+import com.sun.jna.Pointer;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class HidDeviceList extends DllApi.HidConnectionStateListener {
+  final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private class ConnectionChangeEvent implements Runnable {
+    private final HidDeviceImpl DEVICE;
+    
+    public ConnectionChangeEvent(HidDeviceImpl device) {
+      this.DEVICE = device;
+    }
+    
+    public void run() {
+      HidDeviceList.this.DRIVER.fireConnectionStateChanged(this.DEVICE, this.DEVICE.isConnected());
+    }
+  }
+  
+  private final ExecutorService EVENT_BROADCASTER = Executors.newSingleThreadExecutor(new BasicThreadFactory.Builder().namingPattern("GtIoT-HidEventBroadcaster-%d").build());
+  
+  private final Collection<HidDeviceImpl> DEVICES = Collections.synchronizedCollection(new LinkedList<>());
+  
+  private final HidDriver DRIVER;
+  
+  public HidDeviceList(HidDriver driver) {
+    this.DRIVER = driver;
+  }
+  
+  public void onStateChanged(short pid, short vid, Pointer properties, int state) {
+    boolean isKnown = false;
+    for (HidDeviceImpl device : this.DEVICES) {
+      if (device.pid == pid && device.vid == vid) {
+        boolean isConnected = (state == 1);
+        if (isConnected != device.isConnected()) {
+          device.setConnected(isConnected);
+          this.EVENT_BROADCASTER.execute(new ConnectionChangeEvent(device));
+        } 
+        isKnown = true;
+      } 
+    } 
+    if (!isKnown) {
+      HidDeviceImpl device = new HidDeviceImpl(this, pid, vid, properties);
+      add(device);
+      this.EVENT_BROADCASTER.execute(new ConnectionChangeEvent(device));
+    } 
+  }
+  
+  public void add(HidDeviceImpl hidDevice) {
+    this.DEVICES.add(hidDevice);
+    this.logger.info("{} added", hidDevice);
+  }
+  
+  public void cleanup() {
+    synchronized (this.DEVICES) {
+      for (HidDeviceImpl device : this.DEVICES)
+        device.close(); 
+    } 
+  }
+  
+  public List<HidDevice> getDeviceList() {
+    List<HidDevice> result = new LinkedList<>();
+    synchronized (this.DEVICES) {
+      for (HidDeviceImpl device : this.DEVICES)
+        result.add(device); 
+    } 
+    return Collections.unmodifiableList(result);
+  }
+  
+  public void initialLoadDevices() {
+    DllApi.hid_device_info list = HidApi.getInstance().enumerateDevices(0, 0);
+    try {
+      DllApi.hid_device_info current = list;
+      while (current != null) {
+        onStateChanged(current.product_id, current.vendor_id, null, 1);
+        current = current.next;
+      } 
+    } finally {
+      HidApi.getInstance().freeEnumeration(list);
+    } 
+  }
+  
+  public void onData(HidDevice hidDevice, byte[] rxbuffer) {
+    this.DRIVER.fireOnDataReceived(hidDevice, rxbuffer);
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/framework/plugin/hardware/usb/hid/HidDriver.java
+========================================================================================================================
+package com.gigatronik.framework.plugin.hardware.usb.hid;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.HardwareInterfaceException;
+import com.gigatronik.dart2.framework.plugins.interfaces.AsyncronousDriverDartPlugin;
+import com.gigatronik.dart2.framework.util.instance.GlobalSingleton;
+import com.gigatronik.framework.plugin.hardware.usb.hid.nativewrapper.HidApi;
+import java.nio.channels.OverlappingFileLockException;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class HidDriver extends HidDriverPluginImpl implements AsyncronousDriverDartPlugin<HidDevice> {
+  final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private final HidDeviceList DEVICES;
+  
+  private boolean isInitialized = false;
+  
+  private GlobalSingleton pim;
+  
+  private AsyncronousDriverDartPlugin.AsynchronousDataHandler<HidDevice> handler = null;
+  
+  public HidDriver() {
+    this.DEVICES = new HidDeviceList(this);
+  }
+  
+  public List<HidDevice> getDevices() {
+    return this.DEVICES.getDeviceList();
+  }
+  
+  public synchronized void uninitialize() {
+    if (this.isInitialized) {
+      this.logger.debug("HID driver uninit");
+      HidApi.getInstance().UnsetConnectionStateListener();
+      this.DEVICES.cleanup();
+      HidApi.getInstance().exit();
+      this.pim.unlock();
+      this.isInitialized = false;
+    } 
+  }
+  
+  public synchronized void initialize() throws HardwareInterfaceException {
+    if (!this.isInitialized) {
+      this.logger.debug("HID driver init");
+      this.pim = new GlobalSingleton(getUuid().toString());
+      try {
+        this.pim.lock();
+      } catch (OverlappingFileLockException e) {
+        throw new HardwareInterfaceException("HID plugin already loaded.", e);
+      } 
+      try {
+        this.logger.info("Loaded HID Driver DLL Version {}", HidApi.getInstance().getVersionString());
+        if (HidApi.getInstance().GetDLLMajorVersion() >= 0 && HidApi.getInstance().GetDLLMinorVersion() >= 9) {
+          this.logger.info("Driver version compatible.");
+        } else {
+          throw new HardwareInterfaceException("Incompatible driver version.");
+        } 
+      } catch (UnsatisfiedLinkError e) {
+        throw new HardwareInterfaceException("HID driver is not compatible", e);
+      } 
+      int initResult = HidApi.getInstance().init();
+      if (initResult != 0)
+        this.logger.error("Error initializing HID " + initResult); 
+      this.DEVICES.initialLoadDevices();
+      HidApi.getInstance().SetConnectionStateListener(this.DEVICES);
+      this.isInitialized = true;
+    } 
+  }
+  
+  public void setHandler(AsyncronousDriverDartPlugin.AsynchronousDataHandler handler) {
+    this.handler = handler;
+  }
+  
+  public synchronized boolean isInitialized() {
+    return this.isInitialized;
+  }
+  
+  public void fireOnDataReceived(HidDevice hidDevice, byte[] rxbuffer) {
+    if (this.handler != null)
+      this.handler.onData(hidDevice, rxbuffer); 
+  }
+  
+  public void fireConnectionStateChanged(HidDevice device, boolean connected) {
+    if (this.handler != null)
+      this.handler.onConnectionStateChanged(device, connected); 
+  }
+  
+  public boolean isSingleton() {
+    return true;
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/framework/plugin/hardware/usb/hid/HidDriverPluginImpl.java
+========================================================================================================================
+package com.gigatronik.framework.plugin.hardware.usb.hid;
+
+import com.gigatronik.dart2.framework.plugins.interfaces.DartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.Microservice;
+import java.util.UUID;
+
+public abstract class HidDriverPluginImpl implements DartPlugin {
+  public String getVersion() {
+    return getClass().getPackage().getImplementationVersion();
+  }
+  
+  public String getName() {
+    return "USB HID Driver";
+  }
+  
+  public String getBundle() {
+    return getClass().getPackage().getName();
+  }
+  
+  public UUID getUuid() {
+    return UUID.fromString("c0b1d690-4f91-11e4-916c-0800200c9a66");
+  }
+  
+  public Microservice getWebContainer() {
+    return null;
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/framework/plugin/hardware/usb/hid/nativewrapper/DllLoader.java
+========================================================================================================================
+package com.gigatronik.framework.plugin.hardware.usb.hid.nativewrapper;
+
+import com.gigatronik.framework.plugin.hardware.usb.hid.nativewrapper.jna.DllApi;
+import com.sun.jna.Native;
+import com.sun.jna.NativeLibrary;
+import com.sun.jna.Platform;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import org.apache.commons.io.FilenameUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class DllLoader {
+  final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private String library = "";
+  
+  private String basename = "";
+  
+  public DllApi newExtendedInterfaceHidDriver() throws IOException {
+    String dllJarPath = getDllJarPath();
+    this.logger.info("Loading Hid DLL " + dllJarPath);
+    File lib = extractLibraryFromJar(dllJarPath);
+    this.library = lib.getAbsolutePath();
+    this.basename = FilenameUtils.getBaseName(lib.getName());
+    if (Platform.isMac())
+      this.basename = this.basename.replaceFirst("lib", ""); 
+    String libdir = lib.getParent();
+    NativeLibrary.addSearchPath(this.basename, libdir);
+    return (DllApi)Native.loadLibrary(this.basename, DllApi.class);
+  }
+  
+  public void unloadLibrary() {
+    NativeLibrary instance = NativeLibrary.getInstance(this.basename);
+    if (instance != null)
+      instance.dispose(); 
+  }
+  
+  public String getLibrary() {
+    return this.library;
+  }
+  
+  private static String getDllJarPath() {
+    StringBuilder result = new StringBuilder();
+    if (Platform.isWindows()) {
+      result.append("/windows/libhidapi");
+      if (Platform.is64Bit()) {
+        result.append("64");
+      } else {
+        result.append("32");
+      } 
+      result.append(".dll");
+    } else if (Platform.isMac()) {
+      result.append("/mac/libhidapi");
+      if (Platform.is64Bit()) {
+        result.append("64");
+      } else {
+        result.append("32");
+      } 
+      result.append(".dylib");
+    } 
+    return result.toString();
+  }
+  
+  public static boolean isPlattformSupported() {
+    return (getDllJarPath().trim().length() > 0);
+  }
+  
+  public static File extractLibraryFromJar(String path) throws IOException {
+    if (!path.startsWith("/"))
+      throw new IllegalArgumentException("The path '" + path + "' is not absoulte."); 
+    String[] parts = path.split("/");
+    String filename = (parts.length > 1) ? parts[parts.length - 1] : null;
+    String prefix = "";
+    String suffix = null;
+    if (filename != null) {
+      parts = filename.split("\\.", 2);
+      prefix = parts[0];
+      suffix = (parts.length > 1) ? ("." + parts[parts.length - 1]) : null;
+    } 
+    if (filename == null || prefix.length() < 3)
+      throw new IllegalArgumentException("The filename has to be at least 3 characters long."); 
+    File temp = File.createTempFile(prefix, suffix);
+    temp.deleteOnExit();
+    if (!temp.exists())
+      throw new FileNotFoundException("File " + temp.getAbsolutePath() + " does not exist."); 
+    byte[] buffer = new byte[1024];
+    InputStream is = DllLoader.class.getResourceAsStream(path);
+    try {
+      if (is == null)
+        throw new FileNotFoundException("File " + path + " was not found inside JAR."); 
+      OutputStream os = new FileOutputStream(temp);
+      try {
+        int readBytes;
+        while ((readBytes = is.read(buffer)) != -1)
+          os.write(buffer, 0, readBytes); 
+      } finally {
+        os.close();
+      } 
+      return temp;
+    } finally {
+      if (is != null)
+        is.close(); 
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/framework/plugin/hardware/usb/hid/nativewrapper/HidApi.java
+========================================================================================================================
+package com.gigatronik.framework.plugin.hardware.usb.hid.nativewrapper;
+
+import com.gigatronik.framework.plugin.hardware.usb.hid.nativewrapper.jna.DllApi;
+import com.sun.jna.Pointer;
+import com.sun.jna.WString;
+import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class HidApi {
+  final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private static final int WSTR_LEN = 512;
+  
+  private static HidApi instance;
+  
+  private DllApi hidApiLib;
+  
+  private DllLoader hidApiLoader;
+  
+  private HidApi() {
+    try {
+      this.hidApiLoader = new DllLoader();
+      this.hidApiLib = this.hidApiLoader.newExtendedInterfaceHidDriver();
+    } catch (IOException e) {
+      this.logger.error("Error loading hid dll", (Throwable)e);
+    } 
+  }
+  
+  public static HidApi getInstance() {
+    if (instance == null)
+      instance = new HidApi(); 
+    return instance;
+  }
+  
+  public DllApi.hid_device open(int vendorid, int productid, String serialNumber) {
+    Pointer p = this.hidApiLib.hid_open((short)vendorid, (short)productid, (serialNumber == null) ? null : new WString(serialNumber));
+    if (p != null)
+      return new DllApi.hid_device(p); 
+    return null;
+  }
+  
+  public int getLastErrorCode() {
+    return this.hidApiLib.GetLastErrorCode();
+  }
+  
+  public int init() {
+    return this.hidApiLib.hid_init();
+  }
+  
+  public void exit() {
+    this.hidApiLib.hid_exit();
+    this.hidApiLoader.unloadLibrary();
+    instance = null;
+  }
+  
+  public DllApi.hid_device open(String path) {
+    Pointer p = this.hidApiLib.hid_open_path(path);
+    return (p == null) ? null : new DllApi.hid_device(p);
+  }
+  
+  public void close(DllApi.hid_device device) {
+    if (device != null)
+      this.hidApiLib.hid_close(device.ptr()); 
+  }
+  
+  public DllApi.hid_device_info enumerateDevices(int vendor, int product) {
+    return this.hidApiLib.hid_enumerate((short)vendor, (short)product);
+  }
+  
+  public void freeEnumeration(DllApi.hid_device_info list) {
+    if (list != null)
+      this.hidApiLib.hid_free_enumeration(list.getPointer()); 
+  }
+  
+  public String getLastErrorMessage(DllApi.hid_device device) {
+    if (device == null)
+      return "Device not initialized"; 
+    Pointer p = this.hidApiLib.hid_error(device.ptr());
+    return (p == null) ? null : new WideStringBuffer(p.getByteArray(0L, 512)).toString();
+  }
+  
+  public String getManufacturer(DllApi.hid_device device) {
+    if (device == null)
+      throw new IllegalArgumentException("Params may not be null"); 
+    WideStringBuffer wStr = new WideStringBuffer(512);
+    this.hidApiLib.hid_get_manufacturer_string(device.ptr(), wStr, 512);
+    return wStr.toString();
+  }
+  
+  public String getProductId(DllApi.hid_device device) {
+    if (device == null)
+      throw new IllegalArgumentException("Params may not be null"); 
+    WideStringBuffer wStr = new WideStringBuffer(512);
+    this.hidApiLib.hid_get_product_string(device.ptr(), wStr, 512);
+    return wStr.toString();
+  }
+  
+  public String getSerialNumber(DllApi.hid_device device) {
+    if (device == null)
+      throw new IllegalArgumentException("Params may not be null"); 
+    WideStringBuffer wStr = new WideStringBuffer(512);
+    this.hidApiLib.hid_get_serial_number_string(device.ptr(), wStr, 512);
+    return wStr.toString();
+  }
+  
+  public boolean setNonBlocking(DllApi.hid_device device, boolean nonBlocking) {
+    if (device != null)
+      if (0 == this.hidApiLib.hid_set_nonblocking(device.ptr(), nonBlocking ? 1 : 0))
+        return true;  
+    return false;
+  }
+  
+  public int read(DllApi.hid_device device, byte[] bytes) {
+    if (device == null || bytes == null)
+      throw new IllegalArgumentException("params may not be null"); 
+    WideStringBuffer m = new WideStringBuffer(bytes);
+    return this.hidApiLib.hid_read(device.ptr(), m, m.size());
+  }
+  
+  public int read(DllApi.hid_device device, byte[] bytes, int timeoutMillis) {
+    if (device == null || bytes == null)
+      throw new IllegalArgumentException("params may not be null"); 
+    WideStringBuffer m = new WideStringBuffer(bytes);
+    return this.hidApiLib.hid_read_timeout(device.ptr(), m, bytes.length, timeoutMillis);
+  }
+  
+  public int getFeatureReport(DllApi.hid_device device, byte[] data, byte reportId) {
+    if (device == null || data == null)
+      throw new IllegalArgumentException("params may not be null"); 
+    WideStringBuffer m = new WideStringBuffer(512);
+    m.buffer[0] = reportId;
+    int res = this.hidApiLib.hid_get_feature_report(device.ptr(), m, data.length + 1);
+    if (res == -1)
+      return res; 
+    System.arraycopy(m.buffer, 1, data, 0, res);
+    return res;
+  }
+  
+  public int sendFeatureReport(DllApi.hid_device device, byte[] data, byte reportId) {
+    if (device == null || data == null)
+      throw new IllegalArgumentException("params may not be null"); 
+    WideStringBuffer m = new WideStringBuffer(data.length + 1);
+    m.buffer[0] = reportId;
+    System.arraycopy(data, 0, m.buffer, 1, data.length);
+    return this.hidApiLib.hid_send_feature_report(device.ptr(), m, m.buffer.length);
+  }
+  
+  public String getIndexedString(DllApi.hid_device device, int idx) {
+    if (device == null)
+      throw new IllegalArgumentException("params may not be null"); 
+    WideStringBuffer wStr = new WideStringBuffer(512);
+    int res = this.hidApiLib.hid_get_indexed_string(device.ptr(), idx, wStr, 512);
+    return (res == -1) ? null : wStr.toString();
+  }
+  
+  public int write(DllApi.hid_device device, byte[] bytes, int len, byte reportId) {
+    if (device == null || bytes == null)
+      throw new IllegalArgumentException("params may not be null"); 
+    WideStringBuffer m = new WideStringBuffer(len + 1);
+    m.buffer[0] = reportId;
+    if (bytes.length < len)
+      len = bytes.length; 
+    if (len > 1)
+      System.arraycopy(bytes, 0, m.buffer, 1, len); 
+    return this.hidApiLib.hid_write(device.ptr(), m, m.buffer.length);
+  }
+  
+  public int GetDLLMajorVersion() {
+    return this.hidApiLib.GetDLLMajorVersion();
+  }
+  
+  public int GetDLLMinorVersion() {
+    return this.hidApiLib.GetDLLMinorVersion();
+  }
+  
+  public int GetDLLRevision() {
+    return this.hidApiLib.GetDLLRevision();
+  }
+  
+  public void SetConnectionStateListener(DllApi.HidConnectionStateListener hidConnectionStateListener) {
+    this.hidApiLib.SetConnectionStateListener(hidConnectionStateListener);
+  }
+  
+  public void UnsetConnectionStateListener() {
+    this.hidApiLib.UnsetConnectionStateListener();
+  }
+  
+  public DllApi.hid_device_info_wrapper enumerateConnectedDevices(short vendor_id, short product_id) {
+    return this.hidApiLib.enumerateDevices(vendor_id, product_id);
+  }
+  
+  public void freeEnumerate(DllApi.hid_device_info_wrapper list) {
+    if (list != null)
+      this.hidApiLib.freeEnumerationMemory(list.getPointer()); 
+  }
+  
+  public String getVersionString() {
+    int major = this.hidApiLib.GetDLLMajorVersion();
+    int minor = this.hidApiLib.GetDLLMinorVersion();
+    int revision = this.hidApiLib.GetDLLRevision();
+    return String.format("%d.%d.%d", major, minor, revision);
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/framework/plugin/hardware/usb/hid/nativewrapper/HidLibException.java
+========================================================================================================================
+package com.gigatronik.framework.plugin.hardware.usb.hid.nativewrapper;
+
+public class HidLibException extends Exception {
+  private static final long serialVersionUID = 1L;
+  
+  public HidLibException(String string) {
+    super(string);
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/framework/plugin/hardware/usb/hid/nativewrapper/jna/DllApi.java
+========================================================================================================================
+package com.gigatronik.framework.plugin.hardware.usb.hid.nativewrapper.jna;
+
+import com.sun.jna.Callback;
+import com.sun.jna.Library;
+import com.sun.jna.Pointer;
+import com.sun.jna.Structure;
+import com.sun.jna.WString;
+import java.util.Arrays;
+import java.util.List;
+
+public interface DllApi extends Library {
+  int hid_init();
+  
+  int hid_exit();
+  
+  hid_device_info hid_enumerate(short paramShort1, short paramShort2);
+  
+  void hid_free_enumeration(Pointer paramPointer);
+  
+  Pointer hid_open(short paramShort1, short paramShort2, WString paramWString);
+  
+  Pointer hid_open_path(String paramString);
+  
+  int hid_write(Pointer paramPointer, Structure.ByReference paramByReference, int paramInt);
+  
+  int hid_read_timeout(Pointer paramPointer, Structure.ByReference paramByReference, int paramInt1, int paramInt2);
+  
+  int hid_read(Pointer paramPointer, Structure.ByReference paramByReference, int paramInt);
+  
+  int hid_set_nonblocking(Pointer paramPointer, int paramInt);
+  
+  int hid_send_feature_report(Pointer paramPointer, Structure.ByReference paramByReference, int paramInt);
+  
+  int hid_get_feature_report(Pointer paramPointer, Structure.ByReference paramByReference, int paramInt);
+  
+  void hid_close(Pointer paramPointer);
+  
+  int hid_get_manufacturer_string(Pointer paramPointer, Structure.ByReference paramByReference, int paramInt);
+  
+  int hid_get_product_string(Pointer paramPointer, Structure.ByReference paramByReference, int paramInt);
+  
+  int hid_get_serial_number_string(Pointer paramPointer, Structure.ByReference paramByReference, int paramInt);
+  
+  int hid_get_indexed_string(Pointer paramPointer, int paramInt1, Structure.ByReference paramByReference, int paramInt2);
+  
+  Pointer hid_error(Pointer paramPointer);
+  
+  int GetDLLMajorVersion();
+  
+  int GetDLLMinorVersion();
+  
+  int GetDLLRevision();
+  
+  void SetConnectionStateListener(HidConnectionStateListener paramHidConnectionStateListener);
+  
+  void UnsetConnectionStateListener();
+  
+  int GetLastErrorCode();
+  
+  hid_device_info_wrapper enumerateDevices(short paramShort1, short paramShort2);
+  
+  void freeEnumerationMemory(Pointer paramPointer);
+  
+  public static abstract class HidConnectionStateListener implements Callback {
+    public static final int DEVICE_CONNECTED = 1;
+    
+    public static final int DEVICE_DISCONNECTED = 0;
+    
+    public abstract void onStateChanged(short param1Short1, short param1Short2, Pointer param1Pointer, int param1Int);
+  }
+  
+  public static interface LogMessageListener extends Callback {
+    void onStateChanged(String param1String);
+  }
+  
+  public static class hid_device extends Structure implements Structure.ByReference {
+    public Pointer ptr;
+    
+    public hid_device(Pointer p) {
+      this.ptr = p;
+    }
+    
+    public Pointer ptr() {
+      return this.ptr;
+    }
+    
+    protected List<String> getFieldOrder() {
+      return Arrays.asList("ptr");
+    }
+  }
+  
+  public static class hid_device_info_wrapper extends Structure implements Structure.ByReference {
+    public DllApi.hid_device_info info;
+    
+    public Pointer properties;
+    
+    public hid_device_info_wrapper next;
+    
+    protected List getFieldOrder() {
+      return Arrays.asList("info", "properties", "next");
+    }
+  }
+  
+  public static class hid_device_info extends Structure implements Structure.ByReference {
+    public String path;
+    
+    public short vendor_id;
+    
+    public short product_id;
+    
+    public WString serial_number;
+    
+    public short release_number;
+    
+    public WString manufacturer_string;
+    
+    public WString product_string;
+    
+    public short usage_page;
+    
+    public short usage;
+    
+    public int interface_number;
+    
+    public hid_device_info next;
+    
+    protected List<String> getFieldOrder() {
+      return Arrays.asList("path", "vendor_id", "product_id", "serial_number", "release_number", "manufacturer_string", "product_string", "usage_page", "usage", "interface_number", "next");
+    }
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/framework/plugin/hardware/usb/hid/nativewrapper/WideStringBuffer.java
+========================================================================================================================
+package com.gigatronik.framework.plugin.hardware.usb.hid.nativewrapper;
+
+import com.sun.jna.Structure;
+import java.util.Arrays;
+import java.util.List;
+
+public class WideStringBuffer extends Structure implements Structure.ByReference {
+  public byte[] buffer = null;
+  
+  public WideStringBuffer(int len) {
+    this.buffer = new byte[len];
+  }
+  
+  public WideStringBuffer(byte[] bytes) {
+    this.buffer = bytes;
+  }
+  
+  protected List<?> getFieldOrder() {
+    return Arrays.asList("buffer");
+  }
+  
+  public String toString() {
+    String str = "";
+    for (int i = 0; i < this.buffer.length && this.buffer[i] != 0; i += 2)
+      str = str + (char)(this.buffer[i] | this.buffer[i + 1] << 8); 
+    return str;
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/framework/plugin/hardware/usb/hid/RxPoller.java
+========================================================================================================================
+package com.gigatronik.framework.plugin.hardware.usb.hid;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.HardwareInterfaceException;
+import org.apache.commons.codec.binary.Hex;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class RxPoller implements Runnable {
+  final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private boolean doStop;
+  
+  private final Thread THREAD;
+  
+  private final HidDeviceImpl DEVICE;
+  
+  public RxPoller(HidDeviceImpl device) {
+    this.doStop = false;
+    this.DEVICE = device;
+    this.THREAD = new Thread(this);
+    this.THREAD.setName(String.format("GtIoT-HidRxPoller_0x%02X_0x%02X", this.DEVICE.pid, this.DEVICE.vid));
+    this.THREAD.start();
+    this.logger.debug("RX-Polling Thread {} spawned", this.THREAD.getName());
+  }
+  
+  public void run() {
+    while (!this.doStop) {
+      readSingleFrame();
+      try {
+        Thread.sleep(this.DEVICE.getTurnaroundTime());
+      } catch (InterruptedException e) {
+        this.logger.error("Thread sleep interrupted", (Throwable)e);
+      } 
+    } 
+  }
+  
+  public void stop() {
+    this.doStop = true;
+    try {
+      this.THREAD.join();
+    } catch (InterruptedException e) {
+      this.logger.error("Thread join interrupted", (Throwable)e);
+    } 
+  }
+  
+  private boolean readSingleFrame() {
+    boolean dataAvailable = false;
+    if (this.DEVICE.isConnected() && this.DEVICE.isOpen())
+      try {
+        byte[] rxbuffer = new byte[65];
+        int result = this.DEVICE.read(rxbuffer, 0);
+        dataAvailable = (result > 0);
+        if (dataAvailable) {
+          this.logger.trace("RX! Device: {} Data: {}", this.DEVICE, new String(Hex.encodeHex(rxbuffer, false)).replaceAll("(.{2})", "$1 "));
+          this.DEVICE.onData(rxbuffer);
+        } 
+      } catch (HardwareInterfaceException e) {
+        this.logger.error("Unable to read", (Throwable)e);
+      }  
+    return dataAvailable;
+  }
+}
+

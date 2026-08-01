@@ -1,0 +1,590 @@
+JAR: manufacturelog-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\manufacturelog-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/manufacturelog/api/ManufacturingLog.java
+========================================================================================================================
+package com.gigatronik.beds.manufacturelog.api;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import java.io.File;
+
+public interface ManufacturingLog {
+  public static final String NAME = "manufacture.log";
+  
+  void writeManufactureLog(boolean paramBoolean1, boolean paramBoolean2, FlashSubject paramFlashSubject, boolean paramBoolean3);
+  
+  void writeToFile() throws ConfigurationNotFoundException;
+  
+  boolean checkOnStart() throws ConfigurationNotFoundException;
+  
+  void saveToFile(File paramFile) throws ConfigurationNotFoundException;
+  
+  boolean isManufacturerlogPathValid();
+  
+  boolean isManufacturingLogTooBig();
+  
+  public enum FlashSubject {
+    FULL, STANDALONE, PARAM;
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/manufacturelog/impl/ManufacturingLogFactory.java
+========================================================================================================================
+package com.gigatronik.beds.manufacturelog.impl;
+
+import com.gigatronik.beds.manufacturelog.api.ManufacturingLog;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+
+public class ManufacturingLogFactory {
+  private final CommunicationManager communicationManager;
+  
+  private final ConfigurationManager configurationManager;
+  
+  public ManufacturingLogFactory(CommunicationManager communicationManager, ConfigurationManager configurationManager) {
+    this.communicationManager = communicationManager;
+    this.configurationManager = configurationManager;
+  }
+  
+  public ManufacturingLog createManufacturingLogInstance() throws ConfigurationNotFoundException {
+    return new ManufacturingLogImpl(this.communicationManager, this.configurationManager);
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/manufacturelog/impl/ManufacturingLogImpl.java
+========================================================================================================================
+package com.gigatronik.beds.manufacturelog.impl;
+
+import com.gigatronik.beds.manufacturelog.api.ManufacturingLog;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.configuration.ConfigurationKey;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.ecu.api.Bms;
+import com.gigatronik.beds.service.ecu.api.Du;
+import com.gigatronik.beds.service.ecu.api.Ecu;
+import com.gigatronik.beds.settings.SettingsProxy;
+import com.gigatronik.dart2.bosch.service.internationalization.I18NDateTimesFormats;
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.ComponentType;
+import com.gigatronik.ebike.common.util.SerialNumberHelper;
+import com.gigatronik.ebike.gui.testinterface.TestableJOptionPane;
+import java.awt.EventQueue;
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStreamWriter;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ManufacturingLogImpl implements ManufacturingLog {
+  public enum ManufacturingEntry {
+    BIKE_ID("BIKE_ID"),
+    APPLICATION_ID("APPLICATION_ID"),
+    BIKE_MANUFACTURING_DATE("BIKE_MANUFACTURING_DATE"),
+    BIKE_MANUFACTURING_TIME("BIKE_MANUFACTURING_TIME"),
+    BIKE_MANUFACTURING_LOCATION("BIKE_MANUFACTURING_LOCATION"),
+    BIKE_LIGHT_SWITCHING("BIKE_LIGHT_SWITCHING"),
+    BIKE_MAX_GEAR_RATIO("BIKE_MAX_GEAR_RATIO"),
+    BIKE_MIN_GEAR_RATIO("BIKE_MIN_GEAR_RATIO"),
+    BIKE_WHEEL_SIZE("BIKE_WHEEL_SIZE"),
+    BIKE_BATTERY_KEY_NUMBER("BIKE_BATTERY_KEY_NUMBER"),
+    BIKE_LIGHT_OUTPUT("BIKE_LIGHT_OUTPUT"),
+    DU_IBD_LIGHT_POWER_RESERVE("DU_IBD_LightPowerReserve"),
+    DU_CONF_HPP_ENABLE("DU_Conf_HppEnable"),
+    BUI_SERIAL_NO("BUI_SERIAL_NO"),
+    BUI_PART_NO("BUI_PART_NO"),
+    BUI_HW_VERSION("BUI_HW_VERSION"),
+    BUI_SW_VERSION("BUI_SW_VERSION"),
+    BUI_SW_VERSION_FRONTEND("BUI_SW_VERSION_FRONTEND"),
+    BUI_MANUFACTURING_DATE("BUI_MANUFACTURING_DATE"),
+    DU_SERIAL_NO("DU_SERIAL_NO"),
+    DU_PART_NO("DU_PART_NO"),
+    DU_HW_VERSION("DU_HW_VERSION"),
+    DU_SW_VERSION("DU_SW_VERSION"),
+    DU_MANUFACTURING_DATE("DU_MANUFACTURING_DATE"),
+    BMS_SERIAL_NO("BMS_SERIAL_NO"),
+    BMS_PART_NO("BMS_PART_NO"),
+    BMS_HW_VERSION("BMS_HW_VERSION"),
+    BMS_SW_VERSION("BMS_SW_VERSION"),
+    BMS_MANUFACTURING_DATE("BMS_MANUFACTURING_DATE"),
+    BMS2_SERIAL_NO("BMS2_SERIAL_NO"),
+    BMS2_PART_NO("BMS2_PART_NO"),
+    BMS2_HW_VERSION("BMS2_HW_VERSION"),
+    BMS2_SW_VERSION("BMS2_SW_VERSION"),
+    BMS2_MANUFACTURING_DATE("BMS2_MANUFACTURING_DATE"),
+    BAS_SERIAL_NO_HU("BAS_SERIAL_NO_HU"),
+    BAS_PART_NO_KIT("BAS_PART_NO_KIT"),
+    BAS_PART_NO_HU("BAS_PART_NO_HU"),
+    BAS_HW_VERSION("BAS_HW_VERSION"),
+    BAS_SW_VERSION("BAS_SW_VERSION"),
+    BAS_MANUFACTURING_DATE("BAS_MANUFACTURING_DATE"),
+    BAS_PAR_ID("BAS_PAR_ID"),
+    DU_USER_GEARBOX_VENDOR_ID("DU_USER_GearBoxVendorId"),
+    DU_USER_GEARBOX_PRODUCT_ID("DU_USER_GearBoxProductId"),
+    DU_USER_GEARBOX_SERIAL_NUMBER("DU_USER_GearBoxSerialNumber"),
+    DU_USER_GEARBOX_SOFTWARE_VERSION("DU_USER_GearBoxSoftwareVersion"),
+    DU_USER_GEARBOX_HARDWARE_VERSION("DU_USER_GearBoxHwVersion"),
+    OEM_PART_NUMBER("oemPartnumber"),
+    INFO_TEXT("infoText"),
+    FLASH_RESULT("FLASH_RESULT");
+    
+    private final String csvKey;
+    
+    ManufacturingEntry(String value) {
+      this.csvKey = value;
+    }
+    
+    public String getCsvKey() {
+      return this.csvKey;
+    }
+  }
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(ManufacturingLogImpl.class);
+  
+  private static final String MANUFACTURE_LOG_DIRECTORY = "manufacture_log_directory";
+  
+  private static final Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  public static final int SIZE_SAVE_ON_EXIT = 2000;
+  
+  private final List<Map<ManufacturingEntry, String>> manufacturingLogs = new ArrayList<>();
+  
+  private final SettingsProxy settingsProxy;
+  
+  private final CommunicationManager communicationManager;
+  
+  private final ConfigurationManager configurationManager;
+  
+  ManufacturingLogImpl(CommunicationManager communicationManager, ConfigurationManager configurationManager) throws ConfigurationNotFoundException {
+    this.settingsProxy = SettingsProxy.getInstance();
+    this.communicationManager = communicationManager;
+    this.configurationManager = configurationManager;
+    createManufactureLogFileIfNotExists();
+  }
+  
+  private void create() throws ConfigurationNotFoundException {
+    try (BufferedWriter fileWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(
+              this.settingsProxy.getGlobalSettings().getProperty("manufacture_log_directory") + this.settingsProxy.getGlobalSettings().getProperty("manufacture_log_directory") + "manufacture.log", false), StandardCharsets.UTF_8))) {
+      fileWriter.write(
+          (String)Stream.<ManufacturingEntry>of(ManufacturingEntry.values()).map(ManufacturingEntry::getCsvKey).collect(Collectors.joining(",")));
+      fileWriter.newLine();
+    } catch (IOException ex) {
+      LOGGER.error("Error writing to manufacturing log.", (Throwable)ex);
+    } 
+  }
+  
+  public void writeToFile() throws ConfigurationNotFoundException {
+    createManufactureLogFileIfNotExists();
+    try (BufferedWriter fileWriter = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(
+              this.settingsProxy.getGlobalSettings().getProperty("manufacture_log_directory") + this.settingsProxy.getGlobalSettings().getProperty("manufacture_log_directory") + "manufacture.log", true), StandardCharsets.UTF_8))) {
+      for (Map<ManufacturingEntry, String> manufacturingMap : this.manufacturingLogs) {
+        fileWriter.write((String)
+            manufacturingMap.values().stream().map(this::replaceInvalidChars).collect(Collectors.joining(",")));
+        fileWriter.newLine();
+      } 
+      this.manufacturingLogs.clear();
+    } catch (IOException ex) {
+      LOGGER.error("Error writing to manufacturing log.", (Throwable)ex);
+    } 
+  }
+  
+  private String replaceInvalidChars(String value) {
+    if (StringUtils.isEmpty(value))
+      return ""; 
+    return value.replace("\\x00", "");
+  }
+  
+  private void createManufactureLogFileIfNotExists() throws ConfigurationNotFoundException {
+    File f = new File(this.settingsProxy.getGlobalSettings().getProperty("manufacture_log_directory") + this.settingsProxy.getGlobalSettings().getProperty("manufacture_log_directory") + "manufacture.log");
+    if (!f.exists() || f.isDirectory())
+      create(); 
+  }
+  
+  private void delete() throws ConfigurationNotFoundException, IOException {
+    File file = new File(this.settingsProxy.getGlobalSettings().getProperty("manufacture_log_directory") + this.settingsProxy.getGlobalSettings().getProperty("manufacture_log_directory") + "manufacture.log");
+    try {
+      Files.delete(file.toPath());
+    } catch (NoSuchFileException e) {
+      LOGGER.info("The file {} doesn't exist.", file.getName());
+    } 
+  }
+  
+  private String convertToEmptyStringIfNull(String value) {
+    return StringUtils.isNotBlank(value) ? value : "";
+  }
+  
+  public void writeManufactureLog(boolean remoteActive, boolean userLevelOem, ManufacturingLog.FlashSubject flashSubject, boolean successful) {
+    if (!remoteActive && userLevelOem)
+      try {
+        Map<ManufacturingEntry, String> manufacturingMap = createEmptyMap();
+        addEntry(manufacturingMap, flashSubject, successful);
+      } catch (ConfigurationNotFoundException ex) {
+        LOGGER.error("Writing manufacture log failed", (Throwable)ex);
+      }  
+  }
+  
+  private Map<ManufacturingEntry, String> createEmptyMap() {
+    Map<ManufacturingEntry, String> manufacturingMap = new LinkedHashMap<>();
+    for (ManufacturingEntry key : ManufacturingEntry.values())
+      manufacturingMap.put(key, ""); 
+    return manufacturingMap;
+  }
+  
+  private void addEntry(Map<ManufacturingEntry, String> manufacturingMap, ManufacturingLog.FlashSubject flashSubject, boolean wasSuccessful) throws ConfigurationNotFoundException {
+    LOGGER.info("Writing ECU data to manufacturing log");
+    manufacturingMap.values().forEach(e -> e = "");
+    addBikeData(manufacturingMap);
+    addHmiData(manufacturingMap);
+    addDuData(manufacturingMap);
+    addBmsData(manufacturingMap, this.communicationManager.getBms1Com(), 
+        this.configurationManager.getBikeIdentification().isBms1Connected(), false);
+    addBmsData(manufacturingMap, this.communicationManager.getBms2Com(), 
+        this.configurationManager.getBikeIdentification().isBms2Connected(), true);
+    addAbsData(manufacturingMap);
+    addEShiftData(manufacturingMap);
+    addOnlyConfiguredValues(manufacturingMap);
+    addFlashResultValue(manufacturingMap, flashSubject, wasSuccessful);
+    this.manufacturingLogs.add(manufacturingMap);
+    writeToFile();
+    LOGGER.info("Finished writing ECU data to manufacturing log");
+  }
+  
+  private void addAbsData(Map<ManufacturingEntry, String> manufacturingMap) {
+    if (this.configurationManager.getBikeIdentification().isAbsConnected()) {
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BAS_SERIAL_NO_HU, 
+          this.communicationManager.getAbsCom().readSerialNumber());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BAS_PART_NO_HU, 
+          this.communicationManager.getAbsCom().readPartNumber());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BAS_PART_NO_KIT, 
+          this.communicationManager.getAbsCom().readPartNumberKit());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BAS_HW_VERSION, 
+          this.communicationManager.getAbsCom().readHardwareVersion());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BAS_SW_VERSION, 
+          this.communicationManager.getAbsCom().readSoftwareVersion());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BAS_MANUFACTURING_DATE, 
+          this.communicationManager.getAbsCom().readManufacturingDate());
+      try {
+        ComplexResponse response = this.communicationManager.getAbsCom().readVariantCode();
+        manufacturingMap.put(ManufacturingEntry.BAS_PAR_ID, 
+            response.getParameterByName("AbsVariantCode").getValue());
+      } catch (ComplexResponse.DataAccessException ex) {
+        LOGGER.warn("Error reading abs variant code", (Throwable)ex);
+      } 
+    } 
+  }
+  
+  private void addHmiData(Map<ManufacturingEntry, String> manufacturingMap) {
+    if (this.configurationManager.getBikeIdentification().isHmiConnected()) {
+      ComponentType hmiType = this.configurationManager.getBikeIdentification().getHmiIdentification().getComponentType();
+      manufacturingMap.put(ManufacturingEntry.BUI_SERIAL_NO, getHmiSerialNumber(hmiType));
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BUI_PART_NO, 
+          this.communicationManager.getHmiCom().readPartNumber());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BUI_HW_VERSION, 
+          this.communicationManager.getHmiCom().readHardwareVersion());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BUI_SW_VERSION, 
+          this.communicationManager.getHmiCom().readSoftwareVersion());
+      if (hmiType.isBUI27x())
+        addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BUI_SW_VERSION_FRONTEND, 
+            this.communicationManager.getHmiCom().readSoftwareVersionFrontend()); 
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BUI_MANUFACTURING_DATE, 
+          this.communicationManager.getHmiCom().readManufacturingDate());
+    } 
+  }
+  
+  private String getHmiSerialNumber(ComponentType hmiType) {
+    ComplexResponse response = this.communicationManager.getHmiCom().readSerialNumber();
+    String serialNo = "";
+    if (response.isPositive())
+      if (hmiType.isBUI21x()) {
+        serialNo = SerialNumberHelper.getSerialnumberBui21x(response).toString();
+      } else if (hmiType.isBUI25x()) {
+        serialNo = SerialNumberHelper.getSerialnumberBui25x(response).toString();
+      } else if (hmiType.isNyon()) {
+        serialNo = SerialNumberHelper.getSerialnumberBui27x(response).toString();
+      } else if (hmiType.isBUI33x()) {
+        serialNo = SerialNumberHelper.getSerialnumberBui33x(response).toString();
+      } else if (hmiType.isCUI1xx()) {
+        serialNo = SerialNumberHelper.getSerialnumberBui21x(response).toString();
+      }  
+    return serialNo;
+  }
+  
+  private void addDuData(Map<ManufacturingEntry, String> manufacturingMap) {
+    Du du = this.communicationManager.getDuCom();
+    if (this.configurationManager.getBikeIdentification().isDuConnected()) {
+      Version swVersion = getVersionFromEcu((Ecu)du);
+      ComponentType compType = this.configurationManager.getBikeIdentification().getDuIdentification().getComponentType();
+      ComplexResponse response = (swVersion != null && compType != null) ? du.readSerialNumber(swVersion, compType) : du.readSerialNumber();
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.DU_SERIAL_NO, response);
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.DU_PART_NO, du.readPartNumber());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.DU_HW_VERSION, du.readHardwareVersion());
+      manufacturingMap.put(ManufacturingEntry.DU_SW_VERSION, (swVersion != null) ? swVersion.toString() : "");
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.DU_MANUFACTURING_DATE, du.readManufacturingDate());
+    } 
+  }
+  
+  private Version getVersionFromEcu(Ecu ecu) {
+    ComplexResponse swVersionResponse = ecu.readSoftwareVersion();
+    try {
+      return swVersionResponse.getVersion();
+    } catch (ComplexResponse.DataAccessException ex) {
+      LOGGER.error("Failed ro read software version", (Throwable)ex);
+      return null;
+    } 
+  }
+  
+  private void addBmsData(Map<ManufacturingEntry, String> manufacturingMap, Bms bms, boolean bmsConnected, boolean isBmsTwo) {
+    if (bmsConnected) {
+      Version swVersion = getVersionFromEcu((Ecu)bms);
+      ComplexResponse response = (swVersion != null) ? bms.readSerialNumber(swVersion) : bms.readSerialNumber();
+      if (isBmsTwo) {
+        addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BMS2_SERIAL_NO, response);
+        addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BMS2_PART_NO, bms.readPartNumber());
+        addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BMS2_HW_VERSION, bms.readHardwareVersion());
+        manufacturingMap.put(ManufacturingEntry.BMS2_SW_VERSION, (swVersion != null) ? swVersion.toString() : "");
+        addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BMS2_MANUFACTURING_DATE, 
+            bms.readManufacturingDate());
+      } else {
+        addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BMS_SERIAL_NO, response);
+        addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BMS_PART_NO, bms.readPartNumber());
+        addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BMS_HW_VERSION, bms.readHardwareVersion());
+        manufacturingMap.put(ManufacturingEntry.BMS_SW_VERSION, (swVersion != null) ? swVersion.toString() : "");
+        addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BMS_MANUFACTURING_DATE, 
+            bms.readManufacturingDate());
+      } 
+    } 
+  }
+  
+  private void addBikeData(Map<ManufacturingEntry, String> manufacturingMap) {
+    if (this.configurationManager.getBikeIdentification().isDuConnected()) {
+      ComplexResponse response = this.communicationManager.getDuCom().readBikeId();
+      manufacturingMap.put(ManufacturingEntry.BIKE_ID, response.isPositive() ? 
+          response.toString() : 
+          this.configurationManager.getConfigurationValue(ConfigurationKey.BIKE_ID));
+      response = this.communicationManager.getDuCom().readApplicationId();
+      manufacturingMap.put(ManufacturingEntry.APPLICATION_ID, 
+          response.isPositive() ? response.toString() : getApplicationIdToWrite());
+      response = this.communicationManager.getDuCom().readBikeManufacturingDate();
+      manufacturingMap.put(ManufacturingEntry.BIKE_MANUFACTURING_DATE, response.isPositive() ? 
+          response.toString() : 
+          this.configurationManager.getConfigurationValue(ConfigurationKey.DATE_OF_MANUFACTURE));
+      manufacturingMap.put(ManufacturingEntry.BIKE_MANUFACTURING_TIME, I18NDateTimesFormats.getLocalTime(new Date()));
+      response = this.communicationManager.getDuCom().readBikeManufactureLocation();
+      manufacturingMap.put(ManufacturingEntry.BIKE_MANUFACTURING_LOCATION, response.isPositive() ? 
+          response.toString() : 
+          this.configurationManager.getConfigurationValue(ConfigurationKey.PLACE_OF_MANUFACTURE));
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BIKE_LIGHT_SWITCHING, 
+          this.communicationManager.getDuCom().readLightSwitchingMode());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BIKE_MAX_GEAR_RATIO, 
+          this.communicationManager.getDuCom().readMaxGearRatio());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BIKE_MIN_GEAR_RATIO, 
+          this.communicationManager.getDuCom().readMinGearRatio());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BIKE_WHEEL_SIZE, 
+          this.communicationManager.getDuCom().readWheelSize());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BIKE_BATTERY_KEY_NUMBER, 
+          this.communicationManager.getDuCom().readBatteryLockKeyNumber());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.BIKE_LIGHT_OUTPUT, 
+          this.communicationManager.getDuCom().readLightPowerSupplyLevel());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.DU_IBD_LIGHT_POWER_RESERVE, 
+          this.communicationManager.getDuCom().readLightPower());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.DU_CONF_HPP_ENABLE, 
+          this.communicationManager.getDuCom().readHighPowerPortMode());
+    } else {
+      manufacturingMap.put(ManufacturingEntry.BIKE_ID, 
+          this.configurationManager.getConfigurationValue(ConfigurationKey.BIKE_ID));
+      manufacturingMap.put(ManufacturingEntry.APPLICATION_ID, getApplicationIdToWrite());
+      String manufactureDate = this.configurationManager.getConfigurationValue(ConfigurationKey.DATE_OF_MANUFACTURE);
+      String currentDate = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
+      manufacturingMap.put(ManufacturingEntry.BIKE_MANUFACTURING_DATE, 
+          StringUtils.isBlank(manufactureDate) ? currentDate : manufactureDate);
+      manufacturingMap.put(ManufacturingEntry.BIKE_MANUFACTURING_TIME, I18NDateTimesFormats.getLocalTime(new Date()));
+      manufacturingMap.put(ManufacturingEntry.BIKE_MANUFACTURING_LOCATION, 
+          this.configurationManager.getConfigurationValue(ConfigurationKey.PLACE_OF_MANUFACTURE));
+    } 
+  }
+  
+  private String getApplicationIdToWrite() {
+    String applId = this.configurationManager.getContainerConfiguration().getConfiguredParId();
+    return StringUtils.isNotBlank(applId) ? applId : this.configurationManager.getBikeIdentification().getApplicationId();
+  }
+  
+  private void addEShiftData(Map<ManufacturingEntry, String> manufacturingMap) {
+    if (this.configurationManager.getBikeIdentification().isEshiftConnected()) {
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.DU_USER_GEARBOX_VENDOR_ID, 
+          this.communicationManager.getEshiftCom().readVendorId());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.DU_USER_GEARBOX_PRODUCT_ID, 
+          this.communicationManager.getEshiftCom().readProductId());
+      manufacturingMap.put(ManufacturingEntry.DU_USER_GEARBOX_SERIAL_NUMBER, getEshiftSerialNumber());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.DU_USER_GEARBOX_SOFTWARE_VERSION, 
+          this.communicationManager.getEshiftCom().readSoftwareVersion());
+      addPositiveResponseValue(manufacturingMap, ManufacturingEntry.DU_USER_GEARBOX_HARDWARE_VERSION, 
+          this.communicationManager.getEshiftCom().readHardwareVersion());
+    } 
+  }
+  
+  private String getEshiftSerialNumber() {
+    ComplexResponse response = this.communicationManager.getEshiftCom().readSerialNumber();
+    String serialNumber = "";
+    if (response.isPositive())
+      if (StringUtils.startsWithIgnoreCase(
+          this.configurationManager.getBikeIdentification().getEShiftIdentification().getVendorId(), "SHIMANO")) {
+        serialNumber = SerialNumberHelper.getSerialnumberEShiftShimano(response.toString());
+      } else {
+        serialNumber = SerialNumberHelper.getSerialnumberEShiftGeneral(response.toString());
+      }  
+    return serialNumber;
+  }
+  
+  private void addOnlyConfiguredValues(Map<ManufacturingEntry, String> manufacturingMap) {
+    manufacturingMap.put(ManufacturingEntry.OEM_PART_NUMBER, 
+        convertToEmptyStringIfNull(this.configurationManager.getConfigurationValue(ConfigurationKey.OEM_PARTNUMBER)));
+    manufacturingMap.put(ManufacturingEntry.INFO_TEXT, 
+        convertToEmptyStringIfNull(this.configurationManager.getConfigurationValue(ConfigurationKey.INFO_TEXT)));
+  }
+  
+  public void saveToFile(File file) {
+    try {
+      File source = new File(
+          this.settingsProxy.getGlobalSettings().getProperty("manufacture_log_directory") + this.settingsProxy.getGlobalSettings().getProperty("manufacture_log_directory") + "manufacture.log");
+      FileUtils.copyFile(source, file);
+      delete();
+      create();
+    } catch (IOException|ConfigurationNotFoundException e) {
+      LOGGER.error("Error saving manufacture log to file.", (Throwable)e);
+    } 
+  }
+  
+  public boolean checkOnStart() {
+    if (isManufacturerlogPathValid() && !isManufactureLogConsistent()) {
+      String title = BUNDLE.getString("ManufacturingLog.formatcheck.title");
+      String msg = String.format(BUNDLE.getString("ManufacturingLog.formatcheck.message"), 2000);
+      try {
+        EventQueue.invokeAndWait(() -> TestableJOptionPane.showMessageDialog(msg, title, 2));
+      } catch (InvocationTargetException ex) {
+        LOGGER.error("checkOnStart() -> showMessageDialog() interrupted!", (Throwable)ex);
+      } catch (InterruptedException in) {
+        LOGGER.error("Failure on thread. The thread has been interrupted");
+        Thread.currentThread().interrupt();
+      } 
+      return true;
+    } 
+    return false;
+  }
+  
+  public boolean isManufacturerlogPathValid() {
+    try {
+      String folder = this.settingsProxy.getGlobalSettings().getProperty("manufacture_log_directory");
+      if (folder != null) {
+        Path path = FileSystems.getDefault().getPath(folder);
+        if (path.toFile().isDirectory())
+          return true; 
+        LOGGER.error("Error saving manufacture data. Please check path settings.");
+        TestableJOptionPane.showMessageDialog(BUNDLE.getString("EBikeOnExit.ManufacturerError"), "", 1);
+        return false;
+      } 
+    } catch (ConfigurationNotFoundException|java.awt.HeadlessException ex) {
+      LOGGER.error("Error saving manufacture data. Please check path settings.", (Throwable)ex);
+      TestableJOptionPane.showMessageDialog(BUNDLE.getString("EBikeOnExit.ManufacturerError"), "", 1);
+      return false;
+    } 
+    return false;
+  }
+  
+  public boolean isManufacturingLogTooBig() {
+    return (size() > 2000);
+  }
+  
+  private boolean isManufactureLogConsistent() {
+    boolean check = false;
+    if (isManufacturerlogPathValid()) {
+      String fileName;
+      try {
+        fileName = this.settingsProxy.getGlobalSettings().getProperty("manufacture_log_directory") + this.settingsProxy.getGlobalSettings().getProperty("manufacture_log_directory") + "manufacture.log";
+      } catch (ConfigurationNotFoundException e) {
+        LOGGER.error("Error checking manufacture log file. Check path settings.", (Throwable)e);
+        return true;
+      } 
+      try (BufferedReader in = new BufferedReader(new FileReader(fileName))) {
+        String header = in.readLine();
+        String[] headings = header.split(",");
+        if (headings.length == (ManufacturingEntry.values()).length)
+          check = true; 
+      } catch (IOException e) {
+        LOGGER.error("Error checking manufacture log file. Check path settings.", (Throwable)e);
+        return true;
+      } 
+    } 
+    return check;
+  }
+  
+  private void addFlashResultValue(Map<ManufacturingEntry, String> manufacturingMap, ManufacturingLog.FlashSubject flashSubject, boolean wasSuccessful) {
+    String flashResultEntry = wasSuccessful ? (flashSubject.toString() + "_SUCCESS") : (flashSubject.toString() + "_FAILED");
+    manufacturingMap.put(ManufacturingEntry.FLASH_RESULT, flashResultEntry);
+  }
+  
+  private void addPositiveResponseValue(Map<ManufacturingEntry, String> manufacturingMap, ManufacturingEntry key, ComplexResponse response) {
+    if (response.isPositive())
+      manufacturingMap.put(key, response.toString()); 
+  }
+  
+  private int size() {
+    String filename;
+    int count = 0;
+    boolean empty = true;
+    try {
+      filename = SettingsProxy.getInstance().getGlobalSettings().getProperty("manufacture_log_directory") + SettingsProxy.getInstance().getGlobalSettings().getProperty("manufacture_log_directory") + "manufacture.log";
+    } catch (ConfigurationNotFoundException e) {
+      LOGGER.error("error calculating size", (Throwable)e);
+      return 0;
+    } 
+    try (InputStream is = new BufferedInputStream(new FileInputStream(filename))) {
+      byte[] c = new byte[1024];
+      int readChars;
+      while ((readChars = is.read(c)) != -1) {
+        empty = false;
+        for (int i = 0; i < readChars; i++) {
+          if (c[i] == 10)
+            count++; 
+        } 
+      } 
+    } catch (IOException ex) {
+      LOGGER.error("error calculating size", (Throwable)ex);
+      return 0;
+    } 
+    return (count == 0 && !empty) ? 1 : count;
+  }
+}
+

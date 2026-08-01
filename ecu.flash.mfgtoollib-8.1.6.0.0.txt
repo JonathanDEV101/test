@@ -1,0 +1,1090 @@
+JAR: ecu.flash.mfgtoollib-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\ecu.flash.mfgtoollib-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/mfgtool/Globals.java
+========================================================================================================================
+package com.mfgtool;
+
+public class Globals {
+  static final int MAX_CHAR_NUMBERS = 260;
+  
+  static final int MAX_PATH = 260;
+  
+  public enum MxDeviceChangeEvents {
+    MX_DEVICE_ARRIVAL_EVT(0),
+    MX_VOLUME_ARRIVAL_EVT(1),
+    MX_DEVICE_REMOVAL_EVT(2),
+    MX_VOLUME_REMOVAL_EVT(3),
+    MX_HUB_ARRIVAL_EVT(4),
+    MX_HUB_REMOVAL_EVT(5);
+    
+    private final int value;
+    
+    MxDeviceChangeEvents(int value) {
+      this.value = value;
+    }
+    
+    public int getValue() {
+      return this.value;
+    }
+  }
+  
+  public enum MxDeviceState {
+    MX_BOOTSTRAP(0),
+    MX_UPDATER(1),
+    MX_DISCONNECTED(2);
+    
+    private final int value;
+    
+    MxDeviceState(int value) {
+      this.value = value;
+    }
+    
+    public int getValue() {
+      return this.value;
+    }
+  }
+  
+  public enum MxDeviceType {
+    DEV_HID_MX6Q(0),
+    DEV_HID_MX6D(1),
+    DEV_HID_MX6SL(2),
+    DEV_MSC_UPDATER(3),
+    DEV_UNKNOWN(4);
+    
+    private final int value;
+    
+    MxDeviceType(int value) {
+      this.value = value;
+    }
+    
+    public int getValue() {
+      return this.value;
+    }
+  }
+  
+  public enum CallbackType {
+    DEVICE_CHANGE(0),
+    OPERATE_RESULT(1);
+    
+    private final int value;
+    
+    CallbackType(int value) {
+      this.value = value;
+    }
+    
+    public int getValue() {
+      return this.value;
+    }
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/mfgtool/MfgLibError.java
+========================================================================================================================
+package com.mfgtool;
+
+public enum MfgLibError {
+  MFGLIB_ERROR_SUCCESS(0),
+  MFGLIB_ERROR_UNKNOWN(1),
+  MFGLIB_ERROR_ALREADY_EXIST(2),
+  MFGLIB_ERROR_NO_MEMORY(3),
+  MFGLIB_ERROR_FILE_NOT_EXIST(4),
+  MFGLIB_ERROR_INVALID_PARAM(5),
+  MFGLIB_ERROR_INVALID_VALUE(6),
+  MFGLIB_ERROR_CMD_EXECUTE_FAILED(7),
+  MFGLIB_ERROR_SUCCESS_UPDATE_COMPLETE(8),
+  MFGLIB_ERROR_SIZE_IS_SMALL(9),
+  MFGLIB_ERROR_XML_NO_CFG_ITEM(10),
+  MFGLIB_ERROR_XML_NO_STATE_ITEM(11),
+  MFGLIB_ERROR_XML_NO_MATCHED_LIST(12),
+  MFGLIB_ERROR_XML_NO_CMDS_IN_LIST(13),
+  MFGLIB_ERROR_INVALID_OPERATION_ID(14),
+  MFGLIB_ERROR_LOG_FILE_OPEN_FAILED(15),
+  MFGLIB_ERROR_XML_CMD_NO_STATE(16),
+  MFGLIB_ERROR_XML_CMD_NO_TYPE(17),
+  MFGLIB_ERROR_DEV_MANAGER_IS_RUNNING(18),
+  MFGLIB_ERROR_THREAD_CREATE_FAILED(19),
+  MFGLIB_ERROR_DEV_MANAGER_RUN_FAILED(20),
+  MFGLIB_ERROR_FILE_OPEN_FAILED(21),
+  MFGLIB_ERROR_NO_FILENAME(22),
+  MFGLIB_ERROR_INVALID_STATE_NAME(23),
+  MFGLIB_ERROR_INVALID_DEV_NAME(24),
+  MFGLIB_ERROR_CONDITION_NOT_READY(25),
+  MFGLIB_ERROR_PHASE_NOT_PARSED(26),
+  MFGLIB_ERROR_CALLBACK_INVALID_TYPE(27),
+  MFGLIB_ERROR_NOT_FIND(28),
+  MFGLIB_ERROR_ALREADY_INITIALIZED(29),
+  MFGLIB_ERROR_PROFILE_NOT_SET(30),
+  MFGLIB_ERROR_LIST_NOT_SET(31),
+  MFGLIB_ERROR_NOT_INITIALIZED(32),
+  MFGLIB_ERROR_UNDEFINED(999);
+  
+  private final int value;
+  
+  MfgLibError(int value) {
+    this.value = value;
+  }
+  
+  public int getValue() {
+    return this.value;
+  }
+  
+  public static MfgLibError fromNumber(int number) {
+    for (MfgLibError errorCode : values()) {
+      if (number == errorCode.value)
+        return errorCode; 
+    } 
+    return MFGLIB_ERROR_UNDEFINED;
+  }
+  
+  public boolean isError() {
+    return (this != MFGLIB_ERROR_SUCCESS);
+  }
+  
+  public boolean isSuccess() {
+    return (this == MFGLIB_ERROR_SUCCESS);
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/mfgtool/MfgToolLibCtrl.java
+========================================================================================================================
+package com.mfgtool;
+
+import com.gigatronik.beds.settings.SettingsProxy;
+import java.io.File;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class MfgToolLibCtrl {
+  private static final Logger LOGGER = LoggerFactory.getLogger(MfgToolLibCtrl.class);
+  
+  private static final int PERCENT_100 = 100;
+  
+  public static final int STATUS_EXECUTE_COMPLETE = 1;
+  
+  public static final int STATUS_EXECUTE_RUNNING = 3;
+  
+  static final int STATUS_EXECUTE_ERROR = 2;
+  
+  private static final String LOGS_FOLDER_NAME = "logs";
+  
+  private static final String LOG_FILE_NAME_FILE_EXTENSION = ".log";
+  
+  private static final String LOG_FILE_NAME_FORMATTER_DATE = "yyyy-MM-dd";
+  
+  public static final String LOG_FILE_NAME_PREFIX = "MfgTool_Log_";
+  
+  private int operationId = 0;
+  
+  private WinProgressUpdateCallback winProgressUpdateCallback = null;
+  
+  private WinDeviceChangeCallback winDeviceChangeCallback = null;
+  
+  private int status;
+  
+  private int totalPhases;
+  
+  private AtomicInteger totalCommands = new AtomicInteger();
+  
+  private int progress;
+  
+  private boolean intermediateProgress;
+  
+  private int intermediateDone;
+  
+  private int intermediateTotal;
+  
+  private String info;
+  
+  private int retries;
+  
+  private int maxRetries;
+  
+  private String errorString;
+  
+  private final List<Integer> phasesInformation = new LinkedList<>();
+  
+  private Thread timeout = new Thread();
+  
+  private int event;
+  
+  private WinMfgToolLib winMfgToolLib;
+  
+  public MfgToolLibCtrl() {
+    this.maxRetries = 3;
+    this.winMfgToolLib = new WinMfgToolLib();
+  }
+  
+  public MfgLibError initializeOperation(String path, String list) {
+    this.status = 3;
+    MfgLibError error = this.winMfgToolLib.initialize();
+    if (error.isError() && error != MfgLibError.MFGLIB_ERROR_ALREADY_INITIALIZED) {
+      uninitializeOperation(0);
+      this.status = 2;
+      return error;
+    } 
+    error = this.winMfgToolLib.createInstanceHandle();
+    if (error.isError()) {
+      uninitializeOperation(1);
+      this.status = 2;
+      return error;
+    } 
+    error = this.winMfgToolLib.setProfileName("MX6DL_Linux_Update");
+    if (error.isError()) {
+      uninitializeOperation(-1);
+      this.status = 2;
+      return error;
+    } 
+    error = this.winMfgToolLib.setListName(list);
+    if (error.isError()) {
+      uninitializeOperation(-1);
+      this.status = 2;
+      return error;
+    } 
+    error = this.winMfgToolLib.setUclFile(path);
+    if (error.isError()) {
+      uninitializeOperation(-1);
+      this.status = 2;
+      return error;
+    } 
+    error = this.winMfgToolLib.setMaxBoardNumber(1);
+    if (error.isError()) {
+      uninitializeOperation(-1);
+      this.status = 2;
+    } 
+    return error;
+  }
+  
+  private boolean uninitializeOperation(int n) {
+    boolean success = true;
+    if (n == -1 || n == 2) {
+      MfgLibError mfgLibError = this.winMfgToolLib.destroyInstanceHandle();
+      success = mfgLibError.isSuccess();
+    } 
+    MfgLibError error = this.winMfgToolLib.uninitialize();
+    return (success && error.isSuccess());
+  }
+  
+  public MfgLibError startOperation() {
+    this.totalPhases = 0;
+    this.totalCommands.set(0);
+    this.progress = 0;
+    this.intermediateProgress = false;
+    this.intermediateDone = 0;
+    this.intermediateTotal = 0;
+    this.info = "";
+    this.retries = 0;
+    String logFile = SettingsProxy.getInstance().getDart2HomePath().getAbsolutePath() + SettingsProxy.getInstance().getDart2HomePath().getAbsolutePath() + "logs" + File.separator + File.separator;
+    LOGGER.info("Logging path: {}", logFile);
+    MfgLibError error = this.winMfgToolLib.initializeOperationWithLog(logFile);
+    if (error.isError()) {
+      stopOperation(0);
+      this.status = 2;
+      return error;
+    } 
+    WinOperationsInformation.ByReference pOpsInformationRef = new WinOperationsInformation.ByReference();
+    pOpsInformationRef.pOperationInfo = new WinOperationInformation.ByReference();
+    error = this.winMfgToolLib.getOperationInformation(pOpsInformationRef);
+    if (error.isError()) {
+      stopOperation(1);
+      this.status = 2;
+      pOpsInformationRef.clear();
+      return error;
+    } 
+    this.operationId = pOpsInformationRef.pOperationInfo.OperationID;
+    pOpsInformationRef.clear();
+    error = this.winMfgToolLib.getTotalCommandNumbers(this.totalCommands);
+    if (error.isError()) {
+      stopOperation(1);
+      this.status = 2;
+      return error;
+    } 
+    LOGGER.info("Total number of commands: {}", this.totalCommands);
+    this.winDeviceChangeCallback = new WinDeviceChangeCallback(this);
+    error = this.winMfgToolLib.registerCallbackFunction(Globals.CallbackType.DEVICE_CHANGE, this.winDeviceChangeCallback);
+    if (error.isError()) {
+      stopOperation(1);
+      this.status = 2;
+      return error;
+    } 
+    this.winProgressUpdateCallback = new WinProgressUpdateCallback(this);
+    error = this.winMfgToolLib.registerCallbackFunction(Globals.CallbackType.OPERATE_RESULT, this.winProgressUpdateCallback);
+    if (error.isError()) {
+      stopOperation(2);
+      this.status = 2;
+      return error;
+    } 
+    WinPhasesInformation.ByReference pPhaInformationRef = new WinPhasesInformation.ByReference();
+    pPhaInformationRef.pPhaseInfo = new WinPhaseInformation.ByReference();
+    pPhaInformationRef.pPhaseInfo.toArray(2);
+    error = this.winMfgToolLib.getPhaseInformation(pPhaInformationRef);
+    if (error.isError()) {
+      stopOperation(3);
+      this.status = 2;
+      pPhaInformationRef.clear();
+      return error;
+    } 
+    this.totalPhases = pPhaInformationRef.PhaseInfoNumbers;
+    WinPhaseInformation.ByReference[] pInfos = (WinPhaseInformation.ByReference[])pPhaInformationRef.pPhaseInfo.toArray(pPhaInformationRef.PhaseInfoNumbers);
+    for (WinPhaseInformation.ByReference pInfo : pInfos) {
+      LOGGER.info("Phase command number: {}", Integer.valueOf(pInfo.uiPhaseCommandNumbers));
+      this.phasesInformation.add(Integer.valueOf(pInfo.uiPhaseCommandNumbers));
+    } 
+    pPhaInformationRef.clear();
+    error = this.winMfgToolLib.startOperation(this.operationId);
+    if (error.isError()) {
+      stopOperation(3);
+      this.status = 2;
+    } 
+    return error;
+  }
+  
+  private String getLogfileName() {
+    LocalDateTime dateToday = LocalDateTime.now();
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    String today = dateToday.format(formatter);
+    StringBuilder logFileNameBuilder = new StringBuilder("MfgTool_Log_");
+    if (!StringUtils.isEmpty(today))
+      logFileNameBuilder.append(today); 
+    logFileNameBuilder.append(".log");
+    return logFileNameBuilder.toString();
+  }
+  
+  public void stopOperation(int n) {
+    if (n == -1 || n == 4)
+      this.winMfgToolLib.stopOperation(this.operationId); 
+    if (n == -1 || n == 4 || n == 3)
+      this.winMfgToolLib.unregisterCallbackFunction(Globals.CallbackType.OPERATE_RESULT, this.winProgressUpdateCallback); 
+    if (n == -1 || n == 4 || n == 3 || n == 2)
+      this.winMfgToolLib.unregisterCallbackFunction(Globals.CallbackType.DEVICE_CHANGE, this.winDeviceChangeCallback); 
+    if (n == -1 || (n >= 1 && n <= 4))
+      this.winMfgToolLib.uninitializeOperation(); 
+    uninitializeOperation(-1);
+  }
+  
+  public int getOperationStatus() {
+    return this.status;
+  }
+  
+  public int getProgress() {
+    return this.progress;
+  }
+  
+  void setProgress(int phase, int cmdIndex) {
+    if (phase == this.totalPhases - 1 && getCmdForPhase(phase) == cmdIndex) {
+      LOGGER.info("Flashing successful");
+      this.progress = 100;
+      this.status = 1;
+    } else {
+      int doneCmds = cmdIndex;
+      for (int i = 0; i < phase; i++)
+        doneCmds += getCmdForPhase(i); 
+      double tmp = (double)doneCmds / (double)this.totalCommands.get() * 100.0D;
+      this.progress = (int)tmp;
+      LOGGER.info("Done Cmds: {}, Total Cmds: {},  Progress: {}", doneCmds, this.totalCommands, this.progress);
+    } 
+  }
+  
+  private int getCmdForPhase(int phase) {
+    int cmds = 0;
+    if (phase < this.phasesInformation.size())
+      cmds = this.phasesInformation.get(phase); 
+    return cmds;
+  }
+  
+  synchronized void setCommandRunning(boolean subProgress, int done, int total, String infoText) {
+    this.intermediateProgress = subProgress;
+    this.intermediateDone = done;
+    this.intermediateTotal = total;
+    this.info = infoText;
+  }
+  
+  void setErrorOccurred(String error) {
+    LOGGER.error(" --> Error while executing command. {}", error);
+    this.retries++;
+    if (this.retries >= this.maxRetries) {
+      setErrorString(error);
+      this.status = 2;
+    } else {
+      LOGGER.warn("Error occurred -> {}. Retry no. {}", error, Integer.valueOf(this.retries));
+      this.status = 3;
+    } 
+  }
+  
+  void waitForDevice(int event) {
+    this.event = event;
+    if (event == Globals.MxDeviceChangeEvents.MX_VOLUME_REMOVAL_EVT.getValue() && !this.timeout.isAlive()) {
+      LOGGER.info("Timeout control started...");
+      startTimeoutControl();
+    } 
+  }
+  
+  private void startTimeoutControl() {
+    this.timeout = new Thread(() -> {
+          long tTimestamp = System.currentTimeMillis();
+          while (this.event == Globals.MxDeviceChangeEvents.MX_VOLUME_REMOVAL_EVT.getValue()) {
+            if (System.currentTimeMillis() - tTimestamp > 5000L) {
+              LOGGER.error("USB connection lost.");
+              this.status = 2;
+              return;
+            } 
+            try {
+              Thread.sleep(1000L);
+            } catch (InterruptedException e) {
+              LOGGER.error("Thread interrupted in method startTimeoutControl", (Throwable)e);
+              Thread.currentThread().interrupt();
+            } 
+          } 
+        });
+    this.timeout.start();
+  }
+  
+  public String getErrorString() {
+    return this.errorString;
+  }
+  
+  private void setErrorString(String errorString) {
+    this.errorString = errorString;
+  }
+  
+  public synchronized int getIntermediateProgress() {
+    int intermediaProgress;
+    if (this.intermediateProgress) {
+      intermediaProgress = Math.round((float)this.intermediateDone / (float)this.intermediateTotal * 100.0F);
+    } else {
+      intermediaProgress = 100;
+    } 
+    return intermediaProgress;
+  }
+  
+  public synchronized String getInfoText() {
+    return this.info;
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/mfgtool/WinDeviceChangeCallback.java
+========================================================================================================================
+package com.mfgtool;
+
+import com.sun.jna.Callback;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class WinDeviceChangeCallback implements Callback {
+  private static final Logger LOGGER = LoggerFactory.getLogger(WinDeviceChangeCallback.class);
+  
+  private final MfgToolLibCtrl ctrl;
+  
+  WinDeviceChangeCallback(MfgToolLibCtrl ctrl) {
+    this.ctrl = ctrl;
+  }
+  
+  public void invoke(WinDeviceChangeNotify.ByReference deviceChangeNotify) {
+    LOGGER.info("DeviceChangeCallback ---->");
+    LOGGER.info("---- Operation ID: {}", Integer.valueOf(deviceChangeNotify.OperationID));
+    try {
+      LOGGER.info("     Event: {}", Globals.MxDeviceChangeEvents.values()[deviceChangeNotify.Event]);
+    } catch (ArrayIndexOutOfBoundsException e) {
+      LOGGER.error("Could not map to MxDeviceChangeEvents.", (Throwable)e);
+    } 
+    LOGGER.info("     Hub Index: {}", Integer.valueOf(deviceChangeNotify.HubIndex));
+    LOGGER.info("     Port Index: {} ----", Integer.valueOf(deviceChangeNotify.PortIndex));
+    this.ctrl.waitForDevice(deviceChangeNotify.Event);
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/mfgtool/WinDeviceChangeNotify.java
+========================================================================================================================
+package com.mfgtool;
+
+import com.sun.jna.Pointer;
+import com.sun.jna.Structure;
+import java.util.Arrays;
+import java.util.List;
+
+public class WinDeviceChangeNotify extends Structure {
+  public int OperationID;
+  
+  public byte[] Hub = new byte[260];
+  
+  public int HubIndex;
+  
+  public int PortIndex;
+  
+  public int Event;
+  
+  public byte[] DeviceDesc = new byte[260];
+  
+  public byte DriverLetter;
+  
+  public WinDeviceChangeNotify() {}
+  
+  protected List<String> getFieldOrder() {
+    return Arrays.asList("OperationID", "Hub", "HubIndex", "PortIndex", "Event", "DeviceDesc", "DriverLetter");
+  }
+  
+  public WinDeviceChangeNotify(int OperationID, byte[] Hub, int HubIndex, int PortIndex, int Event, byte[] DeviceDesc, byte DriverLetter) {
+    this.OperationID = OperationID;
+    if (Hub.length != this.Hub.length)
+      throw new IllegalArgumentException("Wrong array size !"); 
+    this.Hub = Hub;
+    this.HubIndex = HubIndex;
+    this.PortIndex = PortIndex;
+    this.Event = Event;
+    if (DeviceDesc.length != this.DeviceDesc.length)
+      throw new IllegalArgumentException("Wrong array size !"); 
+    this.DeviceDesc = DeviceDesc;
+    this.DriverLetter = DriverLetter;
+  }
+  
+  public WinDeviceChangeNotify(Pointer p) {
+    super(p);
+  }
+  
+  public static class ByReference extends WinDeviceChangeNotify implements Structure.ByReference {}
+  
+  public static class ByValue extends WinDeviceChangeNotify implements Structure.ByValue {}
+}
+
+
+========================================================================================================================
+ITEM 6: com/mfgtool/WinMfgToolLib.java
+========================================================================================================================
+package com.mfgtool;
+
+import com.gigatronik.dart2.bosch.service.nativeloader.NativeLoader;
+import com.sun.jna.Callback;
+import com.sun.jna.NativeLibrary;
+import com.sun.jna.Pointer;
+import com.sun.jna.WString;
+import com.sun.jna.ptr.ByReference;
+import com.sun.jna.ptr.IntByReference;
+import com.sun.jna.ptr.PointerByReference;
+import java.lang.ref.WeakReference;
+import java.util.Collections;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class WinMfgToolLib {
+  private static final Logger LOGGER = LoggerFactory.getLogger(WinMfgToolLib.class);
+  
+  private static final String DLLNAME = "MfgToolLib";
+  
+  private final NativeLoader nativeLoader = new NativeLoader();
+  
+  private WinMfgToolLib_JNA winLib = null;
+  
+  private Pointer handle = null;
+  
+  MfgLibError initialize() {
+    loadMfgToolLib();
+    int error = this.winLib.MfgLib_Initialize();
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_Initialize() = '{}'", mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError uninitialize() {
+    MfgLibError mfgLibError = MfgLibError.MFGLIB_ERROR_SUCCESS;
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    try {
+      mfgLibError = executor.<MfgLibError>invokeAny(Collections.singleton(this::uninitializeAction), 10L, TimeUnit.SECONDS);
+    } catch (TimeoutException e) {
+      LOGGER.error("Timeout executing MfgLib_Uninitialize()", (Throwable)e);
+    } catch (Exception e) {
+      LOGGER.error("Unexpected Exception executing MfgLib_Uninitialize()", (Throwable)e);
+    } finally {
+      executor.shutdownNow();
+    } 
+    unloadMfgToolLib();
+    return mfgLibError;
+  }
+  
+  private MfgLibError uninitializeAction() {
+    LOGGER.info("Call MfgLib_Uninitialize()");
+    int error = this.winLib.MfgLib_Uninitialize();
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_Uninitialize('{}') = '{}'", this.handle, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError createInstanceHandle() {
+    PointerByReference pHandle = new PointerByReference();
+    int error = this.winLib.MfgLib_CreateInstanceHandle(pHandle);
+    this.handle = pHandle.getValue();
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_CreateInstanceHandle() = '{}'", mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError destroyInstanceHandle() {
+    int error = this.winLib.MfgLib_DestoryInstanceHandle(this.handle);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_DestoryInstanceHandle('{}') = '{}'", this.handle, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError setProfileName(String name) {
+    WString profileName = new WString(name);
+    int error = this.winLib.MfgLib_SetProfileName(this.handle, profileName);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_SetProfileName('{}', '{}') = '{}'", this.handle, profileName, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError setListName(String name) {
+    WString listName = new WString(name);
+    int error = this.winLib.MfgLib_SetListName(this.handle, listName);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_SetListName('{}', '{}') = '{}'", this.handle, listName, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError setUclFile(String path) {
+    WString uclFile = new WString(path);
+    int error = this.winLib.MfgLib_SetUCLFile(this.handle, uclFile);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_SetUCLFile('{}', '{}') = '{}'", this.handle, uclFile, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError setMaxBoardNumber(int boardNum) {
+    int error = this.winLib.MfgLib_SetMaxBoardNumber(this.handle, boardNum);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_SetMaxBoardNumber('{}', '{}') = '{}'", this.handle, boardNum, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError initializeOperation() {
+    int error = this.winLib.MfgLib_InitializeOperation(this.handle);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_InitializeOperationWithLog('{}') = '{}'", this.handle, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError initializeOperationWithLog(String logFile) {
+    WString logFilePath = new WString(logFile);
+    int error = this.winLib.MfgLib_InitializeOperationWithLog(this.handle, logFilePath);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_InitializeOperationWithLog('{}', '{}') = '{}'", this.handle, logFilePath, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError uninitializeOperation() {
+    int error = this.winLib.MfgLib_UninitializeOperation(this.handle);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_UninitializeOperation('{}') = '{}'", this.handle, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError startOperation(int operationId) {
+    int error = this.winLib.MfgLib_StartOperation(this.handle, operationId);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_StartOperation('{}', '{}') = '{}'", this.handle, operationId, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError stopOperation(int operationId) {
+    int error = this.winLib.MfgLib_StopOperation(this.handle, operationId);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_StopOperation('{}', '{}') = '{}'", this.handle, operationId, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError getOperationInformation(WinOperationsInformation.ByReference operationsInfo) {
+    int error = this.winLib.MfgLib_GetOperationInformation(this.handle, operationsInfo);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_GetOperationInformation('{}', '{}') = '{}'", this.handle, operationsInfo, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError getPhaseInformation(WinPhasesInformation.ByReference phasesInfo) {
+    int error = this.winLib.MfgLib_GetPhaseInformation(this.handle, phasesInfo);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_GetPhaseInformation('{}', '{}') = '{}'", this.handle, phasesInfo, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError getTotalCommandNumbers(AtomicInteger number) {
+    IntByReference ref = new IntByReference();
+    int error = this.winLib.MfgLib_GetTotalCommandNumbers(this.handle, (ByReference)ref);
+    number.set(ref.getValue());
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_GetTotalCommandNumbers('{}', '{}') = '{}'", this.handle, number, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError registerCallbackFunction(Globals.CallbackType cbType, Callback callback) {
+    int error = this.winLib.MfgLib_RegisterCallbackFunction(this.handle, cbType.getValue(), callback);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_RegisterCallbackFunction('{}', '{}', '{}') = '{}'", this.handle, cbType, callback, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError unregisterCallbackFunction(Globals.CallbackType cbType, Callback callback) {
+    int error = this.winLib.MfgLib_UnregisterCallbackFunction(this.handle, cbType.getValue(), callback);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_UnregisterCallbackFunction('{}', '{}', '{}') = '{}'", this.handle, cbType, callback, mfgLibError);
+    return mfgLibError;
+  }
+  
+  MfgLibError getLibraryVersion(Pointer version, int maxSize) {
+    int error = this.winLib.MfgLib_GetLibraryVersion(version, maxSize);
+    MfgLibError mfgLibError = MfgLibError.fromNumber(error);
+    LOGGER.info("MfgLib_UnregisterCallbackFunction('{}', '{}') = '{}'", version, maxSize, mfgLibError);
+    return mfgLibError;
+  }
+  
+  private void loadMfgToolLib() {
+    this.winLib = (WinMfgToolLib_JNA)this.nativeLoader.loadLibraryJna(getClass().getPackage().getName(), "MfgToolLib", WinMfgToolLib_JNA.class);
+  }
+  
+  private void unloadMfgToolLib() {
+    LOGGER.info("Dispose and unload MfgTool lib");
+    NativeLibrary instance = NativeLibrary.getInstance(this.nativeLoader.getLibraryName(), WinMfgToolLib_JNA.class.getClassLoader());
+    instance.dispose();
+    if (this.winLib != null) {
+      WeakReference<WinMfgToolLib_JNA> itRef = new WeakReference<>(this.winLib);
+      this.winLib = null;
+      Runtime.getRuntime().gc();
+      if (itRef.get() != null) {
+        LOGGER.warn("GC did collected the unloaded lib");
+      } else {
+        LOGGER.info("GC collected unloaded lib");
+      } 
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/mfgtool/WinMfgToolLib_JNA.java
+========================================================================================================================
+package com.mfgtool;
+
+import com.sun.jna.Callback;
+import com.sun.jna.Library;
+import com.sun.jna.Pointer;
+import com.sun.jna.WString;
+import com.sun.jna.ptr.ByReference;
+import com.sun.jna.ptr.PointerByReference;
+
+public interface WinMfgToolLib_JNA extends Library {
+  int MfgLib_Initialize();
+  
+  int MfgLib_Uninitialize();
+  
+  int MfgLib_CreateInstanceHandle(PointerByReference paramPointerByReference);
+  
+  int MfgLib_DestoryInstanceHandle(Pointer paramPointer);
+  
+  int MfgLib_SetProfileName(Pointer paramPointer, WString paramWString);
+  
+  int MfgLib_SetListName(Pointer paramPointer, WString paramWString);
+  
+  int MfgLib_SetUCLFile(Pointer paramPointer, WString paramWString);
+  
+  int MfgLib_SetMaxBoardNumber(Pointer paramPointer, int paramInt);
+  
+  int MfgLib_InitializeOperation(Pointer paramPointer);
+  
+  int MfgLib_InitializeOperationWithLog(Pointer paramPointer, WString paramWString);
+  
+  int MfgLib_UninitializeOperation(Pointer paramPointer);
+  
+  int MfgLib_StartOperation(Pointer paramPointer, int paramInt);
+  
+  int MfgLib_StopOperation(Pointer paramPointer, int paramInt);
+  
+  int MfgLib_GetOperationInformation(Pointer paramPointer, WinOperationsInformation.ByReference paramByReference);
+  
+  int MfgLib_GetPhaseInformation(Pointer paramPointer, WinPhasesInformation.ByReference paramByReference);
+  
+  int MfgLib_GetTotalCommandNumbers(Pointer paramPointer, ByReference paramByReference);
+  
+  int MfgLib_RegisterCallbackFunction(Pointer paramPointer, int paramInt, Callback paramCallback);
+  
+  int MfgLib_UnregisterCallbackFunction(Pointer paramPointer, int paramInt, Callback paramCallback);
+  
+  int MfgLib_GetLibraryVersion(Pointer paramPointer, int paramInt);
+}
+
+
+========================================================================================================================
+ITEM 8: com/mfgtool/WinOperateResult.java
+========================================================================================================================
+package com.mfgtool;
+
+import com.sun.jna.Pointer;
+import com.sun.jna.Structure;
+import java.util.Arrays;
+import java.util.List;
+
+public class WinOperateResult extends Structure {
+  public int OperationID;
+  
+  public char[] cmdInfo = new char[260];
+  
+  public int cmdIndex;
+  
+  public int cmdStatus;
+  
+  public boolean bProgressWithinCommand;
+  
+  public int DoneWithinCommand;
+  
+  public int TotalWithinCommand;
+  
+  public int CurrentPhaseIndex;
+  
+  public WinOperateResult() {}
+  
+  protected List<String> getFieldOrder() {
+    return Arrays.asList("OperationID", "cmdInfo", "cmdIndex", "cmdStatus", "bProgressWithinCommand", "DoneWithinCommand", "TotalWithinCommand", "CurrentPhaseIndex");
+  }
+  
+  public WinOperateResult(int OperationID, char[] cmdInfo, int cmdIndex, int cmdStatus, boolean bProgressWithinCommand, int DoneWithinCommand, int TotalWithinCommand, int CurrentPhaseIndex) {
+    this.OperationID = OperationID;
+    if (cmdInfo.length != this.cmdInfo.length)
+      throw new IllegalArgumentException("Wrong array size !"); 
+    this.cmdInfo = cmdInfo;
+    this.cmdIndex = cmdIndex;
+    this.cmdStatus = cmdStatus;
+    this.bProgressWithinCommand = bProgressWithinCommand;
+    this.DoneWithinCommand = DoneWithinCommand;
+    this.TotalWithinCommand = TotalWithinCommand;
+    this.CurrentPhaseIndex = CurrentPhaseIndex;
+  }
+  
+  public WinOperateResult(Pointer p) {
+    super(p);
+  }
+  
+  public static class ByReference extends WinOperateResult implements Structure.ByReference {}
+  
+  public static class ByValue extends WinOperateResult implements Structure.ByValue {}
+}
+
+
+========================================================================================================================
+ITEM 9: com/mfgtool/WinOperationInformation.java
+========================================================================================================================
+package com.mfgtool;
+
+import com.sun.jna.Structure;
+import java.util.Arrays;
+import java.util.List;
+
+public class WinOperationInformation extends Structure {
+  public int OperationID;
+  
+  public boolean bConnected;
+  
+  public char[] HubName = new char[260];
+  
+  public int HubIndex;
+  
+  public int PortIndex;
+  
+  public char[] DeviceDesc = new char[260];
+  
+  public int ConnectedDeviceState;
+  
+  public WinOperationInformation() {}
+  
+  protected List<String> getFieldOrder() {
+    return Arrays.asList("OperationID", "bConnected", "HubName", "HubIndex", "PortIndex", "DeviceDesc", "ConnectedDeviceState");
+  }
+  
+  public WinOperationInformation(int OperationID, boolean bConnected, char[] HubName, int HubIndex, int PortIndex, char[] DeviceDesc, int ConnectedDeviceState) {
+    this.OperationID = OperationID;
+    this.bConnected = bConnected;
+    if (HubName.length != this.HubName.length)
+      throw new IllegalArgumentException("Wrong array size !"); 
+    this.HubName = HubName;
+    this.HubIndex = HubIndex;
+    this.PortIndex = PortIndex;
+    if (DeviceDesc.length != this.DeviceDesc.length)
+      throw new IllegalArgumentException("Wrong array size !"); 
+    this.DeviceDesc = DeviceDesc;
+    this.ConnectedDeviceState = ConnectedDeviceState;
+  }
+  
+  public static class ByReference extends WinOperationInformation implements Structure.ByReference {}
+  
+  public static class ByValue extends WinOperationInformation implements Structure.ByValue {}
+}
+
+
+========================================================================================================================
+ITEM 10: com/mfgtool/WinOperationsInformation.java
+========================================================================================================================
+package com.mfgtool;
+
+import com.sun.jna.Structure;
+import java.util.Arrays;
+import java.util.List;
+
+public class WinOperationsInformation extends Structure {
+  public int OperationInfoNumbers;
+  
+  public WinOperationInformation.ByReference pOperationInfo;
+  
+  public WinOperationsInformation() {}
+  
+  protected List<String> getFieldOrder() {
+    return Arrays.asList("OperationInfoNumbers", "pOperationInfo");
+  }
+  
+  public WinOperationsInformation(int OperationInfoNumbers, WinOperationInformation.ByReference pOperationInfo) {
+    this.OperationInfoNumbers = OperationInfoNumbers;
+    this.pOperationInfo = pOperationInfo;
+  }
+  
+  public static class ByReference extends WinOperationsInformation implements Structure.ByReference {}
+  
+  public static class ByValue extends WinOperationsInformation implements Structure.ByValue {}
+}
+
+
+========================================================================================================================
+ITEM 11: com/mfgtool/WinPhaseInformation.java
+========================================================================================================================
+package com.mfgtool;
+
+import com.sun.jna.Structure;
+import java.util.Arrays;
+import java.util.List;
+
+public class WinPhaseInformation extends Structure {
+  public char[] szName = new char[260];
+  
+  public int index;
+  
+  public int uiVid;
+  
+  public int uiPid;
+  
+  public int uiPhaseCommandNumbers;
+  
+  public WinPhaseInformation() {}
+  
+  protected List<String> getFieldOrder() {
+    return Arrays.asList("szName", "index", "uiVid", "uiPid", "uiPhaseCommandNumbers");
+  }
+  
+  public WinPhaseInformation(char[] szName, int index, int uiVid, int uiPid, int uiPhaseCommandNumbers) {
+    if (szName.length != this.szName.length)
+      throw new IllegalArgumentException("Wrong array size !"); 
+    this.szName = szName;
+    this.index = index;
+    this.uiVid = uiVid;
+    this.uiPid = uiPid;
+    this.uiPhaseCommandNumbers = uiPhaseCommandNumbers;
+  }
+  
+  public static class ByReference extends WinPhaseInformation implements Structure.ByReference {}
+  
+  public static class ByValue extends WinPhaseInformation implements Structure.ByValue {}
+}
+
+
+========================================================================================================================
+ITEM 12: com/mfgtool/WinPhasesInformation.java
+========================================================================================================================
+package com.mfgtool;
+
+import com.sun.jna.Structure;
+import java.util.Arrays;
+import java.util.List;
+
+public class WinPhasesInformation extends Structure {
+  public int PhaseInfoNumbers;
+  
+  public WinPhaseInformation.ByReference pPhaseInfo;
+  
+  public WinPhasesInformation() {}
+  
+  protected List<String> getFieldOrder() {
+    return Arrays.asList("PhaseInfoNumbers", "pPhaseInfo");
+  }
+  
+  public WinPhasesInformation(int PhaseInfoNumbers, WinPhaseInformation.ByReference pPhaseInfo) {
+    this.PhaseInfoNumbers = PhaseInfoNumbers;
+    this.pPhaseInfo = pPhaseInfo;
+  }
+  
+  public static class ByReference extends WinPhasesInformation implements Structure.ByReference {}
+  
+  public static class ByValue extends WinPhasesInformation implements Structure.ByValue {}
+}
+
+
+========================================================================================================================
+ITEM 13: com/mfgtool/WinProgressUpdateCallback.java
+========================================================================================================================
+package com.mfgtool;
+
+import com.sun.jna.Callback;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class WinProgressUpdateCallback implements Callback {
+  private static final Logger LOGGER = LoggerFactory.getLogger(WinProgressUpdateCallback.class);
+  
+  private final MfgToolLibCtrl ctrl;
+  
+  public WinProgressUpdateCallback(MfgToolLibCtrl ctrl) {
+    this.ctrl = ctrl;
+  }
+  
+  public void callback(WinOperateResult.ByReference operateResult) {
+    LOGGER.info("<--- Operation ID: {}", Integer.valueOf(operateResult.OperationID));
+    LOGGER.info("     Command Index: {}", Integer.valueOf(operateResult.cmdIndex));
+    LOGGER.info("     Phase Index: {}", Integer.valueOf(operateResult.CurrentPhaseIndex));
+    StringBuilder builder = new StringBuilder();
+    char[] cmdInfo = operateResult.cmdInfo;
+    for (char c : cmdInfo) {
+      if (Character.isDefined(c) && c != '\000') {
+        builder.append(c);
+      } else {
+        break;
+      } 
+    } 
+    LOGGER.info("     Command Info : {}", builder.toString());
+    LOGGER.info("     ProgressWithinCommand: {}", Boolean.valueOf(operateResult.bProgressWithinCommand));
+    LOGGER.info("     Progress within command: {}", Integer.valueOf(operateResult.DoneWithinCommand));
+    LOGGER.info("     Total within command: {}", Integer.valueOf(operateResult.TotalWithinCommand));
+    LOGGER.info("     Command status {} --->", Integer.valueOf(operateResult.cmdStatus));
+    if (operateResult.cmdStatus == 2) {
+      this.ctrl.setErrorOccurred(builder.toString());
+      LOGGER.error(" --> Error while executing command!!!");
+    } else if (operateResult.cmdStatus == 1) {
+      if (!operateResult.bProgressWithinCommand)
+        this.ctrl.setProgress(operateResult.CurrentPhaseIndex, operateResult.cmdIndex); 
+    } else if (operateResult.cmdStatus == 3) {
+      this.ctrl.setCommandRunning(operateResult.bProgressWithinCommand, operateResult.DoneWithinCommand, operateResult.TotalWithinCommand, builder.toString());
+    } 
+  }
+}
+

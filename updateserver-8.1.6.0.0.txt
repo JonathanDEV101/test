@@ -1,0 +1,840 @@
+JAR: updateserver-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\updateserver-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/dart2/bosch/updateserver/ConnectionConstants.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.updateserver;
+
+public class ConnectionConstants {
+  public static final String DOWNLOAD_SUCCESS_SAVE_FILE = "download_success_save_file";
+  
+  public static final String DOWNLOAD_SUCCESS_REPLY_STRING = "download_success_reply_string";
+  
+  public static final String CONNECTION_FAIL = "connection_fail";
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/dart2/bosch/updateserver/DownloadProgressStateListener.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.updateserver;
+
+public interface DownloadProgressStateListener {
+  void onDownloadProgressStateChanged(int paramInt);
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/dart2/bosch/updateserver/DownloadStreamProgress.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.updateserver;
+
+import java.net.HttpURLConnection;
+
+public class DownloadStreamProgress {
+  protected static long mTotalDownloadSize = 0L;
+  
+  protected static long mDownloadedBytes = 0L;
+  
+  private static long getTotalDownloadSize() {
+    return mTotalDownloadSize;
+  }
+  
+  public static void setTotalDownloadSize(HttpURLConnection conn) {
+    String contentLength = conn.getHeaderField("content-length");
+    if (contentLength != null) {
+      mTotalDownloadSize = new Long(contentLength);
+    } else {
+      mTotalDownloadSize = -1L;
+    } 
+    setDownloadedBytes(0L);
+  }
+  
+  private static long getDownloadedBytes() {
+    return mDownloadedBytes;
+  }
+  
+  private static void setDownloadedBytes(long downloadedSize) {
+    mDownloadedBytes = downloadedSize;
+  }
+  
+  public static void addDownloadedBytes(int addDownloadedSize) {
+    setDownloadedBytes(getDownloadedBytes() + (long)addDownloadedSize);
+  }
+  
+  public static int getDownloadProgress() {
+    long totalByte = getTotalDownloadSize();
+    float downloadedBytes = (float)getDownloadedBytes();
+    if (totalByte > 0L) {
+      if (downloadedBytes > 0.0F)
+        return Math.round(downloadedBytes * 100.0F / (float)totalByte); 
+      return 0;
+    } 
+    return -1;
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/dart2/bosch/updateserver/FileDownload.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.updateserver;
+
+import com.gigatronik.dart2.framework.util.ProgressAwareInputStream;
+import com.gigatronik.ebike.common.util.FileIOUtil;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class FileDownload {
+  private static final Logger LOGGER = LoggerFactory.getLogger(FileDownload.class);
+  
+  private static final int CONNECT_TIMEOUT = 2000;
+  
+  private static final int DOWNLOAD_THREAD_SUSPEND_TIME = 100;
+  
+  private static final int DOWNLOAD_PROGRESS_STEP_SIZE = 1;
+  
+  private static final int PROGRESS_MAX_VALUE = 100;
+  
+  private static final int PROGRESS_DOWNLOAD_FINISHED_VALUE = 99;
+  
+  private float progress = 0.0F;
+  
+  private String pathOfDownloadedFile = "";
+  
+  private String downloadUrl = "";
+  
+  private boolean abortFileDownload = false;
+  
+  private final UpdateServerConnection updateServerConnection;
+  
+  private final int readTimeout;
+  
+  FileDownload(UpdateServerConnection connection, int timeout) {
+    this.updateServerConnection = connection;
+    this.readTimeout = timeout;
+  }
+  
+  private HttpURLConnection getUrlConnection(String url) {
+    HttpURLConnection urlConnect = this.updateServerConnection.getConnection(url);
+    urlConnect.setConnectTimeout(2000);
+    urlConnect.setReadTimeout(this.readTimeout);
+    return urlConnect;
+  }
+  
+  private void startDownload(DownloadProgressStateListener listener) {
+    try {
+      FileIOUtil.markTmpFilesForDeletion();
+      interuptDownload();
+      HttpURLConnection httpConnection = getUrlConnection(this.updateServerConnection.appendRandomNumberToPath(this.downloadUrl));
+      try {
+        httpConnection.connect();
+        if (httpConnection.getContentLength() < 1)
+          LOGGER.warn("Content length could not be obtained."); 
+        String fileName = FilenameUtils.getName(this.downloadUrl);
+        File tmpFile = File.createTempFile("Ebike_tmp", fileName);
+        downloadFileProgressAwareStream(tmpFile, httpConnection, listener);
+        LOGGER.info("Download successful:{}", fileName);
+      } finally {
+        httpConnection.disconnect();
+      } 
+    } catch (IOException ex) {
+      LOGGER.error("Error downloading file", (Throwable)ex);
+      this.progress = -1.0F;
+    } 
+  }
+  
+  private void interuptDownload() {
+    try {
+      Thread.sleep(100L);
+    } catch (InterruptedException ex) {
+      LOGGER.error("Error suspending download thread", (Throwable)ex);
+      Thread.currentThread().interrupt();
+    } 
+  }
+  
+  private void downloadFileProgressAwareStream(File target, HttpURLConnection httpConnection, DownloadProgressStateListener progressListener) throws IOException {
+    try (ProgressAwareInputStream awareInputStream = new ProgressAwareInputStream(httpConnection.getInputStream(), (long)httpConnection.getContentLength(), 1, httpConnection)) {
+      awareInputStream.setOnProgressListener((percentage, tag) -> {
+            this.progress = (percentage < 100) ? (float)percentage : 99.0F;
+            LOGGER.debug("Download progress: {}", Float.valueOf(this.progress));
+            if (progressListener != null)
+              progressListener.onDownloadProgressStateChanged((int)this.progress); 
+            if (this.abortFileDownload && tag != null)
+              ((HttpURLConnection)tag).disconnect(); 
+          });
+      FileUtils.copyInputStreamToFile((InputStream)awareInputStream, target);
+      this.pathOfDownloadedFile = target.getAbsolutePath();
+      this.progress = 100.0F;
+      long bytes = new File(this.pathOfDownloadedFile).length();
+      LOGGER.info("Download of file {} (size: {} bytes) finished successfully with progress {}%", target.getName(), bytes, this.progress);
+      if (progressListener != null)
+        progressListener.onDownloadProgressStateChanged((int)this.progress); 
+    } 
+  }
+  
+  String getDownloadedPath() {
+    return this.pathOfDownloadedFile;
+  }
+  
+  void downloadFileFromURLSync(String url) {
+    downloadFileFromURLSync(url, null);
+  }
+  
+  void downloadFileFromURLSync(String url, DownloadProgressStateListener listener) {
+    this.abortFileDownload = false;
+    this.progress = 0.0F;
+    this.pathOfDownloadedFile = "";
+    this.downloadUrl = url;
+    startDownload(listener);
+  }
+  
+  void abortDownloadFileFromURL() {
+    this.abortFileDownload = true;
+  }
+  
+  boolean getAbortFileDownload() {
+    return this.abortFileDownload;
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/dart2/bosch/updateserver/settings/CloudSettingsDownloader.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.updateserver.settings;
+
+import com.gigatronik.beds.settings.download.CloudSettingsDownloaderFacade;
+import com.gigatronik.beds.settings.download.DownloadFailedException;
+import com.gigatronik.dart2.bosch.updateserver.UPDATE_SERVER_URL;
+import com.gigatronik.dart2.bosch.updateserver.UpdateServerConnection;
+import java.io.File;
+import org.apache.commons.lang3.StringUtils;
+
+public class CloudSettingsDownloader implements CloudSettingsDownloaderFacade {
+  private static final String CLOUD_SETTINGS_FILE_NAME = "settings.properties";
+  
+  private static final String VERSION_FILE_NAME = "version.txt";
+  
+  private UpdateServerConnection serverConnection = new UpdateServerConnection();
+  
+  public boolean isServerAvailable() {
+    return this.serverConnection.isServerAvailable();
+  }
+  
+  public String downloadVersionFile() throws DownloadFailedException {
+    return downloadFile("version.txt");
+  }
+  
+  public String downloadCloudSettings() throws DownloadFailedException {
+    return downloadFile("settings.properties");
+  }
+  
+  private String downloadFile(String fileName) throws DownloadFailedException {
+    String url = "" + UPDATE_SERVER_URL.get(UPDATE_SERVER_URL.CLOUD_SETTINGS_DOWNLOAD) + UPDATE_SERVER_URL.get(UPDATE_SERVER_URL.CLOUD_SETTINGS_DOWNLOAD);
+    String filePath = this.serverConnection.downloadFileSync(url);
+    if (wasDownloadSuccessful(filePath))
+      return filePath; 
+    throw new DownloadFailedException("Download of file '" + fileName + "' from server failed.");
+  }
+  
+  boolean wasDownloadSuccessful(String filePath) {
+    return (StringUtils.isNotBlank(filePath) && new File(filePath).exists());
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/dart2/bosch/updateserver/UPDATE_SERVER_URL.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.updateserver;
+
+import com.gigatronik.beds.settings.SettingsProxy;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public enum UPDATE_SERVER_URL {
+  PC_TOOL_UPDATE, MAP_BUI27X_DOWNLOAD, MAP_BUI350_DOWNLOAD, ABS_DATA_MINING, CONTAINER_DOWNLOAD, BLACKLIST_DOWNLOAD, BCT_WARRANTY_DOWNLOAD, CLOUD_SETTINGS_DOWNLOAD;
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(UPDATE_SERVER_URL.class);
+  
+  private static final String BASE_ESLOS_URL_DEFAULT = "https://bosch-ebike-updates.com";
+  
+  static final String PC_TOOL_UPDATE_PATH = "/data/DiagnosisSoftware/Update/";
+  
+  static final String DOWNLOAD_MAP_BUI27X_BASE_PATH = "/data/DiagnosisSoftware/Map/";
+  
+  static final String DOWNLOAD_MAP_BUI350_BASE_PATH = "/data/DiagnosisSoftware/Map_BUI350/";
+  
+  static final String DOWNLOAD_CFF2_CONTAINER_PATH = "/cff2";
+  
+  static final String ABS_DATA_MINING_PATH = "/cff2";
+  
+  static final String BLACKLIST_DOWNLOAD_PATH = "/data/DiagnosisSoftware/Blacklist/";
+  
+  static final String BCT_WARRANTY_DOWNLOAD_PATH = "/data/DiagnosisSoftware/BCT/";
+  
+  static final String CLOUD_SETTINGS_DOWNLOAD_PATH = "/data/DiagnosisSoftware/settings/";
+  
+  public static URI getBaseUrl() {
+    try {
+      String eslosUrl = SettingsProxy.getInstance().getGlobalSettings().getProperty("eslos_url");
+      URL eslosURL = new URL(eslosUrl);
+      return new URL(eslosURL.getProtocol(), eslosURL.getHost(), "").toURI();
+    } catch (ConfigurationNotFoundException|java.net.MalformedURLException e) {
+      LOGGER.error("Error loading eslos URL, using default: {}", e, "https://bosch-ebike-updates.com");
+    } catch (URISyntaxException ex) {
+      LOGGER.error("Update Server URL not valid", (Throwable)ex);
+    } 
+    return URI.create("https://bosch-ebike-updates.com");
+  }
+  
+  public static URI getDefaultBaseUrl() {
+    return URI.create("https://bosch-ebike-updates.com");
+  }
+  
+  public static URI get(UPDATE_SERVER_URL pathType) {
+    String path;
+    switch (pathType) {
+      case BLACKLIST_DOWNLOAD:
+        path = "/data/DiagnosisSoftware/Blacklist/";
+        break;
+      case PC_TOOL_UPDATE:
+        path = "/data/DiagnosisSoftware/Update/";
+        break;
+      case MAP_BUI27X_DOWNLOAD:
+        path = "/data/DiagnosisSoftware/Map/";
+        break;
+      case MAP_BUI350_DOWNLOAD:
+        path = "/data/DiagnosisSoftware/Map_BUI350/";
+        break;
+      case ABS_DATA_MINING:
+        path = "/cff2";
+        break;
+      case CONTAINER_DOWNLOAD:
+        path = "/cff2";
+        break;
+      case BCT_WARRANTY_DOWNLOAD:
+        path = "/data/DiagnosisSoftware/BCT/";
+        break;
+      case CLOUD_SETTINGS_DOWNLOAD:
+        path = "/data/DiagnosisSoftware/settings/";
+        break;
+      default:
+        LOGGER.error("No path defined for path type");
+        path = "";
+        break;
+    } 
+    return URI.create(getBaseUrl().toString() + getBaseUrl().toString());
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/dart2/bosch/updateserver/UpdateServerConnection.java
+========================================================================================================================
+package com.gigatronik.dart2.bosch.updateserver;
+
+import com.gigatronik.beds.settings.SettingsProxy;
+import com.gigatronik.bosch.plugin.tokenproxy.TokenPluginProxy;
+import com.gigatronik.dart2.bosch.service.internationalization.I18NDateTimesFormats;
+import com.gigatronik.dart2.bosch.service.internationalization.I18NUtil;
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.gigatronik.dart2.framework.util.ProxyManager;
+import com.gigatronik.ebike.gui.testinterface.TestableJOptionPane;
+import com.jayway.jsonpath.JsonPath;
+import java.awt.EventQueue;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.Authenticator;
+import java.net.HttpURLConnection;
+import java.net.PasswordAuthentication;
+import java.net.ProtocolException;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.sql.Timestamp;
+import java.text.DateFormat;
+import java.util.Base64;
+import java.util.Date;
+import java.util.Optional;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class UpdateServerConnection {
+  private static final Logger LOGGER = LoggerFactory.getLogger(UpdateServerConnection.class);
+  
+  private static final Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  private static final String CONTENT_TYPE = "Content-Type";
+  
+  private static final String CONTENT_TYPE_TEXT = "text/plain; charset=utf-8";
+  
+  private static final String HTTP_BASIC_AUTH_USERNAME_KEY = "eslos_username";
+  
+  private static final String HTTP_BASIC_AUTH_PASSWORD_KEY = "eslos_password";
+  
+  private static final String AMAZON_AWS = "amazon";
+  
+  private static final String SERVER_HEALTH_STATUS_PATH = "/cff2/health_status";
+  
+  private static final int CONNECT_TIMEOUT = 2000;
+  
+  private static final int READ_TIMEOUT = 15000;
+  
+  private static final int RANDOM_NUMBER_LENGTH = 10;
+  
+  private static final Object LOCK = new Object();
+  
+  private static final String PWTRUSTSTORE = "}:_]m5>$Tp:7Sq$k";
+  
+  private final FileDownload fileDownload;
+  
+  private final int readTimeout;
+  
+  private PasswordAuthentication proxyAuthentication;
+  
+  private PasswordAuthentication serverAuthentication;
+  
+  public UpdateServerConnection() {
+    this.readTimeout = 15000;
+    this.fileDownload = new FileDownload(this, this.readTimeout);
+  }
+  
+  public UpdateServerConnection(int timeout) {
+    this.readTimeout = timeout;
+    this.fileDownload = new FileDownload(this, this.readTimeout);
+  }
+  
+  public static void initSSL() {
+    KeyStore trustStore = null;
+    KeyManagerFactory keyManagerFactory = null;
+    TrustManagerFactory tmf = null;
+    try {
+      trustStore = KeyStore.getInstance("JKS");
+    } catch (KeyStoreException e) {
+      LOGGER.error("Error getting Keystore instance", (Throwable)e);
+    } 
+    try (InputStream stream = UpdateServerConnection.class.getClassLoader().getResourceAsStream("certificate/truststore_updateserver.jks")) {
+      if (trustStore != null)
+        loadKeyStore(trustStore, stream, "}:_]m5>$Tp:7Sq$k".toCharArray()); 
+    } catch (IOException e) {
+      LOGGER.error("Error loading truststore", (Throwable)e);
+    } 
+    try {
+      keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+      keyManagerFactory.init(trustStore, "}:_]m5>$Tp:7Sq$k".toCharArray());
+    } catch (NoSuchAlgorithmException ex) {
+      LOGGER.error("Error loading default security provider for keymanager", (Throwable)ex);
+    } catch (KeyStoreException|java.security.UnrecoverableKeyException ex) {
+      LOGGER.error("Error initializing keymanagerfactory", (Throwable)ex);
+    } 
+    try {
+      tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+      tmf.init(trustStore);
+    } catch (NoSuchAlgorithmException ex) {
+      LOGGER.error("Error loading default security provider for trustmanager", (Throwable)ex);
+    } catch (KeyStoreException ex) {
+      LOGGER.error("Error initializing trustmanagerfactory", (Throwable)ex);
+    } 
+    try {
+      SSLContext sc = SSLContext.getInstance("TLSv1.2");
+      if (keyManagerFactory != null && tmf != null) {
+        sc.init(keyManagerFactory.getKeyManagers(), tmf.getTrustManagers(), new SecureRandom());
+        SSLSocketFactory socketFactory = sc.getSocketFactory();
+        HttpsURLConnection.setDefaultSSLSocketFactory(socketFactory);
+      } 
+    } catch (NoSuchAlgorithmException ex) {
+      LOGGER.error("Error loading TLSv1.2", (Throwable)ex);
+    } catch (KeyManagementException ex) {
+      LOGGER.error("Error initializing sslcontext", (Throwable)ex);
+    } 
+  }
+  
+  private static void loadKeyStore(KeyStore store, InputStream stream, char[] charArray) {
+    try {
+      store.load(stream, charArray);
+    } catch (NoSuchAlgorithmException|java.security.cert.CertificateException|IOException e) {
+      LOGGER.error("Error accessing certificates in client keystore", (Throwable)e);
+    } 
+  }
+  
+  public boolean isServerAvailable(boolean showErrorDialog) {
+    synchronized (LOCK) {
+      boolean result = false;
+      HttpURLConnection urlConnection = getConnection(UPDATE_SERVER_URL.getBaseUrl().toString() + "/cff2/health_status");
+      try {
+        LOGGER.info("Checking connection to update server...");
+        urlConnection.connect();
+        int responseCode = urlConnection.getResponseCode();
+        LOGGER.debug("Connection response code {}", Integer.valueOf(responseCode));
+        if (responseCode == 200) {
+          LOGGER.info("Connection to update server is available.");
+          result = true;
+        } else if (responseCode == 503 && showErrorDialog) {
+          LOGGER.warn("Update server temporarily not available. Server returned {}", Integer.valueOf(responseCode));
+          showServerNotAvailableDialog(getServerUnavailableDate(readResponseBody(urlConnection)));
+        } else if ((responseCode == 401 || responseCode == 403) && showErrorDialog) {
+          showAuthentificationFailedDialog();
+        } else {
+          LOGGER.warn("Connect to update server failed. Server returned {}", Integer.valueOf(responseCode));
+        } 
+      } catch (Exception e) {
+        LOGGER.error("Error connecting to server", (Throwable)e);
+        if (showErrorDialog)
+          EventQueue.invokeLater(() -> TestableJOptionPane.showMessageDialog(BUNDLE.getString("AbstractEBikeConfigTab.download.noconnection.text"), 
+                BUNDLE.getString("AbstractEBikeConfigTab.download.noconnection.title"), 0)); 
+      } finally {
+        if (urlConnection != null)
+          urlConnection.disconnect(); 
+      } 
+      return result;
+    } 
+  }
+  
+  public boolean isServerAvailable() {
+    return isServerAvailable(false);
+  }
+  
+  private int checkConnection(String url) {
+    int responseCode = 404;
+    if (StringUtils.isEmpty(url))
+      return responseCode; 
+    synchronized (LOCK) {
+      HttpURLConnection urlConnection = getConnection(url);
+      try {
+        urlConnection.connect();
+        responseCode = urlConnection.getResponseCode();
+        LOGGER.info("Connection response code {}", Integer.valueOf(responseCode));
+      } catch (ProtocolException ex) {
+        LOGGER.error("Error setting request method", (Throwable)ex);
+      } catch (IOException e) {
+        LOGGER.error("Could not connect to Server {}", url, e);
+      } catch (Exception ex) {
+        LOGGER.error("Unexpected behaviour occurred during connection to '{}'", url);
+      } finally {
+        urlConnection.disconnect();
+      } 
+      return responseCode;
+    } 
+  }
+  
+  private String getServerUnavailableDate(String json) {
+    if (StringUtils.isNotBlank(json) && !json.contains("html") && json.contains("timestamp")) {
+      int time = (Integer)JsonPath.read(json, "$.timestamp", new com.jayway.jsonpath.Predicate[0]);
+      Timestamp stamp = new Timestamp((long)time * 1000L);
+      Date date = new Date(stamp.getTime());
+      String formattedDate = I18NDateTimesFormats.formatDateByCurrentLocale(date);
+      DateFormat tf = DateFormat.getTimeInstance(2, I18NUtil.getLocale());
+      String formattedTime = tf.format(date);
+      return formattedDate + " " + formattedDate;
+    } 
+    return "";
+  }
+  
+  private String readResponseBody(HttpURLConnection connection) {
+    String response = "";
+    try(InputStreamReader isr = new InputStreamReader(connection.getErrorStream()); 
+        BufferedReader br = new BufferedReader(isr)) {
+      StringBuilder sb = new StringBuilder();
+      String output;
+      while ((output = br.readLine()) != null)
+        sb.append(output); 
+      response = sb.toString();
+    } catch (IOException ex) {
+      LOGGER.error("Error reading 503 response body", (Throwable)ex);
+    } 
+    return response;
+  }
+  
+  private void showServerNotAvailableDialog(String date) {
+    EventQueue.invokeLater(() -> {
+          String messageText = BUNDLE.getString("Updateserver.currently.not.accessible.text");
+          if (StringUtils.isNotBlank(date))
+            messageText = messageText + "\n\n" + messageText; 
+          TestableJOptionPane.showMessageDialog(messageText, BUNDLE.getString("AbstractEBikeConfigTab.download.noconnection.title"), 0);
+        });
+  }
+  
+  private void showAuthentificationFailedDialog() {
+    EventQueue.invokeLater(() -> TestableJOptionPane.showMessageDialog(BUNDLE.getString("UpdateServer.authetification.failed"), 
+          BUNDLE.getString("Bosch.diagnostic.tool"), 0));
+  }
+  
+  String appendRandomNumberToPath(String path) {
+    return path + "?" + path;
+  }
+  
+  HttpURLConnection getConnection(String address) {
+    try {
+      URL url = new URL(address);
+      LOGGER.debug("Open connection to URL: {}", address);
+      return createConnection(url);
+    } catch (IOException e) {
+      LOGGER.error("Error getting Connection", (Throwable)e);
+      return null;
+    } 
+  }
+  
+  public HttpURLConnection getConnection(URL url) {
+    try {
+      LOGGER.debug("Open connection to URL: {}", url.toString());
+      return createConnection(url);
+    } catch (IOException e) {
+      LOGGER.error("Error getting Connection", (Throwable)e);
+      return null;
+    } 
+  }
+  
+  private HttpURLConnection createConnection(URL url) throws IOException {
+    HttpURLConnection conn = (HttpURLConnection)url.openConnection(createProxy(ProxyManager.getInstance(), url.toString()));
+    if (!isProductivServerOrExternal(url))
+      setHttpBasicAuthentication(conn); 
+    setProxyAuthentication();
+    configureAuthenticator();
+    LOGGER.debug("Connection is using proxy: {}", Boolean.valueOf(conn.usingProxy()));
+    conn.setUseCaches(false);
+    conn.setDoOutput(true);
+    conn.setConnectTimeout(2000);
+    conn.setReadTimeout(this.readTimeout);
+    return conn;
+  }
+  
+  private boolean isProductivServerOrExternal(URL url) {
+    return (StringUtils.equals(url.getHost(), UPDATE_SERVER_URL.getDefaultBaseUrl().getHost()) || url.toString().contains("amazon"));
+  }
+  
+  private void setHttpBasicAuthentication(HttpURLConnection conn) {
+    LOGGER.info("Set Https Basic Authentication credentials ...");
+    String username = "";
+    String password = "";
+    try {
+      username = SettingsProxy.getInstance().getGlobalSettings().getProperty("eslos_username");
+      password = SettingsProxy.getInstance().getGlobalSettings().getProperty("eslos_password");
+    } catch (ConfigurationNotFoundException ex) {
+      LOGGER.info("Authentication credentials could not been read from global settings.", (Throwable)ex);
+    } 
+    if (StringUtils.isBlank(username) || StringUtils.isBlank(password)) {
+      String dongleId = TokenPluginProxy.getInstance().getId();
+      if (StringUtils.isNotBlank(dongleId)) {
+        username = dongleId;
+        password = new StringBuffer(dongleId).reverse().toString();
+      } 
+    } 
+    if (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password)) {
+      String userpassword = username + ":" + username;
+      String encodedAuthorization = Base64.getEncoder().encodeToString(userpassword.getBytes(StandardCharsets.UTF_8));
+      conn.setRequestProperty("Authorization", "Basic " + encodedAuthorization);
+      LOGGER.info("Https Basic Authentication request property set");
+    } else {
+      LOGGER.error("Failed to set http basic authentication.");
+    } 
+    if (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password))
+      this.serverAuthentication = new PasswordAuthentication(username, password.toCharArray()); 
+  }
+  
+  private Proxy createProxy(ProxyManager proxyManager, String uri) {
+    if (proxyManager != null) {
+      ProxySelector.setDefault((ProxySelector)proxyManager);
+      try {
+        Optional<Proxy> findFirst = proxyManager.select(new URI(uri)).stream().findFirst();
+        if (findFirst.isPresent())
+          return findFirst.get(); 
+      } catch (URISyntaxException ex) {
+        LOGGER.error("Creating Proxy failed.", (Throwable)ex);
+      } 
+    } 
+    return null;
+  }
+  
+  private void configureAuthenticator() {
+    Authenticator.setDefault(new Authenticator() {
+          protected PasswordAuthentication getPasswordAuthentication() {
+            if (getRequestorType().equals(Authenticator.RequestorType.PROXY))
+              return (UpdateServerConnection.this.proxyAuthentication != null) ? UpdateServerConnection.this.proxyAuthentication : new PasswordAuthentication("", "".toCharArray()); 
+            return (UpdateServerConnection.this.serverAuthentication != null) ? UpdateServerConnection.this.serverAuthentication : new PasswordAuthentication("", "".toCharArray());
+          }
+        });
+  }
+  
+  private void setProxyAuthentication() {
+    ProxyManager proxyManager = ProxyManager.getInstance();
+    String username = proxyManager.getUsername();
+    String password = proxyManager.getPassword();
+    if (StringUtils.isNotEmpty(username) && StringUtils.isNotEmpty(password))
+      this.proxyAuthentication = new PasswordAuthentication(username, password.toCharArray()); 
+  }
+  
+  public String downloadFileSync(String url, DownloadProgressStateListener listener) {
+    synchronized (LOCK) {
+      this.fileDownload.downloadFileFromURLSync(url, listener);
+      return this.fileDownload.getDownloadedPath();
+    } 
+  }
+  
+  public String downloadFileSync(String url) {
+    synchronized (LOCK) {
+      this.fileDownload.downloadFileFromURLSync(url);
+      return this.fileDownload.getDownloadedPath();
+    } 
+  }
+  
+  public boolean sendFile(String url, File file) {
+    synchronized (LOCK) {
+      return uploadFile(url, file);
+    } 
+  }
+  
+  public HttpURLConnection uploadRequestContainer(String address, File file) {
+    synchronized (LOCK) {
+      HttpURLConnection conn = getConnection(appendRandomNumberToPath(address));
+      try {
+        conn.setRequestMethod("POST");
+      } catch (ProtocolException ex) {
+        LOGGER.error("Could not setRequestMethod 'POST'", (Throwable)ex);
+      } 
+      conn.setRequestProperty("Content-Type", "text/plain; charset=utf-8");
+      LOGGER.info("Write file {} to address {}", file, address);
+      try(OutputStream os = conn.getOutputStream(); BufferedInputStream bfis = new BufferedInputStream(new FileInputStream(file))) {
+        byte[] buffer = new byte[1024];
+        int length;
+        while ((length = bfis.read(buffer)) > 0)
+          os.write(buffer, 0, length); 
+        DownloadStreamProgress.setTotalDownloadSize(conn);
+        os.flush();
+      } catch (IOException ex) {
+        LOGGER.error("Error while uploading file {} to address {}", file, address, ex);
+      } 
+      return conn;
+    } 
+  }
+  
+  public String downloadContainer(String path, HttpURLConnection conn) {
+    synchronized (LOCK) {
+      if (path != null && conn != null)
+        try(InputStream in = conn.getInputStream(); OutputStream out = new BufferedOutputStream(new FileOutputStream(path))) {
+          LOGGER.info("Receive response file, save: {}", path);
+          byte[] buffer = new byte[1024];
+          int numRead;
+          while ((numRead = in.read(buffer)) != -1) {
+            out.write(buffer, 0, numRead);
+            DownloadStreamProgress.addDownloadedBytes(numRead);
+          } 
+          out.flush();
+        } catch (IOException ex) {
+          LOGGER.error("Error downloading File to {}", path, ex);
+        }  
+      return path;
+    } 
+  }
+  
+  private boolean uploadFile(String url, File file) {
+    if (!StringUtils.isBlank(url) && file != null) {
+      HttpURLConnection conn = getConnection(url);
+      try {
+        if (conn != null) {
+          conn.setRequestMethod("POST");
+          conn.setRequestProperty("Content-Type", "text/plain; charset=utf-8");
+          return upload(conn, file);
+        } 
+      } catch (ProtocolException ex) {
+        LOGGER.error("Failed to set RequestMethod 'POST'", (Throwable)ex);
+      } 
+    } 
+    return false;
+  }
+  
+  private boolean upload(HttpURLConnection conn, File file) {
+    synchronized (LOCK) {
+      try (OutputStream os = conn.getOutputStream()) {
+        LOGGER.info("Write file to Server...");
+        try (BufferedInputStream bfis = new BufferedInputStream(new FileInputStream(file))) {
+          byte[] buffer = new byte[1024];
+          int length;
+          while ((length = bfis.read(buffer)) > 0)
+            os.write(buffer, 0, length); 
+          DownloadStreamProgress.setTotalDownloadSize(conn);
+          os.flush();
+        } 
+        boolean successful = (conn.getResponseCode() == 200);
+        logServerResponse(conn);
+        conn.disconnect();
+        return successful;
+      } 
+    } 
+  }
+  
+  private void logServerResponse(HttpURLConnection conn) throws IOException {
+    StringBuilder stringBuilder;
+    if (conn.getResponseCode() == 200) {
+      LOGGER.info("Server returned HTTP-OK status");
+      LOGGER.info("Successfully uploaded file to Server");
+    } else {
+      LOGGER.error("Server returned non-HTTP-OK status, Status Returned: {}", Integer.valueOf(conn.getResponseCode()));
+    } 
+    try (BufferedReader responseReader = new BufferedReader(new InputStreamReader(new BufferedInputStream(conn.getInputStream())))) {
+      stringBuilder = new StringBuilder();
+      String line;
+      while ((line = responseReader.readLine()) != null)
+        stringBuilder.append(line).append("\n"); 
+    } 
+    String response = stringBuilder.toString();
+    LOGGER.info("Server returned file upload response: \n{}", response);
+  }
+  
+  public void cancelCurrentDownload() {
+    this.fileDownload.abortDownloadFileFromURL();
+  }
+  
+  public boolean isDownloadCanceled() {
+    return this.fileDownload.getAbortFileDownload();
+  }
+  
+  public int isBoschUpdateServer(URI url) {
+    URI baseUrl;
+    try {
+      baseUrl = new URL(url.toURL().getProtocol(), url.toURL().getHost(), "").toURI();
+    } catch (URISyntaxException|java.net.MalformedURLException ex) {
+      LOGGER.error("No valid update server url", (Throwable)ex);
+      return 404;
+    } 
+    return checkConnection("" + baseUrl + "/cff2/health_status");
+  }
+}
+

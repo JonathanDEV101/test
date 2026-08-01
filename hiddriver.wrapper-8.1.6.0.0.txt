@@ -1,0 +1,405 @@
+JAR: hiddriver.wrapper-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\hiddriver.wrapper-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/hiddriverwrapper/api/GTIoTHidAdapter.java
+========================================================================================================================
+package com.gigatronik.beds.service.hiddriverwrapper.api;
+
+public interface GTIoTHidAdapter {
+  int initHidDevice(short paramShort1, short paramShort2) throws UnsatisfiedLinkError;
+  
+  byte[] readResponse(long paramLong);
+  
+  byte[] sendRequest(byte[] paramArrayOfbyte, long paramLong);
+  
+  boolean writeRequest(byte[] paramArrayOfbyte, boolean paramBoolean);
+  
+  void closeHidDevice();
+  
+  void startDeviceListener();
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/service/hiddriverwrapper/api/HidDeviceConnectionChangedEvent.java
+========================================================================================================================
+package com.gigatronik.beds.service.hiddriverwrapper.api;
+
+public class HidDeviceConnectionChangedEvent {
+  private final short pid;
+  
+  private final short vid;
+  
+  private final boolean attached;
+  
+  private final String serialNumber;
+  
+  public HidDeviceConnectionChangedEvent(short productId, short vendorId, String serialNumber, boolean state) {
+    this.pid = productId;
+    this.vid = vendorId;
+    this.serialNumber = serialNumber;
+    this.attached = state;
+  }
+  
+  public short getProductId() {
+    return this.pid;
+  }
+  
+  public short getVendorId() {
+    return this.vid;
+  }
+  
+  public boolean getState() {
+    return this.attached;
+  }
+  
+  public String getSerialNumber() {
+    if (this.serialNumber == null)
+      return ""; 
+    return this.serialNumber;
+  }
+  
+  public String toString() {
+    return String.format("HID device [VID_%X, PID_%X] %s", this.vid, this.pid, this.attached ? "connected" : "disconnected");
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/service/hiddriverwrapper/api/HidDeviceConnectionChangedListener.java
+========================================================================================================================
+package com.gigatronik.beds.service.hiddriverwrapper.api;
+
+public interface HidDeviceConnectionChangedListener {
+  void onHidDeviceConnectionChanged(HidDeviceConnectionChangedEvent paramHidDeviceConnectionChangedEvent);
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/service/hiddriverwrapper/impl/DataReceiver.java
+========================================================================================================================
+package com.gigatronik.beds.service.hiddriverwrapper.impl;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedListener;
+import com.gigatronik.dart2.framework.plugins.interfaces.AsyncronousDriverDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.DriverDartPlugin;
+import com.gigatronik.framework.plugin.hardware.usb.hid.HidDevice;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class DataReceiver implements AsyncronousDriverDartPlugin.AsynchronousDataHandler<HidDevice> {
+  private static final Logger LOGGER = LoggerFactory.getLogger(DataReceiver.class);
+  
+  private final Map<DriverDartPlugin.Device, ScheduledRx> schedules = Collections.synchronizedMap(new HashMap<>());
+  
+  private static final long HID_CONNECTION_EVENTS_MINIMUM_DELAY = 500L;
+  
+  private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(new BasicThreadFactory.Builder().namingPattern("EventRateLimiter-HidDeviceConnectionChangedEventPublisher-%d").build());
+  
+  private final HidDeviceConnectionChangedEventPublisher eventPublisher = new HidDeviceConnectionChangedEventPublisher(this.executor);
+  
+  private final EventRateLimiter<HidDeviceConnectionChangedEvent> limiter = new EventRateLimiter<>(this.executor, this::processHidEvent, 500L);
+  
+  private void processHidEvent(HidDeviceConnectionChangedEvent event) {
+    LOGGER.debug("Broadcasting HID device connection state: '{}'", event);
+    this.eventPublisher.publishEvent(event);
+  }
+  
+  public void onData(HidDevice device, byte[] data) {
+    ScheduledRx schedule = this.schedules.get(device);
+    if (schedule != null)
+      schedule.setResponse(data); 
+  }
+  
+  public void onConnectionStateChanged(HidDevice device, boolean connected) {
+    String pid = String.format("%X", device.getProductId());
+    String vid = String.format("%X", device.getVendorId());
+    LOGGER.debug("HID device [VID_{}, PID_{}] connection state is now '{}'", vid, pid, connected);
+    HidDeviceConnectionChangedEvent event = new HidDeviceConnectionChangedEvent(device.getProductId(), device.getVendorId(), device.getProperty(HidDevice.HidDeviceProperties.SERIAL_NR), connected);
+    this.limiter.fireEvent(event);
+  }
+  
+  ScheduledRx scheduleRx(DriverDartPlugin.Device device) {
+    return this.schedules.computeIfAbsent(device, key -> new ScheduledRx());
+  }
+  
+  public void addHidDeviceConnectionChangedListener(HidDeviceConnectionChangedListener listener) {
+    this.eventPublisher.addListener(listener);
+  }
+  
+  public void removeHidDeviceConnectionChangedListener(HidDeviceConnectionChangedListener listener) {
+    this.eventPublisher.removeListener(listener);
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/service/hiddriverwrapper/impl/EventRateLimiter.java
+========================================================================================================================
+package com.gigatronik.beds.service.hiddriverwrapper.impl;
+
+import java.util.LinkedList;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class EventRateLimiter<T> implements Runnable {
+  private static final Logger LOGGER = LoggerFactory.getLogger(EventRateLimiter.class);
+  
+  private final ScheduledExecutorService executor;
+  
+  private final Consumer<T> callback;
+  
+  private final long eventTimeout;
+  
+  private final LinkedList<T> eventQueue = new LinkedList<>();
+  
+  private Future future;
+  
+  public EventRateLimiter(ScheduledExecutorService executor, Consumer<T> callback, long eventTimeout) {
+    this.executor = executor;
+    this.callback = callback;
+    this.eventTimeout = eventTimeout;
+  }
+  
+  public void run() {
+    sendNextEvent();
+  }
+  
+  public synchronized void fireEvent(T event) {
+    LOGGER.debug("Queue an event {}", event);
+    this.eventQueue.addLast(event);
+    if (this.future == null) {
+      LOGGER.debug("Start event sender (one event each {} ms)", Long.valueOf(this.eventTimeout));
+      this.future = this.executor.scheduleAtFixedRate(this, 0L, this.eventTimeout, TimeUnit.MILLISECONDS);
+    } 
+  }
+  
+  private synchronized void sendNextEvent() {
+    if (this.future == null)
+      return; 
+    T event = this.eventQueue.pollFirst();
+    if (event == null) {
+      LOGGER.debug("No more events in queue, stop event sender");
+      this.future.cancel(false);
+      this.future = null;
+      return;
+    } 
+    LOGGER.debug("Send next event from queue {}", event);
+    this.callback.accept(event);
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/service/hiddriverwrapper/impl/GTIoTHidAdapterImpl.java
+========================================================================================================================
+package com.gigatronik.beds.service.hiddriverwrapper.impl;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.GTIoTHidAdapter;
+import com.gigatronik.dart2.framework.plugins.exceptions.HardwareInterfaceException;
+import com.gigatronik.dart2.framework.plugins.interfaces.DriverDartPlugin;
+import com.gigatronik.framework.plugin.hardware.usb.hid.HidDevice;
+import com.gigatronik.framework.plugin.hardware.usb.hid.HidDriver;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class GTIoTHidAdapterImpl implements GTIoTHidAdapter {
+  private static final Logger LOGGER = LoggerFactory.getLogger(GTIoTHidAdapterImpl.class);
+  
+  private final HidDriver hidDriver;
+  
+  private final AtomicReference<DriverDartPlugin.Device> currentDevice = new AtomicReference<>();
+  
+  private final DataReceiver dataReceiver;
+  
+  public GTIoTHidAdapterImpl(HidDriver driver, DataReceiver receiver) {
+    this.hidDriver = driver;
+    this.dataReceiver = receiver;
+  }
+  
+  public int initHidDevice(short vendorId, short productId) throws UnsatisfiedLinkError {
+    this.currentDevice.set(getDevice(productId, vendorId));
+    return (this.currentDevice.get() != null) ? 1 : -1;
+  }
+  
+  public byte[] sendRequest(byte[] requestBuffer, long readTimeout) {
+    if (!isInitialized())
+      return new byte[0]; 
+    if (!writeRequest(requestBuffer, true))
+      return new byte[0]; 
+    return getResponse(readTimeout);
+  }
+  
+  public byte[] readResponse(long readTimeout) {
+    return getResponse(readTimeout);
+  }
+  
+  private byte[] getResponse(long readTimeout) {
+    ScheduledRx rxSchedule = this.dataReceiver.scheduleRx(this.currentDevice.get());
+    try {
+      rxSchedule.waitForResponse(readTimeout);
+    } catch (InterruptedException ex) {
+      LOGGER.warn("Waiting interrupted", (Throwable)ex);
+      Thread.currentThread().interrupt();
+    } 
+    if (rxSchedule.isResponseAvailable())
+      return rxSchedule.getResponse(); 
+    return new byte[0];
+  }
+  
+  public boolean writeRequest(byte[] requestBuffer, boolean clearResponseBuffer) {
+    if (this.currentDevice.get() != null)
+      return writeRequestAction(requestBuffer, clearResponseBuffer); 
+    LOGGER.warn("Current device is null");
+    return false;
+  }
+  
+  private boolean writeRequestAction(byte[] requestBuffer, boolean clearResponseBuffer) {
+    try {
+      writeRequestActionTry(requestBuffer, clearResponseBuffer);
+      return true;
+    } catch (HardwareInterfaceException ex) {
+      LOGGER.error("Error writing Request! " + ex);
+      this.currentDevice.get().invalidate();
+      return false;
+    } 
+  }
+  
+  private void writeRequestActionTry(byte[] requestBuffer, boolean clearResponseBuffer) throws HardwareInterfaceException {
+    if (clearResponseBuffer)
+      this.dataReceiver.scheduleRx(this.currentDevice.get()).clearBuffer(); 
+    byte[] txPdu = ArrayUtils.remove(requestBuffer, 0);
+    this.currentDevice.get().tx(txPdu);
+    log(txPdu);
+  }
+  
+  public void closeHidDevice() {
+    this.currentDevice.set(null);
+  }
+  
+  private DriverDartPlugin.Device getDevice(short pid, short vid) {
+    String searchstring = String.format("%d-%d-", pid, vid);
+    List<HidDevice> devices = this.hidDriver.getDevices();
+    for (DriverDartPlugin.Device device : devices) {
+      if (device.isConnected() && StringUtils.startsWith(device.getId().toString(), searchstring))
+        return device; 
+    } 
+    return null;
+  }
+  
+  private boolean isInitialized() {
+    return (this.currentDevice.get() != null && this.currentDevice.get().isConnected());
+  }
+  
+  public void startDeviceListener() {
+    try {
+      this.hidDriver.setHandler(this.dataReceiver);
+      this.hidDriver.initialize();
+    } catch (HardwareInterfaceException ex) {
+      LOGGER.error("HardwareInterfaceException in GTIoTHidAdapter", (Throwable)ex);
+    } 
+  }
+  
+  private void log(byte[] bytes) {
+    LOGGER.trace("TX! Device: {} Data: {}", this.currentDevice, new String(Hex.encodeHex(bytes, false)).replaceAll("(.{2})", "$1 "));
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/service/hiddriverwrapper/impl/HidDeviceConnectionChangedEventPublisher.java
+========================================================================================================================
+package com.gigatronik.beds.service.hiddriverwrapper.impl;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedListener;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executor;
+
+public class HidDeviceConnectionChangedEventPublisher {
+  private final List<HidDeviceConnectionChangedListener> listeners = new ArrayList<>();
+  
+  private final Executor executor;
+  
+  public HidDeviceConnectionChangedEventPublisher(Executor executor) {
+    this.executor = executor;
+  }
+  
+  protected synchronized void addListener(HidDeviceConnectionChangedListener listener) {
+    if (!this.listeners.contains(listener))
+      this.listeners.add(listener); 
+  }
+  
+  protected synchronized void removeListener(HidDeviceConnectionChangedListener listener) {
+    this.listeners.remove(listener);
+  }
+  
+  protected synchronized void publishEvent(HidDeviceConnectionChangedEvent event) {
+    this.listeners.forEach(listener -> this.executor.execute(() -> listener.onHidDeviceConnectionChanged(event)));
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/beds/service/hiddriverwrapper/impl/ScheduledRx.java
+========================================================================================================================
+package com.gigatronik.beds.service.hiddriverwrapper.impl;
+
+import java.util.LinkedList;
+import java.util.Queue;
+
+class ScheduledRx {
+  private Queue<byte[]> inBuffer = new LinkedList<>();
+  
+  synchronized void waitForResponse(long readTimeout) throws InterruptedException {
+    long scheduledTime = System.currentTimeMillis();
+    long remainingWaitingTime = readTimeout;
+    boolean timedOut = false;
+    while (!isResponseAvailable() && !timedOut && remainingWaitingTime > 0L) {
+      wait(remainingWaitingTime);
+      long currentTime = System.currentTimeMillis();
+      timedOut = (currentTime - readTimeout >= scheduledTime);
+      remainingWaitingTime = scheduledTime - currentTime + readTimeout;
+    } 
+  }
+  
+  synchronized boolean isResponseAvailable() {
+    return !this.inBuffer.isEmpty();
+  }
+  
+  synchronized void setResponse(byte[] response) {
+    if (response != null) {
+      this.inBuffer.add(response);
+      notifyAll();
+    } 
+  }
+  
+  synchronized void clearBuffer() {
+    this.inBuffer.clear();
+  }
+  
+  synchronized byte[] getResponse() {
+    if (isResponseAvailable())
+      return this.inBuffer.poll(); 
+    return new byte[0];
+  }
+}
+

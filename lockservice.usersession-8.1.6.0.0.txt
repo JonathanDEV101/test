@@ -1,0 +1,100 @@
+JAR: lockservice.usersession-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\lockservice.usersession-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/bosch/lockserver/usersession/Daemon.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.usersession;
+
+import com.gigatronik.bosch.lockserver.common.AbstractLockService;
+import com.gigatronik.bosch.lockserver.common.winapi.KeyhookNativeInterface;
+import java.rmi.RemoteException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class Daemon {
+  private static final Logger LOGGER = LoggerFactory.getLogger(Daemon.class);
+  
+  public static void main(String[] args) throws Exception {
+    start(args);
+  }
+  
+  public static void stop(String[] args) {
+    try {
+      getService().stop(args);
+    } catch (Exception e) {
+      LOGGER.error("Error stopping service", (Throwable)e);
+      System.exit(1);
+    } 
+  }
+  
+  public static void start(String[] args) {
+    try {
+      getService().start(args);
+    } catch (Exception e) {
+      LOGGER.error("Error starting service", (Throwable)e);
+      System.exit(1);
+    } 
+  }
+  
+  private static AbstractLockService getService() throws RemoteException {
+    return new UserSessionService(new KeyhookNativeInterface());
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/bosch/lockserver/usersession/UserSessionService.java
+========================================================================================================================
+package com.gigatronik.bosch.lockserver.usersession;
+
+import com.gigatronik.bosch.lockserver.common.AbstractLockService;
+import com.gigatronik.bosch.lockserver.common.winapi.KeyhookNativeInterface;
+import java.rmi.RemoteException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class UserSessionService extends AbstractLockService {
+  private static final Logger LOGGER = LoggerFactory.getLogger(UserSessionService.class);
+  
+  private static final long serialVersionUID = -1939313540177930668L;
+  
+  private final transient KeyhookNativeInterface keyhookNativeInterface;
+  
+  public UserSessionService(KeyhookNativeInterface keyhookNativeInterface) throws RemoteException {
+    super("com.gigatronik.dart2.bosch.lockserver.usersession", 60152);
+    this.keyhookNativeInterface = keyhookNativeInterface;
+  }
+  
+  public void setLockState(boolean state) {
+    LOGGER.info("Set lockstate to '{}'", Boolean.valueOf(state));
+    this.keyhookNativeInterface.blockInput(state);
+  }
+  
+  public boolean isInputBlocked() {
+    boolean result = this.keyhookNativeInterface.isInputBlocked();
+    LOGGER.info("Lockstate='{}'", Boolean.valueOf(result));
+    return result;
+  }
+  
+  public void allowKeyEvent(int eventType) {
+    LOGGER.trace("Allow key event '{}'", Integer.valueOf(eventType));
+    this.keyhookNativeInterface.allowKeyEvent(eventType);
+  }
+  
+  public void allowMouseEvent(int eventType, int button) {
+    LOGGER.trace("Allow mouse event '{}', button {}", Integer.valueOf(eventType), Integer.valueOf(button));
+    this.keyhookNativeInterface.allowMouseInput(eventType, button);
+  }
+  
+  public void stop() throws RemoteException {
+    super.stop();
+    LOGGER.debug("Calling System.exit");
+    System.exit(1);
+  }
+  
+  public String getRmiServerName() {
+    return "com.gigatronik.dart2.bosch.lockserver.usersession";
+  }
+}
+

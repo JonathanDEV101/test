@@ -1,0 +1,2197 @@
+JAR: token-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\token-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/bosch/plugin/unitoken/apiwrapper/AbstractKey.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken.apiwrapper;
+
+public abstract class AbstractKey {
+  private final long handle;
+  
+  private final Token token;
+  
+  private final TokenApiAccessManager api;
+  
+  AbstractKey(TokenApiAccessManager api, Token token, long handle) {
+    this.handle = handle;
+    this.token = token;
+    this.api = api;
+  }
+  
+  long getHandle() {
+    return this.handle;
+  }
+  
+  Token getToken() {
+    return this.token;
+  }
+  
+  TokenApiAccessManager getApi() {
+    return this.api;
+  }
+  
+  public abstract byte[] decrypt(byte[] paramArrayOfbyte) throws TokenApiException;
+  
+  public abstract byte[] encrypt(byte[] paramArrayOfbyte) throws TokenApiException;
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/bosch/plugin/unitoken/apiwrapper/AesKey.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken.apiwrapper;
+
+public class AesKey extends AbstractKey {
+  AesKey(TokenApiAccessManager api, Token token, long handle) {
+    super(api, token, handle);
+  }
+  
+  public byte[] decrypt(byte[] encrypted) throws TokenApiException {
+    return getApi().aesDecrypt(getToken(), this, encrypted);
+  }
+  
+  public byte[] encrypt(byte[] plain) throws TokenApiException {
+    return getApi().aesEncrypt(getToken(), this, plain);
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/bosch/plugin/unitoken/apiwrapper/NativeTokenApiWrapper.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken.apiwrapper;
+
+import UniTokenPRO.UniTokenPROObj;
+import com.gigatronik.dart2.framework.util.Version;
+import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+
+class NativeTokenApiWrapper {
+  private static final int UNSIGNED_BYTE_MAX = 256;
+  
+  private final UniTokenPROObj libraryHandle;
+  
+  NativeTokenApiWrapper() {
+    SecurityManager securityManager = System.getSecurityManager();
+    try {
+      System.setSecurityManager(null);
+      this.libraryHandle = new UniTokenPROObj();
+    } finally {
+      System.setSecurityManager(securityManager);
+    } 
+  }
+  
+  void initialize() throws TokenApiException {
+    handleErrors((long)this.libraryHandle.UT__Initialize());
+  }
+  
+  Version getLibraryVersion() {
+    long version = (long)this.libraryHandle.UT__GetLibraryVersion();
+    long major = version / 256L;
+    long minor = version % 256L;
+    return new Version(new Integer[] { (int)major, (int)minor, 0 });
+  }
+  
+  TokenListApiData getTokenList() throws TokenApiException {
+    int bufferSize = 32;
+    long[] slotIdList = new long[32];
+    long[] tokenCount = { 32L };
+    handleErrors((long)this.libraryHandle.UT__GetTokenList(slotIdList, tokenCount));
+    return new TokenListApiData((int)tokenCount[0], slotIdList);
+  }
+  
+  long openDevice(Token token) throws TokenApiException {
+    long[] handle = new long[1];
+    handleErrors((long)this.libraryHandle.UT__OpenDevice(token.getSlotId(), handle));
+    return handle[0];
+  }
+  
+  void logon(Token token, long userLevel, String pin) throws TokenApiException {
+    byte[] paddedPin;
+    try {
+      paddedPin = Arrays.copyOf(pin.getBytes("ISO-8859-1"), 1024);
+    } catch (UnsupportedEncodingException ex) {
+      throw new TokenApiException("Pin cannot be converted", ex);
+    } 
+    handleErrors((long)this.libraryHandle.UT__Logon(token.getHandle(), userLevel, paddedPin));
+  }
+  
+  String getId(Token token) throws TokenApiException {
+    byte[] tokenId = new byte[32];
+    handleErrors((long)this.libraryHandle.UT__GetID(token.getHandle(), tokenId));
+    return new String(tokenId).trim();
+  }
+  
+  long getHardwareId(Token token) throws TokenApiException {
+    long[] hwid = new long[1];
+    handleErrors((long)this.libraryHandle.UT__GetHID(token.getHandle(), hwid));
+    return hwid[0];
+  }
+  
+  long getAesKeyCount(Token token) throws TokenApiException {
+    long[] keyCountPointer = { 0L };
+    handleErrors((long)this.libraryHandle.UT__AESGetKeyCount(token.getHandle(), keyCountPointer));
+    return keyCountPointer[0];
+  }
+  
+  List<Long> getAesKeyHandles(Token token, long keySlot) throws TokenApiException {
+    long keyCount = getAesKeyCount(token);
+    if (keySlot > keyCount)
+      throw new TokenApiException("Given key slot '" + keySlot + "' is out of range. Token '" + token + "' does only contain " + keyCount + " AES keys."); 
+    List<Long> result = new LinkedList<>();
+    long[] keyHandlePointer = new long[1];
+    handleErrors((long)this.libraryHandle.UT__AESGetFirstKeyHandle(token.getHandle(), keyHandlePointer));
+    long keyHandle = keyHandlePointer[0];
+    result.add(Long.valueOf(keyHandle));
+    for (int currentKeySlot = 1; (long)currentKeySlot <= keySlot; currentKeySlot++) {
+      handleErrors((long)this.libraryHandle.UT__AESGetNextKeyHandle(token.getHandle(), keyHandlePointer));
+      keyHandle = keyHandlePointer[0];
+      result.add(Long.valueOf(keyHandle));
+    } 
+    return result;
+  }
+  
+  byte[] aesEncrypt(Token token, AesKey key, byte[] plain) throws TokenApiException {
+    if (plain.length != 16)
+      throw new IllegalArgumentException("Maximum length of plain data is 16 byte"); 
+    byte[] encryptedData = new byte[16];
+    long[] encryptedDataLength = { 0L };
+    handleErrors((long)this.libraryHandle.UT__AESEncrypt(token.getHandle(), key.getHandle(), plain, (long)plain.length, encryptedData, encryptedDataLength));
+    int encryptedLength = (int)encryptedDataLength[0];
+    return Arrays.copyOfRange(encryptedData, 0, encryptedLength);
+  }
+  
+  byte[] aesDecrypt(Token token, AesKey key, byte[] encryptedData) throws TokenApiException {
+    if (encryptedData.length != 16)
+      throw new IllegalArgumentException("Maximum length of encrypted data is 16 byte"); 
+    byte[] decryptedData = new byte[16];
+    long[] decryptedDataLength = { 0L };
+    handleErrors((long)this.libraryHandle.UT__AESDecrypt(token.getHandle(), key.getHandle(), encryptedData, 16L, decryptedData, decryptedDataLength));
+    int decryptedLength = (int)decryptedDataLength[0];
+    return Arrays.copyOfRange(decryptedData, 0, decryptedLength);
+  }
+  
+  byte[] rsaEncrypt(Token token, RsaKey key, byte[] plain) throws TokenApiException {
+    int dataLength = determineDataLengthRsaJob(plain);
+    byte[] encryptedData = new byte[16];
+    long[] encryptedDataLength = { 0L };
+    handleErrors((long)this.libraryHandle.UT__RSAPubKeyEncrypt(token.getHandle(), key.getHandle(), plain, (long)dataLength, encryptedData, encryptedDataLength));
+    int encryptedLength = (int)encryptedDataLength[0];
+    return Arrays.copyOfRange(encryptedData, 0, encryptedLength);
+  }
+  
+  byte[] rsaDecrypt(Token token, RsaKey key, byte[] encryptedData) throws TokenApiException {
+    int dataLength = determineDataLengthRsaJob(encryptedData);
+    byte[] decryptedData = new byte[16];
+    long[] decryptedDataLength = { 0L };
+    handleErrors((long)this.libraryHandle.UT__RSAPriKeyDecrypt(token.getHandle(), key.getHandle(), encryptedData, (long)dataLength, decryptedData, decryptedDataLength));
+    int decryptedLength = (int)decryptedDataLength[0];
+    return Arrays.copyOfRange(decryptedData, 0, decryptedLength);
+  }
+  
+  private int determineDataLengthRsaJob(byte[] encryptedData) {
+    int dataLength;
+    if (encryptedData.length == 128) {
+      dataLength = 128;
+    } else if (encryptedData.length != 256) {
+      dataLength = 256;
+    } else {
+      throw new IllegalArgumentException("Encrypted data has to have a length of either 128 or 256 bytes");
+    } 
+    return dataLength;
+  }
+  
+  void closeDevice(Token token) throws TokenApiException {
+    handleErrors((long)this.libraryHandle.UT__CloseDevice(token.getHandle()));
+  }
+  
+  void logoff(Token token) throws TokenApiException {
+    handleErrors((long)this.libraryHandle.UT__Logoff(token.getHandle()));
+  }
+  
+  void setLed(Token token, boolean on) throws TokenApiException {
+    byte state = on ? 1 : 0;
+    handleErrors((long)this.libraryHandle.UT__LED(token.getHandle(), state));
+  }
+  
+  private void handleErrors(long returnCode) throws TokenApiException {
+    if (returnCode != 0L)
+      throw TokenApiException.fromCode(returnCode); 
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/bosch/plugin/unitoken/apiwrapper/RsaKey.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken.apiwrapper;
+
+public class RsaKey extends AbstractKey {
+  public RsaKey(TokenApiAccessManager api, Token token, long handle) {
+    super(api, token, handle);
+  }
+  
+  public byte[] decrypt(byte[] encrypted) throws TokenApiException {
+    return getApi().rsaDecrypt(getToken(), this, encrypted);
+  }
+  
+  public byte[] encrypt(byte[] plain) throws TokenApiException {
+    return getApi().rsaEncrypt(getToken(), this, plain);
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/bosch/plugin/unitoken/apiwrapper/Token.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken.apiwrapper;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class Token {
+  private final TokenApiAccessManager api;
+  
+  private final long slotId;
+  
+  private Long handle;
+  
+  public Token(TokenApiAccessManager api, long slotId) {
+    this.api = api;
+    this.slotId = slotId;
+  }
+  
+  public void open() throws TokenApiException {
+    this.handle = this.api.openDevice(this);
+  }
+  
+  public void close() throws TokenApiException {
+    this.api.closeDevice(this);
+    this.handle = null;
+  }
+  
+  public void logon(long userLevel, String pin) throws TokenApiException {
+    this.api.logon(this, userLevel, pin);
+  }
+  
+  public void logoff() throws TokenApiException {
+    this.api.logoff(this);
+  }
+  
+  long getSlotId() {
+    return this.slotId;
+  }
+  
+  public String getId() throws TokenApiException {
+    checkOpenend();
+    return this.api.getId(this);
+  }
+  
+  private void checkOpenend() throws TokenApiException {
+    if (this.handle == null)
+      throw new TokenApiException("You need to open the device first"); 
+  }
+  
+  public long getHardwareId() throws TokenApiException {
+    checkOpenend();
+    return this.api.getHardwareId(this);
+  }
+  
+  long getHandle() {
+    return this.handle;
+  }
+  
+  public List<AesKey> getAesKeys() throws TokenApiException {
+    checkOpenend();
+    return createKeyList(this.api.getAesKeyHandles(this));
+  }
+  
+  public AesKey getAesKey(int keySlot) throws TokenApiException {
+    checkOpenend();
+    List<AesKey> keys = createKeyList(this.api.getAesKeyHandles(this, (long)keySlot));
+    if (keys == null || keys.size() < keySlot)
+      throw new TokenApiException("No key available for slot '" + keySlot + "'"); 
+    return keys.get(keys.size() - 1);
+  }
+  
+  private List<AesKey> createKeyList(List<Long> handles) {
+    List<AesKey> result = new ArrayList<>();
+    handles.forEach(element -> result.add(new AesKey(this.api, this, element)));
+    return result;
+  }
+  
+  public void setLedState(boolean on) throws TokenApiException {
+    this.api.setLed(this, on);
+  }
+  
+  public String toString() {
+    return "Token{slotId=" + this.slotId + ", handle=" + this.handle + '}';
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/bosch/plugin/unitoken/apiwrapper/TokenApiAccessManager.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken.apiwrapper;
+
+import com.gigatronik.dart2.framework.util.Version;
+import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class TokenApiAccessManager {
+  private static final Logger LOGGER = LoggerFactory.getLogger(TokenApiAccessManager.class);
+  
+  private static final int DONGLE_DLL_ACCESS_TIMEOUT = 5000;
+  
+  private ScheduledExecutorService executor = createSingleExecutorPool();
+  
+  private AtomicReference<TokenApiException> bufferedException = new AtomicReference<>(null);
+  
+  private AtomicReference<Object> bufferedData = new AtomicReference(null);
+  
+  private NativeTokenApiWrapper api;
+  
+  public TokenApiAccessManager() {
+    this.api = new NativeTokenApiWrapper();
+  }
+  
+  public synchronized void initialize() throws TokenApiException {
+    controlApiAccess(this::initializeAction);
+  }
+  
+  public synchronized Version getLibraryVersion() throws TokenApiException {
+    return controlApiAccessWithResult(this::getLibraryVersionAction, Version.class);
+  }
+  
+  public synchronized TokenListApiData getTokenList() throws TokenApiException {
+    return controlApiAccessWithResult(this::getTokenListAction, TokenListApiData.class);
+  }
+  
+  public synchronized long openDevice(Token token) throws TokenApiException {
+    return controlApiAccessWithResult(() -> openDeviceAction(token), Long.class);
+  }
+  
+  public synchronized void logon(Token token, long userLevel, String pin) throws TokenApiException {
+    controlApiAccess(() -> logonAction(token, userLevel, pin));
+  }
+  
+  public synchronized String getId(Token token) throws TokenApiException {
+    return controlApiAccessWithResult(() -> getIdAction(token), String.class);
+  }
+  
+  public synchronized long getHardwareId(Token token) throws TokenApiException {
+    return controlApiAccessWithResult(() -> getHardwareIdAction(token), Long.class);
+  }
+  
+  public synchronized long getAesKeyCount(Token token) throws TokenApiException {
+    return controlApiAccessWithResult(() -> getAesKeyCountAction(token), Long.class);
+  }
+  
+  public synchronized List<Long> getAesKeyHandles(Token token) throws TokenApiException {
+    return getAesKeyHandles(token, getAesKeyCount(token));
+  }
+  
+  public synchronized List<Long> getAesKeyHandles(Token token, long keySlot) throws TokenApiException {
+    return controlApiAccessWithResult(() -> getAesKeyHandlesAction(token, keySlot), List.class);
+  }
+  
+  public synchronized byte[] aesEncrypt(Token token, AesKey key, byte[] plain) throws TokenApiException {
+    return controlApiAccessWithResult(() -> aesEncryptAction(token, key, plain), byte[].class);
+  }
+  
+  public synchronized byte[] aesDecrypt(Token token, AesKey key, byte[] encryptedData) throws TokenApiException {
+    return controlApiAccessWithResult(() -> aesDecryptAction(token, key, encryptedData), byte[].class);
+  }
+  
+  public synchronized byte[] rsaEncrypt(Token token, RsaKey key, byte[] plain) throws TokenApiException {
+    return controlApiAccessWithResult(() -> rsaEncryptAction(token, key, plain), byte[].class);
+  }
+  
+  public synchronized byte[] rsaDecrypt(Token token, RsaKey key, byte[] encryptedData) throws TokenApiException {
+    return controlApiAccessWithResult(() -> rsaDecryptAction(token, key, encryptedData), byte[].class);
+  }
+  
+  public synchronized void closeDevice(Token token) throws TokenApiException {
+    controlApiAccess(() -> closeDeviceAction(token));
+  }
+  
+  public synchronized void logoff(Token token) throws TokenApiException {
+    controlApiAccess(() -> logoffAction(token));
+  }
+  
+  public synchronized void setLed(Token token, boolean on) throws TokenApiException {
+    controlApiAccess(() -> setLedAction(token, on));
+  }
+  
+  private void initializeAction() {
+    LOGGER.trace("Dongle DLL access: initialize()");
+    try {
+      this.api.initialize();
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void getLibraryVersionAction() {
+    LOGGER.trace("Dongle DLL access: getLibraryVersion()");
+    bufferData(this.api.getLibraryVersion());
+  }
+  
+  private void getTokenListAction() {
+    LOGGER.trace("Dongle DLL access: getTokenList()");
+    try {
+      bufferData(this.api.getTokenList());
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void openDeviceAction(Token token) {
+    LOGGER.trace("Dongle DLL access: openDevice()");
+    try {
+      bufferData(Long.valueOf(this.api.openDevice(token)));
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void logonAction(Token token, long userLevel, String pin) {
+    LOGGER.trace("Dongle DLL access: logon()");
+    try {
+      this.api.logon(token, userLevel, pin);
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void getIdAction(Token token) {
+    LOGGER.trace("Dongle DLL access: getId()");
+    try {
+      bufferData(this.api.getId(token));
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void getHardwareIdAction(Token token) {
+    LOGGER.trace("Dongle DLL access: getHardwareId()");
+    try {
+      bufferData(Long.valueOf(this.api.getHardwareId(token)));
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void getAesKeyCountAction(Token token) {
+    LOGGER.trace("Dongle DLL access: getAesKeyCount()");
+    try {
+      bufferData(Long.valueOf(this.api.getAesKeyCount(token)));
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void getAesKeyHandlesAction(Token token, long keySlot) {
+    LOGGER.trace("Dongle DLL access: getAesKeyHandles()");
+    try {
+      bufferData(this.api.getAesKeyHandles(token, keySlot));
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void aesEncryptAction(Token token, AesKey key, byte[] plain) {
+    LOGGER.trace("Dongle DLL access: aesEncrypt()");
+    try {
+      bufferData(this.api.aesEncrypt(token, key, plain));
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void aesDecryptAction(Token token, AesKey key, byte[] encryptedData) {
+    LOGGER.trace("Dongle DLL access: aesDecrypt()");
+    try {
+      bufferData(this.api.aesDecrypt(token, key, encryptedData));
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void rsaEncryptAction(Token token, RsaKey key, byte[] plain) {
+    LOGGER.trace("Dongle DLL access: rsaEncrypt()");
+    try {
+      bufferData(this.api.rsaEncrypt(token, key, plain));
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void rsaDecryptAction(Token token, RsaKey key, byte[] encryptedData) {
+    LOGGER.trace("Dongle DLL access: rsaDecrypt()");
+    try {
+      bufferData(this.api.rsaDecrypt(token, key, encryptedData));
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void closeDeviceAction(Token token) {
+    LOGGER.trace("Dongle DLL access: closeDevice()");
+    try {
+      this.api.closeDevice(token);
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void logoffAction(Token token) {
+    LOGGER.trace("Dongle DLL access: logoff()");
+    try {
+      this.api.logoff(token);
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private void setLedAction(Token token, boolean on) {
+    LOGGER.trace("Dongle DLL access: setLed()");
+    try {
+      this.api.setLed(token, on);
+    } catch (TokenApiException ex) {
+      bufferException(ex);
+    } 
+  }
+  
+  private <T> T controlApiAccessWithResult(Runnable job, Class<T> resultType) throws TokenApiException {
+    controlApiAccess(job);
+    Object data = this.bufferedData.get();
+    if (data == null)
+      throw new TokenApiException("Requested data's not available"); 
+    if (resultType.isAssignableFrom(data.getClass()))
+      return (T)data; 
+    throw new TokenApiException("Data from dongle could not be parsed to required type");
+  }
+  
+  private void controlApiAccess(Runnable job) throws TokenApiException {
+    try {
+      clearBufferedContent();
+      this.executor.submit(job).get(5000L, TimeUnit.MILLISECONDS);
+      processBufferedException();
+    } catch (InterruptedException|java.util.concurrent.ExecutionException ex) {
+      onApiAccessFailure("Failed to access dongle DLL!");
+    } catch (TimeoutException ex) {
+      onApiAccessFailure("Timeout while accessing dongle DLL!");
+    } 
+  }
+  
+  private void clearBufferedContent() {
+    bufferException(null);
+    bufferData(null);
+  }
+  
+  private void bufferData(Object data) {
+    this.bufferedData.set(data);
+  }
+  
+  private void bufferException(TokenApiException ex) {
+    this.bufferedException.set(ex);
+  }
+  
+  private void processBufferedException() throws TokenApiException {
+    if (this.bufferedException.get() != null)
+      onApiAccessFailure(this.bufferedException.get()); 
+  }
+  
+  private void onApiAccessFailure(TokenApiException ex) throws TokenApiException {
+    onApiAccessFailure();
+    throw ex;
+  }
+  
+  private void onApiAccessFailure(String message) throws TokenApiException {
+    onApiAccessFailure();
+    throw new TokenApiException(message);
+  }
+  
+  private void onApiAccessFailure() {
+    this.executor.shutdownNow();
+    this.executor = createSingleExecutorPool();
+  }
+  
+  private ScheduledThreadPoolExecutor createSingleExecutorPool() {
+    return new ScheduledThreadPoolExecutor(1, new BasicThreadFactory.Builder()
+        .priority(10).namingPattern("DongleApiAccessor-%d").build());
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/bosch/plugin/unitoken/apiwrapper/TokenApiException.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken.apiwrapper;
+
+import com.gigatronik.dart2.framework.util.i18n.Utf8ResourceBundle;
+import java.util.Locale;
+import java.util.MissingResourceException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class TokenApiException extends Exception {
+  private static final long serialVersionUID = 1468160089000881232L;
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(TokenApiException.class);
+  
+  private long errorCode = 0L;
+  
+  public TokenApiException(String message, Throwable cause) {
+    super(message, cause);
+  }
+  
+  public TokenApiException(String message) {
+    super(message);
+  }
+  
+  public TokenApiException(String message, long apiErrorCode) {
+    super(message);
+    this.errorCode = apiErrorCode;
+  }
+  
+  public long getErrorCode() {
+    return this.errorCode;
+  }
+  
+  public static TokenApiException fromCode(long apiCode) {
+    String translated;
+    Utf8ResourceBundle utf8ResourceBundle = new Utf8ResourceBundle("com/gigatronik/bosch/plugin/unitoken/apiwrapper/TokenApiErrorCodes", Locale.ROOT);
+    String key = String.format("token.returncode.0x%08X", apiCode & 0xFFFFL);
+    try {
+      translated = utf8ResourceBundle.getString(key);
+    } catch (MissingResourceException e) {
+      translated = "Unknwon error code";
+      LOGGER.error("Unknwon error code of token API", (Throwable)e);
+    } 
+    return new TokenApiException(String.format("Token API returned error: %s (0x%08X)", translated, apiCode & 0xFFFFL), apiCode);
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/bosch/plugin/unitoken/apiwrapper/TokenListApiData.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken.apiwrapper;
+
+public class TokenListApiData {
+  private final int connectedTokenCount;
+  
+  private final long[] slotIdList;
+  
+  public TokenListApiData(int connectedTokenCount, long[] slotIdList) {
+    this.connectedTokenCount = connectedTokenCount;
+    this.slotIdList = slotIdList;
+  }
+  
+  public int getConnectedTokenCount() {
+    return this.connectedTokenCount;
+  }
+  
+  public long[] getSlotIdList() {
+    return this.slotIdList;
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/bosch/plugin/unitoken/crypto/CryptoConstants.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken.crypto;
+
+public class CryptoConstants {
+  private static final String C_INSTANCE_5 = "AES/CBC/PKCS5Padding";
+  
+  private static final String C_INSTANCE_0 = "AES/ECB/NoPadding";
+  
+  private static final String K_INSTANCE_RSA = "RSA";
+  
+  private static final String K_INSTANCE_AES = "AES";
+  
+  private static final String S_INSTANCE_SHA256_RSA = "SHA256withRSA";
+  
+  public static String getcInstance5() {
+    return "AES/CBC/PKCS5Padding";
+  }
+  
+  public static String getcInstance0() {
+    return "AES/ECB/NoPadding";
+  }
+  
+  public static String getkInstanceRsa() {
+    return "RSA";
+  }
+  
+  public static String getkInstanceAes() {
+    return "AES";
+  }
+  
+  public static String getsInstanceSha256Rsa() {
+    return "SHA256withRSA";
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/bosch/plugin/unitoken/crypto/CryptoHelper.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken.crypto;
+
+import java.util.zip.CRC32;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import javax.xml.bind.DatatypeConverter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class CryptoHelper {
+  private static final Logger LOGGER = LoggerFactory.getLogger(CryptoHelper.class);
+  
+  public static byte[] decrypt(String data, String iv, String checksum, SecretKeySpec skeySpec, String cInstance) {
+    byte[] byteData = DatatypeConverter.parseBase64Binary(data);
+    return decrypt(byteData, iv, checksum, skeySpec, cInstance);
+  }
+  
+  public static byte[] decrypt(byte[] byteData, String iv, String checksum, SecretKeySpec skeySpec, String cInstance) {
+    LOGGER.debug("Decrypt data...");
+    byte[] keyIv = DatatypeConverter.parseBase64Binary(iv);
+    IvParameterSpec ivParameterSpec = new IvParameterSpec(keyIv);
+    byte[] decrypted = crypt(2, skeySpec, ivParameterSpec, byteData, cInstance);
+    if (decrypted != null) {
+      if (checksum == null)
+        return decrypted; 
+      CRC32 crc32 = new CRC32();
+      crc32.update(decrypted, 0, decrypted.length);
+      String sHash = "0x" + Long.toHexString(crc32.getValue());
+      if (sHash.compareTo(checksum) == 0)
+        return decrypted; 
+      LOGGER.error("CHECKSUM ERROR!");
+    } 
+    return null;
+  }
+  
+  public static String encrypt(byte[] byteData, String iv, SecretKeySpec skeySpec, String cInstance) {
+    LOGGER.debug("Encrypt data...");
+    byte[] keyIv = DatatypeConverter.parseBase64Binary(iv);
+    IvParameterSpec ivParameterSpec = new IvParameterSpec(keyIv);
+    byte[] encrypted = crypt(1, skeySpec, ivParameterSpec, byteData, cInstance);
+    return DatatypeConverter.printBase64Binary(encrypted);
+  }
+  
+  private static byte[] crypt(int mode, SecretKeySpec skeySpec, IvParameterSpec ivParameterSpec, byte[] byteData, String cInstance) {
+    try {
+      Cipher cipher = Cipher.getInstance(cInstance);
+      cipher.init(mode, skeySpec, ivParameterSpec);
+      return cipher.doFinal(byteData);
+    } catch (Exception e) {
+      LOGGER.error("Error occured while crypting", (Throwable)e);
+      return null;
+    } 
+  }
+  
+  public static byte[] crEncrypt(byte[] encrypt, SecretKeySpec skeySpec, String cInstance) {
+    LOGGER.debug("Encrypt data...");
+    return crCrypt(1, skeySpec, encrypt, cInstance);
+  }
+  
+  private static byte[] crCrypt(int mode, SecretKeySpec skeySpec, byte[] byteData, String cInstance) {
+    try {
+      Cipher cipher = Cipher.getInstance(cInstance);
+      cipher.init(mode, skeySpec);
+      return cipher.doFinal(byteData);
+    } catch (Exception e) {
+      LOGGER.error("Error occured while crypting" + e);
+      return null;
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/bosch/plugin/unitoken/crypto/CryptoInfo.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken.crypto;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import javax.xml.bind.DatatypeConverter;
+
+public class CryptoInfo {
+  private static final byte[] skey = new byte[] { 
+      87, 36, -61, -122, -16, -23, 53, -35, 115, 50, 
+      -60, 38, 126, 114, 28, -90 };
+  
+  private static final byte[] pkcs8 = new byte[] { 
+      48, -126, 2, 120, 2, 1, 0, 48, 13, 6, 
+      9, 42, -122, 72, -122, -9, 13, 1, 1, 1, 
+      5, 0, 4, -126, 2, 98, 48, -126, 2, 94, 
+      2, 1, 0, 2, -127, -127, 0, -50, 75, -18, 
+      -124, -32, -75, -90, 46, 42, 36, -72, 68, 86, 
+      -111, -111, 77, -118, 30, 11, 5, -58, -44, 18, 
+      -56, 90, 101, -105, 28, 92, 59, 111, 20, 15, 
+      Byte.MAX_VALUE, 31, 116, 91, 7, 73, 7, 78, -76, 56, 
+      -88, 26, -45, 97, 35, 19, -73, 95, 91, 123, 
+      111, 108, -94, -65, -14, 111, -50, -39, 83, -55, 
+      107, 27, -45, 90, -124, 123, 11, -79, 12, 82, 
+      107, -63, 60, 101, -65, 101, 18, -76, -21, 107, 
+      42, 119, -7, -17, 32, 48, -74, -39, 71, 83, 
+      93, -6, 3, -88, 84, -97, -119, 51, -13, -41, 
+      9, 96, -12, -30, -28, -31, 58, -99, -97, -78, 
+      -95, -67, 122, 17, 90, 79, 29, -3, 55, -67, 
+      -47, -9, -66, -2, -29, 2, 3, 1, 0, 1, 
+      2, -127, Byte.MIN_VALUE, 64, -73, 35, 64, -3, -7, 30, 
+      3, -105, 102, -29, -125, 84, -96, -33, -77, 50, 
+      99, -48, 83, 100, -105, 60, -71, 43, 90, 121, 
+      56, 5, 91, 3, -78, -120, 85, -7, -71, 23, 
+      -95, 70, 112, -117, 105, 15, -24, -12, 89, 97, 
+      60, -114, -65, -44, -93, 47, 42, -70, 42, -88, 
+      10, 86, -74, -50, 8, 113, -61, -98, 9, -94, 
+      73, 58, 16, -24, -72, -93, 76, -45, -28, -93, 
+      -107, -108, 69, -21, -26, -59, -105, -115, -41, 18, 
+      76, -73, 39, 7, 1, -57, -52, -69, 84, 21, 
+      99, -17, 69, -108, 124, 25, 14, 5, -106, 51, 
+      48, 66, -17, -65, 126, -115, -91, -103, 37, -38, 
+      -83, -27, 31, 56, 19, -96, 67, -108, -119, -90, 
+      -55, 2, 65, 0, -2, -80, 88, 65, -34, 67, 
+      -109, 68, -6, -109, 108, -97, -8, 15, 13, -80, 
+      -58, -48, 28, 29, -114, 80, -81, 94, -97, -124, 
+      -19, 77, -43, -8, 51, 53, 67, -108, 3, 46, 
+      48, 111, 84, 104, -11, 0, 33, -127, -117, 87, 
+      53, 123, -62, 86, -113, 64, -70, -108, -76, 109, 
+      Byte.MIN_VALUE, -97, 121, -39, -109, 38, -53, -105, 2, 65, 
+      0, -49, 91, -49, -120, 89, -4, -41, 49, -79, 
+      -12, 66, 3, -78, -5, 55, Byte.MAX_VALUE, -48, 9, -5, 
+      97, -79, 91, -91, -118, -119, 74, -116, -66, -117, 
+      108, -81, -110, -70, 44, 51, 49, 55, 44, 33, 
+      -58, 20, -74, -1, 24, 31, -62, 109, -70, 65, 
+      -51, 103, -30, 39, 5, -113, 94, Byte.MIN_VALUE, 30, -31, 
+      38, 30, 121, Byte.MIN_VALUE, -107, 2, 65, 0, -69, -54, 
+      -59, 88, -44, 13, 25, -110, -69, -4, 102, 20, 
+      -47, -16, 47, -107, 16, 19, 53, 23, -23, -18, 
+      -66, 80, 83, -24, -52, -99, 30, -49, 34, -38, 
+      -4, 88, 47, -68, 40, 4, 126, -59, -31, 24, 
+      -42, -101, -47, 101, 93, 79, 66, -83, 86, 117, 
+      80, -34, 2, -25, -42, -10, 63, -1, 88, -52, 
+      59, 67, 2, 65, 0, -92, -44, 7, 73, 12, 
+      -73, 22, 92, 19, 103, -27, 29, -55, -91, 53, 
+      -3, -84, 98, 114, -25, -70, 50, -18, -119, 12, 
+      15, 45, -121, -67, -114, -100, -107, -42, -43, -111, 
+      -81, -38, 122, -125, 50, 80, Byte.MAX_VALUE, 18, -111, -101, 
+      -107, 82, -31, -50, -78, -73, -108, 38, -114, -99, 
+      -29, 113, -106, -102, 68, 81, -49, 37, 109, 2, 
+      65, 0, -20, -82, -67, 51, 75, 77, -46, -7, 
+      -63, -3, 10, Byte.MAX_VALUE, 90, -18, -107, 108, -50, -22, 
+      -68, -11, 37, 3, 24, 115, -2, 71, 25, -65, 
+      52, 23, 67, 118, -51, -85, -45, 88, 86, -89, 
+      -12, -91, -92, -89, 7, 111, -96, 64, 120, -83, 
+      -113, 51, 61, -103, 6, 103, -14, -97, 118, -53, 
+      -44, -34, 89, 59, -48, -36 };
+  
+  private static final byte[] x509 = new byte[] { 
+      48, -127, -97, 48, 13, 6, 9, 42, -122, 72, 
+      -122, -9, 13, 1, 1, 1, 5, 0, 3, -127, 
+      -115, 0, 48, -127, -119, 2, -127, -127, 0, -74, 
+      -102, -104, 86, -56, 55, 79, 28, -54, 55, -86, 
+      7, -113, 21, 2, 45, 116, 102, 57, 72, 7, 
+      -22, 41, -100, 72, 3, -15, 116, -112, 23, 41, 
+      -90, -100, 86, -25, -31, 4, 85, -98, -61, 95, 
+      101, -48, -46, -1, 101, 78, -62, 32, -114, 55, 
+      -110, 72, -125, -95, 50, 126, 90, -99, -21, 44, 
+      -69, 3, -34, -74, 44, -4, 10, -53, -108, -34, 
+      -79, 17, 28, 13, 37, 47, 8, -18, 80, 100, 
+      -121, 52, 81, 100, -7, 114, -44, -72, 70, 19, 
+      51, 4, -87, 22, 23, -69, 28, -66, -14, 120, 
+      122, -83, 109, 16, -76, -71, 104, 68, 108, 90, 
+      -84, 8, -38, 65, -49, -14, -74, -40, 36, -90, 
+      88, 15, -12, -111, 69, 97, -53, 2, 3, 1, 
+      0, 1 };
+  
+  public static SecretKeySpec getSkey() {
+    return new SecretKeySpec(skey, CryptoConstants.getkInstanceAes());
+  }
+  
+  public static PKCS8EncodedKeySpec getPkcs8() {
+    return new PKCS8EncodedKeySpec(pkcs8);
+  }
+  
+  public static X509EncodedKeySpec getX509() {
+    return new X509EncodedKeySpec(x509);
+  }
+  
+  public static String getCheckString(String data) {
+    int idx1 = data.indexOf("<ebike");
+    int idx2 = data.indexOf("</ebike>");
+    String sbString1 = data.substring(idx1, idx2);
+    int idx3 = sbString1.indexOf('>');
+    return sbString1.substring(idx3 + 1);
+  }
+  
+  public static String decryptFile(String directory, String file, String iv, SecretKeySpec skeySpec, String cInstance) throws NoSuchAlgorithmException, NoSuchPaddingException, IOException, InvalidKeyException, InvalidAlgorithmParameterException {
+    String output = directory + File.separator + "decrypted" + file;
+    byte[] keyIv = DatatypeConverter.parseBase64Binary(iv);
+    IvParameterSpec ivParameterSpec = new IvParameterSpec(keyIv);
+    Cipher cipher = Cipher.getInstance(cInstance);
+    cipher.init(2, skeySpec, ivParameterSpec);
+    FileInputStream fileInputStream = new FileInputStream(new File(directory + System.getProperty("file.separator") + file));
+    try(InputStream cipherInputStream = new CipherInputStream(fileInputStream, cipher); 
+        OutputStream fileOutputStream = new FileOutputStream(new File(output))) {
+      byte[] bytes = new byte[1024];
+      int numBytes;
+      while ((numBytes = cipherInputStream.read(bytes)) != -1)
+        fileOutputStream.write(bytes, 0, numBytes); 
+      fileOutputStream.flush();
+    } 
+    return output;
+  }
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/bosch/plugin/unitoken/crypto/SignatureHelper.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken.crypto;
+
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.Signature;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.HashMap;
+import java.util.Map;
+import javax.xml.bind.DatatypeConverter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class SignatureHelper {
+  private static final Logger LOGGER = LoggerFactory.getLogger(SignatureHelper.class);
+  
+  public Map<String, String> createRsaSignature(String content, PKCS8EncodedKeySpec pkcs8) {
+    LOGGER.info("Create signature...");
+    byte[] salt = SecureRandom.getSeed(16);
+    byte[] test = content.getBytes();
+    try {
+      PrivateKey privateKey = KeyFactory.getInstance(CryptoConstants.getkInstanceRsa()).generatePrivate(pkcs8);
+      Signature signature = Signature.getInstance(CryptoConstants.getsInstanceSha256Rsa());
+      signature.initSign(privateKey);
+      signature.update(salt);
+      signature.update(test);
+      byte[] cipherData = signature.sign();
+      Map<String, String> map = new HashMap<>();
+      map.put("Salt", DatatypeConverter.printBase64Binary(salt));
+      map.put("Value", DatatypeConverter.printBase64Binary(cipherData));
+      LOGGER.info("...signature created");
+      return map;
+    } catch (Exception e) {
+      LOGGER.error("Error occured while creating signature", (Throwable)e);
+      return null;
+    } 
+  }
+  
+  public boolean checkRsaSignature(String content, String saltString, String signatureValue, X509EncodedKeySpec x509) {
+    LOGGER.info("Check signature...");
+    try {
+      PublicKey publicKey = KeyFactory.getInstance(CryptoConstants.getkInstanceRsa()).generatePublic(x509);
+      byte[] test = content.getBytes("utf-8");
+      byte[] salt = DatatypeConverter.parseBase64Binary(saltString);
+      Signature signature = Signature.getInstance(CryptoConstants.getsInstanceSha256Rsa());
+      signature.initVerify(publicKey);
+      signature.update(salt);
+      signature.update(test);
+      Boolean sigOK = signature.verify(DatatypeConverter.parseBase64Binary(signatureValue));
+      if (sigOK) {
+        LOGGER.info("...signature OK");
+      } else {
+        LOGGER.warn("Signature NOT OK!");
+      } 
+      return sigOK;
+    } catch (Exception e) {
+      LOGGER.error("Error occured while checking signature", (Throwable)e);
+      return false;
+    } 
+  }
+  
+  public boolean checkRsaSignature(byte[] byteContent, String saltString, String signatureValue, X509EncodedKeySpec x509) {
+    LOGGER.info("Check signature..");
+    try {
+      PublicKey publicKey = KeyFactory.getInstance(CryptoConstants.getkInstanceRsa()).generatePublic(x509);
+      byte[] salt = DatatypeConverter.parseBase64Binary(saltString);
+      Signature signature = Signature.getInstance(CryptoConstants.getsInstanceSha256Rsa());
+      signature.initVerify(publicKey);
+      signature.update(salt);
+      signature.update(byteContent);
+      boolean sigOK = signature.verify(DatatypeConverter.parseBase64Binary(signatureValue));
+      if (sigOK) {
+        LOGGER.info("..signature OK");
+      } else {
+        LOGGER.warn("Signature NOT OK!");
+      } 
+      return sigOK;
+    } catch (NoSuchAlgorithmException|java.security.spec.InvalidKeySpecException|java.security.InvalidKeyException|java.security.SignatureException e) {
+      LOGGER.error("Error occured while checking signature", (Throwable)e);
+      return false;
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/bosch/plugin/unitoken/TokenDelegate.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken;
+
+import com.gigatronik.bosch.plugin.unitoken.apiwrapper.AbstractKey;
+import com.gigatronik.bosch.plugin.unitoken.apiwrapper.Token;
+import com.gigatronik.bosch.plugin.unitoken.apiwrapper.TokenApiAccessManager;
+import com.gigatronik.bosch.plugin.unitoken.apiwrapper.TokenApiException;
+import com.gigatronik.bosch.plugin.unitoken.apiwrapper.TokenListApiData;
+import com.gigatronik.bosch.plugin.unitoken.crypto.CryptoConstants;
+import com.gigatronik.bosch.plugin.unitoken.crypto.CryptoHelper;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.crypto.spec.SecretKeySpec;
+import org.apache.commons.lang3.RandomUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class TokenDelegate {
+  private static final Logger LOGGER = LoggerFactory.getLogger(TokenDelegate.class);
+  
+  private static final byte[] OEM_AES_KEY = new byte[] { 
+      65, 58, 69, -104, 79, 25, -16, 77, -7, -33, 
+      8, -34, -16, -2, -126, -12 };
+  
+  private static final byte[] IBD_AES_KEY = new byte[] { 
+      -89, 113, -58, 74, -40, 35, -126, -67, -111, 8, 
+      82, 19, 63, 34, 27, -93 };
+  
+  private static final byte[] BYTE_ARRAY_FOR_ENCRYPTION = new byte[] { 
+      92, -46, 89, -10, -81, 123, 61, -121, 6, 2, 
+      -94, 91, 120, 124, -9, -96 };
+  
+  private static final byte[] BOSCH_ENCRYPTED_BYTES = new byte[] { 
+      -32, -47, -8, 72, -72, -41, -113, 20, 92, 92, 
+      -107, 23, 56, -13, -90, 73 };
+  
+  private static final int KEYSLOT_USERLEVEL = 2;
+  
+  private static final int TOKENSLOT_TO_USE = 0;
+  
+  private static final int TOKEN_USER_LEVEL = 1;
+  
+  private static final String TOKEN_USER_PIN = "JxmjijHKK:f,-SZGCum,8shWwoOmP1lr}nQw-Ek]5vd52}.]HKBNWzKMgnqJWa>(-1IqgsNqq)zn-[k§4yUX<:[Q$/)CEw>XquYiLyGKr{iB%;ZvK0!LAy$F,GzoBI";
+  
+  private final TokenApiAccessManager tokenApi;
+  
+  private final AtomicReference<Token> tokenHolder = new AtomicReference<>();
+  
+  TokenDelegate() {
+    this.tokenApi = new TokenApiAccessManager();
+  }
+  
+  void initializeLibrary() throws TokenApiException {
+    this.tokenApi.initialize();
+    LOGGER.debug("Using dongle library version: '{}'", this.tokenApi.getLibraryVersion());
+  }
+  
+  boolean isDongleConnected() {
+    return (this.tokenHolder.get() != null);
+  }
+  
+  void disconnectFromDongle() throws TokenException {
+    try {
+      Token token = this.tokenHolder.getAndSet(null);
+      token.close();
+    } catch (TokenApiException ex) {
+      throw new TokenException("Error closing token", ex);
+    } 
+  }
+  
+  UserLevel getUserLevel() throws TokenException {
+    throwExceptionIfNoDongleIsConnected();
+    LOGGER.debug("Determine user level");
+    try {
+      AbstractKey aesKey = this.tokenHolder.get().getAesKey(2);
+      if (aesKey != null) {
+        byte[] randomBytes = RandomUtils.nextBytes(16);
+        byte[] encryptedActual = aesKey.encrypt(randomBytes);
+        byte[] boschEncryptedActual = aesKey.encrypt(BYTE_ARRAY_FOR_ENCRYPTION);
+        byte[] expectedIbd = encryptLocal(randomBytes, IBD_AES_KEY);
+        byte[] expectedOem = encryptLocal(randomBytes, OEM_AES_KEY);
+        if (Arrays.equals(expectedIbd, encryptedActual))
+          return UserLevel.IBD; 
+        if (Arrays.equals(expectedOem, encryptedActual))
+          return UserLevel.OEM; 
+        if (Arrays.equals(boschEncryptedActual, BOSCH_ENCRYPTED_BYTES))
+          return UserLevel.BOSCH; 
+      } 
+      return null;
+    } catch (TokenApiException ex) {
+      throw new TokenException("Error determining user level", ex);
+    } 
+  }
+  
+  private byte[] encryptLocal(byte[] plainData, byte[] key) {
+    return CryptoHelper.crEncrypt(plainData, new SecretKeySpec(key, "AES"), CryptoConstants.getcInstance0());
+  }
+  
+  String getId() throws TokenException {
+    throwExceptionIfNoDongleIsConnected();
+    try {
+      return Long.toString(this.tokenHolder.get().getHardwareId());
+    } catch (TokenApiException ex) {
+      throw new TokenException("Unable to read hardware id", ex);
+    } 
+  }
+  
+  void initialize() throws TokenException {
+    try {
+      List<Token> tokens = createTokens(this.tokenApi.getTokenList());
+      if (tokens != null && tokens.size() >= 0) {
+        Token token = tokens.get(0);
+        token.open();
+        token.logon(1L, "JxmjijHKK:f,-SZGCum,8shWwoOmP1lr}nQw-Ek]5vd52}.]HKBNWzKMgnqJWa>(-1IqgsNqq)zn-[k§4yUX<:[Q$/)CEw>XquYiLyGKr{iB%;ZvK0!LAy$F,GzoBI");
+        this.tokenHolder.set(token);
+      } else {
+        throw new TokenException("No token available");
+      } 
+    } catch (TokenApiException ex) {
+      throw new TokenException("Error getting token", ex);
+    } 
+  }
+  
+  private List<Token> createTokens(TokenListApiData data) {
+    List<Token> result = new LinkedList<>();
+    for (int i = 0; i < data.getConnectedTokenCount(); i++) {
+      Token token = new Token(this.tokenApi, data.getSlotIdList()[i]);
+      result.add(token);
+    } 
+    return result;
+  }
+  
+  Object encrypt(String algorithm, Object data, Map<String, Object> properties) throws TokenException {
+    throwExceptionIfNoDongleIsConnected();
+    int keySlot = (Integer)properties.getOrDefault("key slot", Integer.valueOf(Integer.MIN_VALUE));
+    if (keySlot == Integer.MIN_VALUE)
+      throw new IllegalArgumentException("Keyslot is not set in properties"); 
+    if (StringUtils.equals(algorithm, "aes"))
+      try {
+        return this.tokenHolder.get().getAesKey(keySlot).encrypt((byte[])data);
+      } catch (TokenApiException ex) {
+        throw new TokenException("Unable to encrypt data", ex);
+      }  
+    if (StringUtils.equals(algorithm, "rsa"))
+      throw new UnsupportedOperationException("RSA not supported yet"); 
+    throw new UnsupportedOperationException("Algorithm '" + algorithm + "' not supported");
+  }
+  
+  Object decrypt(String algorithm, Object data, Map<String, Object> properties) throws TokenException {
+    throwExceptionIfNoDongleIsConnected();
+    int keySlot = (Integer)properties.getOrDefault("key slot", Integer.valueOf(Integer.MIN_VALUE));
+    if (keySlot == Integer.MIN_VALUE)
+      throw new IllegalArgumentException("Keyslot is not set in properties"); 
+    if (StringUtils.equals(algorithm, "aes"))
+      try {
+        return this.tokenHolder.get().getAesKey(keySlot).decrypt((byte[])data);
+      } catch (TokenApiException ex) {
+        throw new TokenException("Unable to decrypt data", ex);
+      }  
+    if (StringUtils.equals(algorithm, "rsa"))
+      throw new UnsupportedOperationException("RSA not supported yet"); 
+    throw new UnsupportedOperationException("Algorithm '" + algorithm + "' not supported");
+  }
+  
+  private void throwExceptionIfNoDongleIsConnected() throws TokenException {
+    if (!isDongleConnected())
+      throw new TokenException("Dongle interaction requested, but no dongle connected!"); 
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/bosch/plugin/unitoken/TokenException.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken;
+
+public class TokenException extends Exception {
+  private static final long serialVersionUID = 2794625304873746190L;
+  
+  public TokenException(String message) {
+    super(message);
+  }
+  
+  public TokenException(String message, Throwable cause) {
+    super(message, cause);
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/bosch/plugin/unitoken/TokenFakeIBD.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken;
+
+import com.gigatronik.dart2.framework.plugins.exceptions.TokenInitializationException;
+import com.gigatronik.dart2.framework.plugins.interfaces.Microservice;
+import com.gigatronik.dart2.framework.plugins.interfaces.TokenDartPlugin;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+import javax.xml.bind.DatatypeConverter;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class TokenFakeIBD implements TokenDartPlugin {
+  private static final UUID PLUGIN_ID = UUID.fromString("5bdf947d-1d08-4e7b-bffb-965183c46b98");
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(TokenPluginLocal.class);
+  
+  private boolean tokenInitialized = false;
+  
+  public void initialize() throws TokenInitializationException {
+    try {
+      initializeDongle();
+    } catch (TokenException e) {
+      throw new TokenInitializationException("Failed to initialize dongle", e);
+    } 
+  }
+  
+  private void initializeDongle() throws TokenException {
+    LOGGER.trace("Initialize dongle ...");
+    if (this.tokenInitialized)
+      throw new TokenException("initialize already called"); 
+    this.tokenInitialized = true;
+    LOGGER.trace("... initializing dongle finished");
+  }
+  
+  public void uninitialize() throws TokenInitializationException {
+    try {
+      uninitializeDongle();
+    } catch (TokenException e) {
+      throw new TokenInitializationException("Failed to uninitialize dongle", e);
+    } 
+  }
+  
+  private void uninitializeDongle() throws TokenException {
+    LOGGER.trace("Uninitialize dongle ...");
+    LOGGER.trace("... uninitialized dongle finished");
+  }
+  
+  public boolean isDongleAvailable() {
+    boolean bool = this.tokenInitialized;
+    LOGGER.debug("Dongle connected check returns {}", Boolean.valueOf(bool));
+    return bool;
+  }
+  
+  public Map<String, String> getTokenProperties() {
+    try {
+      if (this.tokenInitialized != true)
+        throw new TokenException("token not initialized"); 
+      HashMap<String, String> hashMap = new HashMap();
+      hashMap.put("User level", "IBD");
+      return hashMap;
+    } catch (TokenException e) {
+      LOGGER.error("Error getting user level", (Throwable)e);
+      return Collections.emptyMap();
+    } 
+  }
+  
+  public String getId() {
+    try {
+      if (this.tokenInitialized != true)
+        throw new TokenException("token not initialized"); 
+      return "FakeDongleIBD";
+    } catch (TokenException e) {
+      LOGGER.error("Error getting hardware id", (Throwable)e);
+      return null;
+    } 
+  }
+  
+  public Object encrypt(String paramString, Object paramObject, Map<String, Object> paramMap) {
+    LOGGER.trace("encrypt with " + paramString);
+    try {
+      int i = (Integer)paramMap.getOrDefault("key slot", Integer.valueOf(Integer.MIN_VALUE));
+      if (i == Integer.MIN_VALUE)
+        throw new IllegalArgumentException("Keyslot is not set in properties"); 
+      LOGGER.trace("encrypt with slot {}", Integer.valueOf(i));
+      if (StringUtils.equals(paramString, "aes")) {
+        LOGGER.trace("encrypt with aes and key in key slot ", Integer.valueOf(i));
+        if (this.tokenInitialized != true)
+          throw new TokenException("token not initialized"); 
+        if (i < 2) {
+          Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+          Optional<byte[]> optional = getKeyFrom(i);
+          if (!optional.isPresent())
+            return paramObject; 
+          byte[] arrayOfByte = optional.get();
+          SecretKeySpec secretKeySpec = new SecretKeySpec(arrayOfByte, "AES");
+          cipher.init(1, secretKeySpec);
+          return cipher.doFinal((byte[])paramObject);
+        } 
+        return paramObject;
+      } 
+      if (StringUtils.equals(paramString, "rsa"))
+        throw new UnsupportedOperationException("RSA not supported yet"); 
+      throw new UnsupportedOperationException("Algorithm '" + paramString + "' not supported");
+    } catch (Exception e) {
+      LOGGER.error("Error encrypting data", (Throwable)e);
+      return null;
+    } 
+  }
+  
+  public Object decrypt(String paramString, Object paramObject, Map<String, Object> paramMap) {
+    LOGGER.trace("decrypt with " + paramString);
+    try {
+      int i = (Integer)paramMap.getOrDefault("key slot", Integer.valueOf(Integer.MIN_VALUE));
+      if (i == Integer.MIN_VALUE)
+        throw new IllegalArgumentException("Keyslot is not set in properties"); 
+      LOGGER.trace("decrypt with slot {}", Integer.valueOf(i));
+      if (StringUtils.equals(paramString, "aes")) {
+        if (this.tokenInitialized != true)
+          throw new TokenException("token not initialized"); 
+        if (i <= 25) {
+          Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+          Optional<byte[]> optional = getKeyFrom(i);
+          if (!optional.isPresent())
+            return paramObject; 
+          byte[] arrayOfByte = optional.get();
+          SecretKeySpec secretKeySpec = new SecretKeySpec(arrayOfByte, "AES");
+          cipher.init(2, secretKeySpec);
+          return cipher.doFinal((byte[])paramObject);
+        } 
+        return paramObject;
+      } 
+      if (StringUtils.equals(paramString, "rsa"))
+        throw new UnsupportedOperationException("RSA not supported yet"); 
+      throw new UnsupportedOperationException("Algorithm '" + paramString + "' not supported");
+    } catch (Exception e) {
+      LOGGER.error("Error decrypting data", (Throwable)e);
+      return null;
+    } 
+  }
+  
+  private Optional<byte[]> getKeyFrom(int paramInt) {
+    switch (paramInt) {
+      case 0:
+        return Optional.of(DatatypeConverter.parseHexBinary("915EA072B411C427C6D4C649A8013E0C"));
+      case 1:
+        return Optional.of(DatatypeConverter.parseHexBinary("36DE8519CA1A0EB8AE6E951BAA998847"));
+      case 5:
+        return Optional.of(DatatypeConverter.parseHexBinary("F90451B3BF2E20A7F737659A3A1EB4CC"));
+      case 6:
+        return Optional.of(DatatypeConverter.parseHexBinary("D4674E17AA83363A9DA2B64BAD38ABA7"));
+      case 22:
+        return Optional.of(DatatypeConverter.parseHexBinary("11E68383B77C78CFD4A1A5B29CD36DDA"));
+      case 23:
+        return Optional.of(DatatypeConverter.parseHexBinary("85F12711F8E6C276F28D37C405F98054"));
+      case 25:
+        return Optional.of(DatatypeConverter.parseHexBinary("FA528EDF02B33FC674E922FCC68D2F7E"));
+    } 
+    return Optional.ofNullable(null);
+  }
+  
+  public String getVersion() {
+    return getClass().getPackage().getImplementationVersion();
+  }
+  
+  public String getName() {
+    return getClass().getPackage().getImplementationTitle();
+  }
+  
+  public String getBundle() {
+    return getClass().getPackage().toString();
+  }
+  
+  public UUID getUuid() {
+    return PLUGIN_ID;
+  }
+  
+  public Microservice getWebContainer() {
+    return null;
+  }
+  
+  public boolean isSingleton() {
+    return true;
+  }
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/bosch/plugin/unitoken/TokenPluginLocal.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken;
+
+import com.gigatronik.bosch.plugin.unitoken.apiwrapper.TokenApiException;
+import com.gigatronik.dart2.framework.plugins.exceptions.TokenInitializationException;
+import com.gigatronik.dart2.framework.plugins.interfaces.Microservice;
+import com.gigatronik.dart2.framework.plugins.interfaces.TokenDartPlugin;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class TokenPluginLocal implements TokenDartPlugin {
+  private static final UUID PLUGIN_ID = UUID.fromString("5bdf947d-1d08-4e7b-bffb-965183c46b98");
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(TokenPluginLocal.class);
+  
+  private TokenDelegate delegate = new TokenDelegate();
+  
+  private boolean dllInitialized = false;
+  
+  public void initialize() throws TokenInitializationException {
+    try {
+      initializeTry();
+    } catch (TokenApiException|TokenException ex) {
+      throw new TokenInitializationException("Failed to initialize dongle", ex);
+    } 
+  }
+  
+  private void initializeTry() throws TokenApiException, TokenException {
+    if (!this.dllInitialized)
+      initializeLibrary(); 
+    initializeDongle();
+  }
+  
+  private void initializeLibrary() throws TokenApiException {
+    try {
+      initializeLibraryTry();
+      updateDllInitializedState(true);
+    } catch (TokenApiException ex) {
+      if (ex.getErrorCode() == -1073741807L) {
+        LOGGER.warn("Ignore dongle library initialization failure", (Throwable)ex);
+        updateDllInitializedState(true);
+      } else {
+        updateDllInitializedState(false);
+        throw ex;
+      } 
+    } 
+  }
+  
+  private void initializeLibraryTry() throws TokenApiException {
+    LOGGER.trace("Initialize dongle DLL ...");
+    this.delegate.initializeLibrary();
+    LOGGER.trace("... initializing dongle DLL finished");
+  }
+  
+  private void initializeDongle() throws TokenException {
+    LOGGER.trace("Initialize dongle ...");
+    this.delegate.initialize();
+    LOGGER.trace("... initializing dongle finished");
+  }
+  
+  private void updateDllInitializedState(boolean newState) {
+    LOGGER.debug("Mark dongle DLL loading state as: '{}'", Boolean.valueOf(newState));
+    this.dllInitialized = newState;
+  }
+  
+  public void uninitialize() throws TokenInitializationException {
+    try {
+      uninitializeDongle();
+    } catch (TokenException ex) {
+      throw new TokenInitializationException("Failed to uninitialize dongle", ex);
+    } 
+  }
+  
+  private void uninitializeDongle() throws TokenException {
+    LOGGER.trace("Uninitialize dongle ...");
+    this.delegate.disconnectFromDongle();
+    LOGGER.trace("... uninitialized dongle finished");
+  }
+  
+  public boolean isDongleAvailable() {
+    boolean isConnected = this.delegate.isDongleConnected();
+    LOGGER.debug("Dongle connected check returns {}", Boolean.valueOf(isConnected));
+    return isConnected;
+  }
+  
+  public Map<String, String> getTokenProperties() {
+    try {
+      Map<String, String> result = new HashMap<>();
+      UserLevel userlevel = this.delegate.getUserLevel();
+      result.put("User level", (userlevel == null) ? null : userlevel.name());
+      return result;
+    } catch (TokenException ex) {
+      LOGGER.error("Error getting user level", (Throwable)ex);
+      return Collections.emptyMap();
+    } 
+  }
+  
+  public String getId() {
+    try {
+      return this.delegate.getId();
+    } catch (TokenException ex) {
+      LOGGER.error("Error getting hardware id", (Throwable)ex);
+      return null;
+    } 
+  }
+  
+  public Object encrypt(String algorithm, Object data, Map<String, Object> properties) {
+    try {
+      return this.delegate.encrypt(algorithm, data, properties);
+    } catch (TokenException ex) {
+      LOGGER.error("Error encrypting data", (Throwable)ex);
+      return null;
+    } 
+  }
+  
+  public Object decrypt(String algorithm, Object data, Map<String, Object> properties) {
+    try {
+      return this.delegate.decrypt(algorithm, data, properties);
+    } catch (TokenException ex) {
+      LOGGER.error("Error decrypting data", (Throwable)ex);
+      return null;
+    } 
+  }
+  
+  public String getVersion() {
+    return getClass().getPackage().getImplementationVersion();
+  }
+  
+  public String getName() {
+    return getClass().getPackage().getImplementationTitle();
+  }
+  
+  public String getBundle() {
+    return getClass().getPackage().toString();
+  }
+  
+  public UUID getUuid() {
+    return PLUGIN_ID;
+  }
+  
+  public Microservice getWebContainer() {
+    return null;
+  }
+  
+  public boolean isSingleton() {
+    return true;
+  }
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/bosch/plugin/unitoken/UserLevel.java
+========================================================================================================================
+package com.gigatronik.bosch.plugin.unitoken;
+
+enum UserLevel {
+  OEM, IBD, BOSCH;
+}
+
+
+========================================================================================================================
+ITEM 18: UniTokenPRO/UniTokenPROObj.java
+========================================================================================================================
+package UniTokenPRO;
+
+import com.gigatronik.dart2.bosch.service.nativeloader.NativeLoader;
+
+public class UniTokenPROObj {
+  private static final String DLLNAME = "UniTokenPROObj";
+  
+  public static final int FIXED_PIN_LENGTH = 1024;
+  
+  NativeLoader nativeLoader = new NativeLoader();
+  
+  public static final int UT_MAX_ID_LEN = 32;
+  
+  public static final int MAX_SLOT_NUMBER = 32;
+  
+  public static final byte LED_ON = 1;
+  
+  public static final byte LED_OFF = 0;
+  
+  public static final int USER_LEVEL_GUEST = 0;
+  
+  public static final int USER_LEVEL_USER = 1;
+  
+  public static final int USER_LEVEL_ADMIN = 2;
+  
+  public static final int AES_DATA_LEN_16_BYTE = 16;
+  
+  public static final int RSA_DATA_LEN_1024_BIT = 128;
+  
+  public static final int RSA_DATA_LEN_2048_BIT = 256;
+  
+  public static final int AES_KEY_LEN_128_BIT = 16;
+  
+  public static final int AES_KEY_LEN_192_BIT = 24;
+  
+  public static final int DES_DATA_LEN_8_BYTE = 8;
+  
+  public static final int RSA_IMPORT_NEW = 0;
+  
+  public static final short UNITOKEN_GETPOWER = 97;
+  
+  public static final short UNITOKEN_PARSERCODE = 112;
+  
+  public static final short UNITOKEN_FINDALL = 113;
+  
+  public static final short UNITOKEN_OPEN = 114;
+  
+  public static final short UNITOKEN_CLOSE = 115;
+  
+  public static final short UNITOKEN_CLOSE_ALL = 116;
+  
+  public static final short UNITOKEN_GETDEVICECOUNT = 117;
+  
+  public static final short UNITOKEN_GETFIRMWAREV = 122;
+  
+  public static final short UNITOKEN_GETID = 161;
+  
+  public static final short UNITOKEN_SETID = 162;
+  
+  public static final short UNITOKEN_SETAUTOLOCKTIME = 163;
+  
+  public static final short UNITOKEN_MD5 = 123;
+  
+  public static final short UNITOKEN_TEA = 124;
+  
+  public static final short UNITOKEN_RAND = 125;
+  
+  public static final short UNITOKEN_GETDEVICEINDEX = 126;
+  
+  public static final short UNITOKEN_GETFREESPACE = 127;
+  
+  public static final short UNITOKEN_READ = 128;
+  
+  public static final short UNITOKEN_WRITE = 129;
+  
+  public static final short UNITOKEN_LOGOFF = 130;
+  
+  public static final short UNITOKEN_LOGON = 131;
+  
+  public static final short UNITOKEN_LOGON_TYPE_RAW = 0;
+  
+  public static final short UNITOKEN_LOGON_TYPE_GUEST = 1;
+  
+  public static final short UNITOKEN_LOGON_TYPE_USER = 2;
+  
+  public static final short UNITOKEN_LOGON_TYPE_ADMIN = 3;
+  
+  public static final short UNITOKEN_LOGON_TYPE_ROOT = 4;
+  
+  public static final short UNITOKEN_GETCURRENTUSER = 170;
+  
+  public static final short UNITOKEN_FORMAT = 132;
+  
+  public static final short FORMAT_NORMAL = 0;
+  
+  public static final short FORMAT_COMBO = 1;
+  
+  public static final short UNITOKEN_SETHID = 96;
+  
+  public static final short UNITOKEN_GETHID = 133;
+  
+  public static final short UNITOKEN_GETSID = 134;
+  
+  public static final short UNITOKEN_SETSID = 135;
+  
+  public static final short UNITOKEN_DUMP_ERASE = 136;
+  
+  public static final short UNITOKEN_DUMP_READ = 137;
+  
+  public static final short UNITOKEN_DUMP_WRITE = 138;
+  
+  public static final short UNITOKEN_LED = 139;
+  
+  public static final short UNITOKEN_WINK = 140;
+  
+  public static final short UNITOKEN_LOCK = 141;
+  
+  public static final short UNITOKEN_UNLOCK = 142;
+  
+  public static final short UNITOKEN_ROOTCMD = 143;
+  
+  public static final short ROOTCMD_PUSHUSER = 1;
+  
+  public static final short ROOTCMD_POPUSER = 2;
+  
+  public static final short ROOTCMD_SETROOT = 3;
+  
+  public static final short ROOTCMD_UNSETROOT = 4;
+  
+  public static final short UNITOKEN_FILE_GETCOUNT = 144;
+  
+  public static final short UNITOKEN_FILE_FINDFILE = 145;
+  
+  public static final short UNITOKEN_FILE_FINDFILE_2 = 174;
+  
+  public static final short UNITOKEN_FILE_WILDCARDFIND = 173;
+  
+  public static final short UNITOKEN_FILE_CREATE = 146;
+  
+  public static final short UNITOKEN_FILE_TYPE_RAW = 0;
+  
+  public static final short UNITOKEN_FILE_TYPE_GUEST = 1;
+  
+  public static final short UNITOKEN_FILE_TYPE_USER = 2;
+  
+  public static final short UNITOKEN_FILE_TYPE_KEYFILE = 3;
+  
+  public static final short UNITOKEN_FILE_TYPE_UN = 4;
+  
+  public static final short UNITOKEN_FILE_TYPE_PRIVATE = 5;
+  
+  public static final short UNITOKEN_FILE_DELETE = 147;
+  
+  public static final short UNITOKEN_FILE_DELETE_ALL = 148;
+  
+  public static final short UNITOKEN_FILE_GETATTRIBUTE = 149;
+  
+  public static final short UNITOKEN_FILE_GETATTRIBUTE_2 = 175;
+  
+  public static final short UNITOKEN_FILE_GETPOWER = 172;
+  
+  public static final short UNITOKEN_FILE_CHANGEFILENAME = 150;
+  
+  public static final short UNITOKEN_FILE_READ = 151;
+  
+  public static final short UNITOKEN_FILE_WRITE = 152;
+  
+  public static final short UNITOKEN_FILE_READ_2 = 180;
+  
+  public static final short UNITOKEN_FILE_WRITE_2 = 181;
+  
+  public static final short UNITOKEN_USER_GETCOUNT = 153;
+  
+  public static final short UNITOKEN_USER_FINDUSER = 154;
+  
+  public static final short UNITOKEN_USER_CREATE = 155;
+  
+  public static final short UNITOKEN_USER_SETUSERMCPCOUNT = 171;
+  
+  public static final short UNITOKEN_USER_DELETE = 156;
+  
+  public static final short UNITOKEN_USER_DELETE_ALL = 157;
+  
+  public static final short UNITOKEN_USER_GETUSERPOWER = 158;
+  
+  public static final short UNITOKEN_CHANGEPASSWORD = 159;
+  
+  public static final short UNITOKEN_CUP_MODE_RAW = 0;
+  
+  public static final short UNITOKEN_CUP_MODE_ROOT = 1;
+  
+  public static final short UNITOKEN_CUP_MODE_NORMAL = 2;
+  
+  public static final short UNITOKEN_SETDEBUGWINDOW = 176;
+  
+  public static final short UNITOKEN_UNSETDEBUGWINDOW = 177;
+  
+  public static final short UNITOKEN_PRINTDEBUGWINDOW = 178;
+  
+  public static final short UNITOKEN_PRINTFDEBUGWINDOW = 179;
+  
+  public static final short UNITOKEN_GETSIZE = 182;
+  
+  public static final short UNITOKEN_FS_GETFILELIST = 183;
+  
+  public static final short UNITOKEN_FS_OPENFILE = 184;
+  
+  public static final short UNITOKEN_FS_FILECLOSE = 185;
+  
+  public static final short UNITOKEN_FS_FILEGETPOWER = 186;
+  
+  public static final short UNITOKEN_FS_GETFILESIZE = 187;
+  
+  public static final short UNITOKEN_FS_GETFILECOUNT = 188;
+  
+  public static final short UNITOKEN_GETUSERPOWER = 189;
+  
+  public static final short UNITOKEN_SETATTEMPT = 190;
+  
+  public static final short UNITOKEN_GETATTEMPT = 191;
+  
+  public static final short UNITOKEN_PRI_GETFILECOUNT = 192;
+  
+  public static final short UNITOKEN_PRI_GETFIRSTFILENAME = 193;
+  
+  public static final short UNITOKEN_PRI_GETNEXTFILENAME = 194;
+  
+  public static final short UNITOKEN_PRI_GETFILESIZE = 195;
+  
+  public static final short UNITOKEN_PRI_CREATEFILE = 196;
+  
+  public static final short UNITOKEN_PRI_DELETEFILE = 197;
+  
+  public static final short UNITOKEN_PRI_OPENFILE = 198;
+  
+  public static final short UNITOKEN_PRI_WRITEFILE = 199;
+  
+  public static final short UNITOKEN_PRI_READFILE = 200;
+  
+  public static final short UNITOKEN_PRI_FILEDATAREPLEASE = 201;
+  
+  public static final short UNITOKEN_PRI_CLOSEFILE = 202;
+  
+  public static final short UNITOKEN_PRI_GETFILEPERMISSION = 203;
+  
+  public static final short UNITOKEN_GETFIRSTFILENAME = 204;
+  
+  public static final short UNITOKEN_GETNEXTFILENAME = 205;
+  
+  public static final short UNITOKEN_USER_MIN = 1;
+  
+  public static final short UNITOKEN_USER_MAX = 254;
+  
+  public static final short RAM_SIZE = 32;
+  
+  public static final short TID_SIZE = 4;
+  
+  public static final short REG_SIZE = 28;
+  
+  public static final long UT_OK = 0L;
+  
+  public static final long UT_NOT_INITIALIZE = -1073741823L;
+  
+  public static final long UT_BUFFER_TOO_SMALL = -1073741822L;
+  
+  public static final long UT_ARGUMENTS_BAD = -1073741821L;
+  
+  public static final long UT_NO_PERMISSION = -1073741820L;
+  
+  public static final long UT_NO_TOKEN = -1073741818L;
+  
+  public static final long UT_TOKEN_HANDLE_INVALID = -1073741817L;
+  
+  public static final long UT_SLOT_FULL = -1073741816L;
+  
+  public static final long UT_SLOT_ID_INVALID = -1073741815L;
+  
+  public static final long UT_DEVICE_ERROR = -1073741808L;
+  
+  public static final long UT_ALREADY_INITIALIZE = -1073741807L;
+  
+  public static final long UT_DEVICE_TX = -1073741806L;
+  
+  public static final long UT_PIN_ERROR = -1073741805L;
+  
+  public static final long UT_USER_LOCKED = -1073741804L;
+  
+  public static final long UT_USER_FULL = -1073741803L;
+  
+  public static final long UT_NO_USER = -1073741802L;
+  
+  public static final long UT_DEVICE_NEED_OPEN = -1073741801L;
+  
+  public static final long UT_FS_INITIALIZE_FAILED = -822083583L;
+  
+  public static final long UT_FS_NOSPACE = -822083582L;
+  
+  public static final long UT_FS_OFFSET_INVALID = -822083581L;
+  
+  public static final long UT_FS_DATA_LEN_RANGE = -822083580L;
+  
+  public static final long UT_FS_NO_OPEN = -822083579L;
+  
+  public static final long UT_FS_NO_FILE = -822083578L;
+  
+  public static final long UT_FS_LIST_END = -822083577L;
+  
+  public static final long UT_FS_NAME_LEN_RANGE = -822083576L;
+  
+  public static final long UT_FS_OPERATE = -822083575L;
+  
+  public static final long UT_FS_FILE_EXIST = -822083574L;
+  
+  public static final long UT_KEY_EXISTS = -1073741800L;
+  
+  public static final long UT_NO_KEY = -1073741799L;
+  
+  public static final long UT_KEY_FULL = -1073741792L;
+  
+  public static final long UT_KEY_HANDLE_INVALID = -1073741791L;
+  
+  public UniTokenPROObj() {
+    this.nativeLoader.loadLibraryJni(getClass().getPackage().getName(), "UniTokenPROObj");
+  }
+  
+  public native int UT__GetLibraryVersion();
+  
+  public native int UT__Initialize();
+  
+  public native int UT__Finalize();
+  
+  public native int UT__GetTokenList(long[] paramArrayOflong1, long[] paramArrayOflong2);
+  
+  public native int UT__OpenDevice(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__CloseDevice(long paramLong);
+  
+  public native int UT__GetHandle(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__GetSlotID(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__GetSlotStatus(long[] paramArrayOflong1, long[] paramArrayOflong2);
+  
+  public native int UT__GetTokenType(long paramLong, byte[] paramArrayOfbyte);
+  
+  public native int UT__GetFirmwareVersion(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__Logoff(long paramLong);
+  
+  public native int UT__Logon(long paramLong1, long paramLong2, byte[] paramArrayOfbyte);
+  
+  public native int UT__GetCurrentUserLevel(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__ChangePassword(long paramLong1, byte paramByte, long paramLong2, byte[] paramArrayOfbyte1, byte[] paramArrayOfbyte2);
+  
+  public native int UT__GetID(long paramLong, byte[] paramArrayOfbyte);
+  
+  public native int UT__SetID(long paramLong, byte[] paramArrayOfbyte);
+  
+  public native int UT__GetHID(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__GetSoftID(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__SetSoftID(long paramLong1, long paramLong2);
+  
+  public native int UT__LED(long paramLong, byte paramByte);
+  
+  public native int UT__SetAttempt(long paramLong1, long paramLong2);
+  
+  public native int UT__GetAttemptCount(long paramLong, long[] paramArrayOflong1, long[] paramArrayOflong2);
+  
+  public native int UT__Format(long paramLong);
+  
+  public native int UT__Rand(long paramLong1, long paramLong2, long[] paramArrayOflong1, long[] paramArrayOflong2);
+  
+  public native int UT__DESGenerateKey(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__DESEncrypt(long paramLong1, long paramLong2, byte[] paramArrayOfbyte1, long paramLong3, byte[] paramArrayOfbyte2, long[] paramArrayOflong);
+  
+  public native int UT__DESDecrypt(long paramLong1, long paramLong2, byte[] paramArrayOfbyte1, long paramLong3, byte[] paramArrayOfbyte2, long[] paramArrayOflong);
+  
+  public native int UT__DESImport(long paramLong, byte[] paramArrayOfbyte, long[] paramArrayOflong);
+  
+  public native int UT__DESGetKeyCount(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__DESGetFirstKeyHandle(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__DESGetNextKeyHandle(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__DESDeleteKey(long paramLong1, long paramLong2);
+  
+  public native int UT__DES3GenerateKey(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__DES3Encrypt(long paramLong1, long paramLong2, byte[] paramArrayOfbyte1, long paramLong3, byte[] paramArrayOfbyte2, long[] paramArrayOflong);
+  
+  public native int UT__DES3Decrypt(long paramLong1, long paramLong2, byte[] paramArrayOfbyte1, long paramLong3, byte[] paramArrayOfbyte2, long[] paramArrayOflong);
+  
+  public native int UT__DES3Import(long paramLong, byte[] paramArrayOfbyte, long[] paramArrayOflong);
+  
+  public native int UT__DES3DeleteKey(long paramLong1, long paramLong2);
+  
+  public native int UT__DES3GetFirstKeyHandle(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__DES3GetNextKeyHandle(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__DES3GetKeyCount(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__AESGenerateKey(long paramLong1, long paramLong2, long[] paramArrayOflong);
+  
+  public native int UT__AESEncrypt(long paramLong1, long paramLong2, byte[] paramArrayOfbyte1, long paramLong3, byte[] paramArrayOfbyte2, long[] paramArrayOflong);
+  
+  public native int UT__AESDecrypt(long paramLong1, long paramLong2, byte[] paramArrayOfbyte1, long paramLong3, byte[] paramArrayOfbyte2, long[] paramArrayOflong);
+  
+  public native int UT__AESImport(long paramLong1, byte[] paramArrayOfbyte, long paramLong2, long[] paramArrayOflong);
+  
+  public native int UT__AESDeleteKey(long paramLong1, long paramLong2);
+  
+  public native int UT__AESGetKeyCount(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__AESGetKeyLen(long paramLong1, long paramLong2, long[] paramArrayOflong);
+  
+  public native int UT__AESGetFirstKeyHandle(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__AESGetNextKeyHandle(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__RSAGenerateKey(long paramLong1, long paramLong2, long paramLong3, long[] paramArrayOflong1, long[] paramArrayOflong2);
+  
+  public native int UT__RSAPubKeyEncrypt(long paramLong1, long paramLong2, byte[] paramArrayOfbyte1, long paramLong3, byte[] paramArrayOfbyte2, long[] paramArrayOflong);
+  
+  public native int UT__RSAPriKeyDecrypt(long paramLong1, long paramLong2, byte[] paramArrayOfbyte1, long paramLong3, byte[] paramArrayOfbyte2, long[] paramArrayOflong);
+  
+  public native int UT__RSAPriKeyEncrypt(long paramLong1, long paramLong2, byte[] paramArrayOfbyte1, long paramLong3, byte[] paramArrayOfbyte2, long[] paramArrayOflong);
+  
+  public native int UT__RSAPubKeyDecrypt(long paramLong1, long paramLong2, byte[] paramArrayOfbyte1, long paramLong3, byte[] paramArrayOfbyte2, long[] paramArrayOflong);
+  
+  public native int UT__RSAPubKeyImport(long paramLong1, UtRsa paramUtRsa, long paramLong2, long[] paramArrayOflong);
+  
+  public native int UT__RSAPriKeyImport(long paramLong1, UtRsa paramUtRsa, long paramLong2, long[] paramArrayOflong);
+  
+  public native int UT__RSAExport(long paramLong1, long paramLong2, long[] paramArrayOflong, UtRsa paramUtRsa);
+  
+  public native int UT__RSAGetPubKeyByPriKey(long paramLong1, long paramLong2, long[] paramArrayOflong);
+  
+  public native int UT__RSAGetPriKeyByPubKey(long paramLong1, long paramLong2, long[] paramArrayOflong);
+  
+  public native int UT__RSADeleteKey(long paramLong1, long paramLong2, long paramLong3);
+  
+  public native int UT__RSAGetKeyCount(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__RSAGetFirstKeyHandle(long paramLong, long[] paramArrayOflong1, long[] paramArrayOflong2);
+  
+  public native int UT__RSAGetNextKeyHandle(long paramLong, long[] paramArrayOflong1, long[] paramArrayOflong2);
+  
+  public native int UT__RSAGetKeyPairBit(long paramLong1, long paramLong2, long[] paramArrayOflong);
+  
+  public native int UT__MD5HMACGenerateKey(long paramLong1, long paramLong2, long[] paramArrayOflong);
+  
+  public native int UT__MD5HMAC(long paramLong1, long paramLong2, byte[] paramArrayOfbyte1, long paramLong3, byte[] paramArrayOfbyte2);
+  
+  public native int UT__MD5(long paramLong1, byte[] paramArrayOfbyte1, long paramLong2, byte[] paramArrayOfbyte2);
+  
+  public native int UT__MD5GetKeyCount(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__MD5GetKeyLen(long paramLong1, long paramLong2, long[] paramArrayOflong);
+  
+  public native int UT__MD5GetFirstKeyHandle(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__MD5GetNextKeyHandle(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__MD5DeleteKey(long paramLong1, long paramLong2);
+  
+  public native int UT__SHA1(long paramLong1, byte[] paramArrayOfbyte1, long paramLong2, byte[] paramArrayOfbyte2);
+  
+  public native int UT__SHA1HMACGenerateKey(long paramLong1, long paramLong2, long[] paramArrayOflong);
+  
+  public native int UT__SHA1HMAC(long paramLong1, long paramLong2, byte[] paramArrayOfbyte1, long paramLong3, byte[] paramArrayOfbyte2);
+  
+  public native int UT__SHA1GetKeyCount(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__SHA1GetKeyLen(long paramLong1, long paramLong2, long[] paramArrayOflong);
+  
+  public native int UT__SHA1GetFirstKeyHandle(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__SHA1GetNextKeyHandle(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__SHA1DeleteKey(long paramLong1, long paramLong2);
+  
+  public native int UT__FS_GetFreeSize(long paramLong, long[] paramArrayOflong1, long[] paramArrayOflong2);
+  
+  public native int UT__FS_GetFileCount(long paramLong, long[] paramArrayOflong);
+  
+  public native int UT__FS_GetFirstFileName(long paramLong, byte[] paramArrayOfbyte);
+  
+  public native int UT__FS_GetNextFileName(long paramLong, byte[] paramArrayOfbyte);
+  
+  public native int UT__FS_GetFileSize(long paramLong, byte[] paramArrayOfbyte, long[] paramArrayOflong);
+  
+  public native int UT__FS_CreateFile(long paramLong1, byte[] paramArrayOfbyte, long paramLong2, byte paramByte);
+  
+  public native int UT__FS_GetFilePermission(long paramLong, byte[] paramArrayOfbyte1, byte[] paramArrayOfbyte2);
+  
+  public native int UT__FS_DeleteFile(long paramLong, byte[] paramArrayOfbyte);
+  
+  public native int UT__FS_OpenFile(long paramLong, byte[] paramArrayOfbyte1, byte[] paramArrayOfbyte2);
+  
+  public native int UT__FS_WriteFile(long paramLong1, long paramLong2, long paramLong3, byte[] paramArrayOfbyte1, byte[] paramArrayOfbyte2);
+  
+  public native int UT__FS_ReadFile(long paramLong1, long paramLong2, long paramLong3, byte[] paramArrayOfbyte1, byte[] paramArrayOfbyte2);
+  
+  public native int UT__FS_CloseFile(long paramLong, byte[] paramArrayOfbyte);
+}
+
+
+========================================================================================================================
+ITEM 19: UniTokenPRO/UtBignumber.java
+========================================================================================================================
+package UniTokenPRO;
+
+import com.sun.jna.Structure;
+import java.util.Arrays;
+import java.util.List;
+
+public class UtBignumber extends Structure {
+  private static final int BIGNUM_BYTES = 256;
+  
+  public byte[] num = new byte[256];
+  
+  public int len;
+  
+  protected List getFieldOrder() {
+    return Arrays.asList("num", "len");
+  }
+}
+
+
+========================================================================================================================
+ITEM 20: UniTokenPRO/UtRsa.java
+========================================================================================================================
+package UniTokenPRO;
+
+import com.sun.jna.Structure;
+import java.util.Arrays;
+import java.util.List;
+
+public class UtRsa extends Structure {
+  public UtBignumber n = new UtBignumber();
+  
+  public UtBignumber e = new UtBignumber();
+  
+  public UtBignumber d = new UtBignumber();
+  
+  public UtBignumber p = new UtBignumber();
+  
+  public UtBignumber q = new UtBignumber();
+  
+  public UtBignumber dmp1 = new UtBignumber();
+  
+  public UtBignumber dmq1 = new UtBignumber();
+  
+  public UtBignumber iqmp = new UtBignumber();
+  
+  protected List getFieldOrder() {
+    return Arrays.asList("n", "e", "d", "p", "q", "dmp1", "dmq1", "iqmp");
+  }
+}
+

@@ -1,0 +1,579 @@
+JAR: starter-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\starter-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/start/Application.java
+========================================================================================================================
+package com.gigatronik.start;
+
+import com.gigatronik.beds.bdp.interaction.BdpConnectionStarter;
+import com.gigatronik.beds.gui.color.GuiColors;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.communication.impl.CommunicationManagerImpl;
+import com.gigatronik.beds.service.configuration.ConfigurationManager;
+import com.gigatronik.beds.service.configuration.impl.ConfigurationManagerImpl;
+import com.gigatronik.beds.service.dongleblacklist.impl.DongleBlacklistFactory;
+import com.gigatronik.beds.service.donglemanager.api.DongleManager;
+import com.gigatronik.beds.service.donglemanager.impl.EventBasedDongleManager;
+import com.gigatronik.beds.service.ecuconnectionstate.api.BctEventHandler;
+import com.gigatronik.beds.service.ecuconnectionstate.api.EcuConnectionStateHandler;
+import com.gigatronik.beds.service.ecuconnectionstate.imp.EcuConnectionStateHandlerFactory;
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedListener;
+import com.gigatronik.beds.service.rightsmanager.api.RightsManager;
+import com.gigatronik.beds.service.rightsmanager.impl.BoschDongleConnectionDetector;
+import com.gigatronik.beds.service.rightsmanager.impl.RightsManagerImpl;
+import com.gigatronik.beds.settings.SettingsProxy;
+import com.gigatronik.beds.settings.download.CloudSettingsDownloadTrigger;
+import com.gigatronik.bosch.plugin.tokenproxy.TokenPluginProxy;
+import com.gigatronik.bosch.plugin.unitoken.TokenFakeIBD;
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+import com.gigatronik.dart2.bosch.startproject.api.ApplicationController;
+import com.gigatronik.dart2.bosch.updateserver.UpdateServerConnection;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.gigatronik.dart2.framework.plugins.interfaces.RemoteClientDartPlugin;
+import com.gigatronik.dart2.framework.plugins.interfaces.TokenDartPlugin;
+import com.gigatronik.dart2.framework.util.ProxyManager;
+import com.gigatronik.dart2.framework.util.benchmark.Stopwatch;
+import com.gigatronik.diagserver.bosch.api.BoschServerAPI;
+import com.gigatronik.diagserver.bosch.impl.BoschServerFactory;
+import com.gigatronik.diagserver.bosch.impl.ComCtrl;
+import com.gigatronik.diagserver.bosch.reboot.EcuRebootHandlerFactory;
+import com.gigatronik.ebike.gui.DefaultDongleStateListener;
+import com.gigatronik.ebike.gui.DongleBlacklistEvaluator;
+import com.gigatronik.ebike.gui.EBikeApplication;
+import com.gigatronik.ebike.gui.genericprogress.EBikeGenericProgressBar;
+import com.gigatronik.ebike.gui.testinterface.TestServer;
+import com.gigatronik.ebike.gui.testinterface.TestableJOptionPane;
+import com.gigatronik.ebike.utils.ConfigUtil;
+import com.gigatronik.ebike.utils.window.uac.WindowsNativeUtil;
+import com.gigatronik.rdc.RemotePluginFacade;
+import com.gigatronik.rdc.RemotePluginImpl;
+import com.gigatronik.rdc.gui.frame.MainFrame;
+import java.awt.Font;
+import java.awt.FontFormatException;
+import java.awt.GraphicsEnvironment;
+import java.io.File;
+import java.io.InputStream;
+import java.net.ProxySelector;
+import java.util.LinkedList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class Application implements ApplicationController {
+  private static final int EXITCODE_NORESTART = 0;
+  
+  private static final Logger LOGGER = LoggerFactory.getLogger(Application.class);
+  
+  private static final int REPORT_WARMUP_DELAY = 5000;
+  
+  private static final int SYSTEM_DUMP_DELAY = 15000;
+  
+  private EBikeApplication ebikeApplication;
+  
+  private RightsManager rightsManager;
+  
+  private DongleManager dongleMonitor;
+  
+  private BoschServerAPI boschServer;
+  
+  private EcuConnectionStateHandler ecuConnectionStateHandler;
+  
+  public void initialize() {
+    LOGGER.info("Initializing Application...");
+    Stopwatch stopwatch = new Stopwatch();
+    initToolSettings(stopwatch);
+    stopwatch.start();
+    try {
+      String str = getAppUserModelID();
+      setAppUserModelID(str);
+      stopwatch.stop();
+      LOGGER.trace("Time for setAppUserModelID('{}'): {}ms", str, Long.valueOf(stopwatch.getMillisecondsElapsed()));
+    } catch (Exception e) {
+      LOGGER.error("Exception in call setAppUserModelID.", (Throwable)e);
+    } 
+    stopwatch.start();
+    try {
+      initUI();
+      stopwatch.stop();
+      LOGGER.trace("Time for initUI(): {}ms", Long.valueOf(stopwatch.getMillisecondsElapsed()));
+    } catch (Exception e) {
+      LOGGER.error("Exception in call initUI.", (Throwable)e);
+    } 
+    stopwatch.start();
+    initConfiguration();
+    stopwatch.stop();
+    LOGGER.trace("Time for initConfiguration(): {}ms", Long.valueOf(stopwatch.getMillisecondsElapsed()));
+    stopwatch.start();
+    initNetworkCommunication();
+    stopwatch.stop();
+    LOGGER.trace("Time for initNetworkCommunication(): {}ms", Long.valueOf(stopwatch.getMillisecondsElapsed()));
+    stopwatch.start();
+    this.dongleMonitor = (DongleManager)createDongleMonitor();
+    BoschDongleConnectionDetector boschDongleConnectionDetector = new BoschDongleConnectionDetector();
+    this.rightsManager = new RightsManagerImpl(this, this.dongleMonitor, boschDongleConnectionDetector);
+    this.ebikeApplication = new EBikeApplication(this, this.rightsManager, boschDongleConnectionDetector);
+    stopwatch.stop();
+    LOGGER.trace("Time for EBikeApplication: {}ms", Long.valueOf(stopwatch.getMillisecondsElapsed()));
+    stopwatch.start();
+    initToken();
+    stopwatch.stop();
+    LOGGER.trace("Time for initToken(): {}ms", Long.valueOf(stopwatch.getMillisecondsElapsed()));
+    stopwatch.start();
+    initHardwareCommunication();
+    stopwatch.stop();
+    LOGGER.trace("Time for initHardwareCommunication(): {}ms", Long.valueOf(stopwatch.getMillisecondsElapsed()));
+    stopwatch.start();
+    initTestserver();
+    stopwatch.stop();
+    LOGGER.trace("Time for initTestserver(): {}ms", Long.valueOf(stopwatch.getMillisecondsElapsed()));
+    stopwatch.start();
+    initRemoteFeature();
+    stopwatch.stop();
+    LOGGER.trace("Time for initRemoteFeature(): {}ms", Long.valueOf(stopwatch.getMillisecondsElapsed()));
+    initCloudSettingsDownloadTriggering(this.rightsManager);
+    LOGGER.info("Application initialized");
+  }
+  
+  private void initCloudSettingsDownloadTriggering(RightsManager paramRightsManager) {
+    new CloudSettingsDownloadTrigger(paramRightsManager);
+  }
+  
+  private void initToolSettings(Stopwatch paramStopwatch) {
+    paramStopwatch.start();
+    initToolSettings();
+    paramStopwatch.stop();
+    LOGGER.trace("Time for initToolSettings(): {}ms", Long.valueOf(paramStopwatch.getMillisecondsElapsed()));
+  }
+  
+  private void initToolSettings() {
+    SettingsProxy.getInstance();
+  }
+  
+  public void start() throws Exception {
+    LOGGER.info("------------------------------------------------------------");
+    LOGGER.info("OS Name: {}", System.getProperty("os.name"));
+    LOGGER.info("OS Architecture: {}", System.getProperty("os.arch"));
+    LOGGER.info("Look and Feel: {}", UIManager.getLookAndFeel().getName());
+    LOGGER.info("Java Version: {}", System.getProperty("java.version"));
+    LOGGER.info("Java Data Model: {}", System.getProperty("sun.arch.data.model"));
+    LOGGER.info("Ebike Application Version: {}", ConfigUtil.getFullVersion());
+    LOGGER.info("------------------------------------------------------------");
+    Stopwatch stopwatch = new Stopwatch();
+    LOGGER.info("Starting HID-Driver");
+    stopwatch.start();
+    this.boschServer.startDeviceListener();
+    stopwatch.stop();
+    LOGGER.trace("Time for hid driver start(): {}ms", Long.valueOf(stopwatch.getMillisecondsElapsed()));
+    stopwatch.start();
+    this.ebikeApplication.initialize();
+    stopwatch.stop();
+    LOGGER.trace("Time for initialize EBikeApplication(): {}ms", Long.valueOf(stopwatch.getMillisecondsElapsed()));
+    stopwatch.start();
+    this.ebikeApplication.createGUI();
+    stopwatch.stop();
+    LOGGER.trace("Time for createGUI(): {}ms", Long.valueOf(stopwatch.getMillisecondsElapsed()));
+    stopwatch.start();
+    setupFakeTokenPlugin();
+    this.ebikeApplication.startUp();
+    stopwatch.stop();
+    LOGGER.trace("Time for startUp(): {}ms", Long.valueOf(stopwatch.getMillisecondsElapsed()));
+    setupPostStartTasks();
+  }
+  
+  private static void setAppUserModelID(String paramString) {
+    if (StringUtils.isNotBlank(paramString))
+      try {
+        WindowsNativeUtil.setCurrentProcessExplicitAppUserModelID(paramString);
+      } catch (Exception e) {
+        LOGGER.error("Unable to set AppUserModelID: ", (Throwable)e);
+      }  
+  }
+  
+  private static String getAppUserModelID() {
+    String str = null;
+    try {
+      str = SettingsProxy.getInstance().getInternalSettings().getProperty("com.gigatronik.start.appUserModelID");
+    } catch (ConfigurationNotFoundException e) {
+      LOGGER.error("Unable to read property 'com.gigatronik.start.appUserModelID': ", (Throwable)e);
+    } 
+    return str;
+  }
+  
+  private void initConfiguration() {
+    try {
+      if (!ConfigUtil.configFileValidation()) {
+        String str1 = MainFrame.BUNDLE.getString("Bosch.diagnostic.tool") + " (" + MainFrame.BUNDLE.getString("Bosch.diagnostic.tool") + " " + MainFrame.BUNDLE.getString("EBikeApplication.frame.VERSION") + ")";
+        String str2 = MainFrame.BUNDLE.getString("EBikeApplication.missingConfigurationValue.text");
+        TestableJOptionPane.showMessageDialog(str2, str1, 2);
+      } 
+      new File(SettingsProxy.getInstance().getDataPath()).mkdirs();
+    } catch (ConfigurationNotFoundException e) {
+      LOGGER.error("Configuration not found", (Throwable)e);
+      TestableJOptionPane.showMessageDialog(MainFrame.BUNDLE.getString("EBikeApplication.missingConfiguration.optionPane.text"), 
+          MainFrame.BUNDLE.getString("EBikeApplication.missingConfiguration.optionPane.title"), 0);
+      exit();
+    } 
+  }
+  
+  private void initToken() {
+    DefaultDongleStateListener defaultDongleStateListener = new DefaultDongleStateListener(this.ebikeApplication, this.dongleMonitor);
+    this.ebikeApplication.setDefaultDongleStateListener(defaultDongleStateListener);
+    this.ebikeApplication.setDongleMonitor(this.dongleMonitor);
+    new DongleBlacklistEvaluator(this.ebikeApplication, this, new DongleBlacklistFactory(), this.dongleMonitor);
+  }
+  
+  private EventBasedDongleManager createDongleMonitor() {
+    TokenFakeIBD tokenFakeIBD = new TokenFakeIBD();
+    TokenPluginProxy.fromLocalToken((TokenDartPlugin)tokenFakeIBD);
+    return new EventBasedDongleManager(TokenPluginProxy.getInstance().getToken(TokenPluginProxy.TokenType.LOCAL));
+  }
+  
+  private void initHardwareCommunication() {
+    BoschServerFactory boschServerFactory = new BoschServerFactory();
+    this.boschServer = boschServerFactory.createInstance();
+    this.boschServer.addHidDeviceConnectionChangedListener((HidDeviceConnectionChangedListener)this.dongleMonitor);
+    registerComCtrlForHidEvents();
+    CommunicationManagerImpl communicationManagerImpl = new CommunicationManagerImpl(this.rightsManager, this.boschServer);
+    this.ebikeApplication.setCommunicationManager((CommunicationManager)communicationManagerImpl);
+    this.ecuConnectionStateHandler = EcuConnectionStateHandlerFactory.createInstance((CommunicationManager)communicationManagerImpl, this.rightsManager);
+    BctEventHandler bctEventHandler = this.ecuConnectionStateHandler.getBctEventHandler();
+    this.ecuConnectionStateHandler.subscribeProgressBarEvent((EcuConnectionStateHandler.ProgressBarEventListener)EBikeGenericProgressBar.getInstance());
+    this.ecuConnectionStateHandler.subscribeChargingStateChanges((EcuConnectionStateHandler.ChargingStateListener)this.ebikeApplication);
+    this.boschServer.addHidDeviceConnectionChangedListener((HidDeviceConnectionChangedListener)this.ecuConnectionStateHandler);
+    this.ebikeApplication.setEcuConnectionStateHandler(this.ecuConnectionStateHandler);
+    this.ebikeApplication.setBctEventHandler(bctEventHandler);
+    ConfigurationManagerImpl configurationManagerImpl = new ConfigurationManagerImpl((CommunicationManager)communicationManagerImpl, this.rightsManager);
+    this.ecuConnectionStateHandler.subscribeEcuConnectionStateChanges((EcuConnectionStateHandler.EcuConnectionStateChangeListener)configurationManagerImpl);
+    bctEventHandler.subscribeBctOperationStateChanges((BctEventHandler.BctOperationStateListener)configurationManagerImpl);
+    this.ebikeApplication.setConfigurationManager((ConfigurationManager)configurationManagerImpl);
+    initBES3BikeConnectionDetection();
+  }
+  
+  private void initBES3BikeConnectionDetection() {
+    new BdpConnectionStarter(this.rightsManager);
+  }
+  
+  private void registerComCtrlForHidEvents() {
+    for (ComCtrl comCtrl : (Iterable<ComCtrl>)this.boschServer.getComCtrls())
+      this.boschServer.addHidDeviceConnectionChangedListener((HidDeviceConnectionChangedListener)EcuRebootHandlerFactory.getInstance(comCtrl)); 
+  }
+  
+  private void initRemoteFeature() {
+    try {
+      RemotePluginImpl remotePluginImpl = new RemotePluginImpl();
+      RemotePluginFacade.create(remotePluginImpl);
+      TokenPluginProxy.getInstance().setRemotePlugin(remotePluginImpl);
+      RemotePluginFacade.getInstance().addListener((RemoteClientDartPlugin.RemoteClientListener)this.ebikeApplication);
+    } catch (Exception e) {
+      LOGGER.error("Error initializing remote plugin on application start: ", (Throwable)e);
+    } 
+  }
+  
+  private void initUI() {
+    UIManager.put("ClassLoader", Main.class.getClassLoader());
+    try {
+      UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+    } catch (UnsupportedLookAndFeelException|ClassNotFoundException|InstantiationException|IllegalAccessException e) {
+      LOGGER.error("Look and Feel Error", (Throwable)e);
+    } 
+    setUIManagerValues();
+    setDefaultUIColors();
+    addCustomFonts();
+  }
+  
+  private void setDefaultUIColors() {
+    UIManager.put("Panel.background", GuiColors.LIGHT_BLUISH);
+    UIManager.put("Label.foreground", GuiColors.DARK_BLUISH);
+    UIManager.put("RadioButton.background", GuiColors.LIGHT_BLUISH);
+    UIManager.put("RadioButton.foreground", GuiColors.DARK_BLUISH);
+    UIManager.put("OptionPane.background", GuiColors.LIGHT_BLUISH);
+    UIManager.put("OptionPane.foreground", GuiColors.DARK_BLUISH);
+    UIManager.put("CheckBox.foreground", GuiColors.DARK_BLUISH);
+    UIManager.put("CheckBox.disabledText", GuiColors.DARK_BLUISH);
+  }
+  
+  private void setUIManagerValues() {
+    Utf8ResourceBundleFormatted utf8ResourceBundleFormatted = ResourceBundleFactory.newDefaultResourceBundle();
+    UIManager.put("OptionPane.yesButtonText", utf8ResourceBundleFormatted.getString("JOptionPane.Yes"));
+    UIManager.put("OptionPane.noButtonText", utf8ResourceBundleFormatted.getString("JOptionPane.No"));
+    UIManager.put("OptionPane.cancelButtonText", utf8ResourceBundleFormatted.getString("JOptionPane.Cancel"));
+    UIManager.put("OptionPane.okButtonText", utf8ResourceBundleFormatted.getString("JOptionPane.Ok"));
+    UIManager.put("FileChooser.openDialogTitleText", utf8ResourceBundleFormatted.getString("FileChooser.openButtonText"));
+    UIManager.put("FileChooser.saveDialogTitleText", utf8ResourceBundleFormatted.getString("FileChooser.saveDialogTitleText"));
+    UIManager.put("FileChooser.lookInLabelText", utf8ResourceBundleFormatted.getString("FileChooser.lookInLabelText"));
+    UIManager.put("FileChooser.saveInLabelText", utf8ResourceBundleFormatted.getString("FileChooser.saveInLabelText"));
+    UIManager.put("FileChooser.upFolderToolTipText", utf8ResourceBundleFormatted.getString("FileChooser.upFolderToolTipText"));
+    UIManager.put("FileChooser.homeFolderToolTipText", utf8ResourceBundleFormatted.getString("FileChooser.homeFolderToolTipText"));
+    UIManager.put("FileChooser.newFolderToolTipText", utf8ResourceBundleFormatted.getString("FileChooser.newFolderToolTipText"));
+    UIManager.put("FileChooser.listViewButtonToolTipText", utf8ResourceBundleFormatted.getString("FileChooser.listViewButtonToolTipText"));
+    UIManager.put("FileChooser.detailsViewButtonToolTipText", utf8ResourceBundleFormatted.getString("FileChooser.detailsViewButtonToolTipText"));
+    UIManager.put("FileChooser.fileNameHeaderText", utf8ResourceBundleFormatted.getString("FileChooser.fileNameHeaderText"));
+    UIManager.put("FileChooser.fileSizeHeaderText", utf8ResourceBundleFormatted.getString("FileChooser.fileSizeHeaderText"));
+    UIManager.put("FileChooser.fileTypeHeaderText", utf8ResourceBundleFormatted.getString("FileChooser.fileTypeHeaderText"));
+    UIManager.put("FileChooser.fileDateHeaderText", utf8ResourceBundleFormatted.getString("FileChooser.fileDateHeaderText"));
+    UIManager.put("FileChooser.fileAttrHeaderText", utf8ResourceBundleFormatted.getString("FileChooser.fileAttrHeaderText"));
+    UIManager.put("FileChooser.fileNameLabelText", utf8ResourceBundleFormatted.getString("FileChooser.fileNameLabelText"));
+    UIManager.put("FileChooser.filesOfTypeLabelText", utf8ResourceBundleFormatted.getString("FileChooser.filesOfTypeLabelText"));
+    UIManager.put("FileChooser.folderNameLabelText", utf8ResourceBundleFormatted.getString("FileChooser.folderNameLabelText"));
+    UIManager.put("FileChooser.openButtonText", utf8ResourceBundleFormatted.getString("FileChooser.openButtonText"));
+    UIManager.put("FileChooser.openButtonToolTipText", utf8ResourceBundleFormatted.getString("FileChooser.openButtonToolTipText"));
+    UIManager.put("FileChooser.saveButtonText", utf8ResourceBundleFormatted.getString("FileChooser.saveButtonText"));
+    UIManager.put("FileChooser.saveButtonToolTipText", utf8ResourceBundleFormatted.getString("FileChooser.saveButtonToolTipText"));
+    UIManager.put("FileChooser.directoryOpenButtonText", utf8ResourceBundleFormatted.getString("FileChooser.openButtonText"));
+    UIManager.put("FileChooser.directoryOpenButtonToolTipText", utf8ResourceBundleFormatted.getString("FileChooser.directoryOpenButtonToolTipText"));
+    UIManager.put("FileChooser.cancelButtonText", utf8ResourceBundleFormatted.getString("FileChooser.cancelButtonText"));
+    UIManager.put("FileChooser.cancelButtonToolTipText", utf8ResourceBundleFormatted.getString("FileChooser.cancelButtonToolTipText"));
+    UIManager.put("FileChooser.updateButtonText", utf8ResourceBundleFormatted.getString("FileChooser.updateButtonText"));
+    UIManager.put("FileChooser.updateButtonToolTipText", utf8ResourceBundleFormatted.getString("FileChooser.updateButtonToolTipText"));
+    UIManager.put("FileChooser.helpButtonText", utf8ResourceBundleFormatted.getString("FileChooser.helpButtonText"));
+    UIManager.put("FileChooser.helpButtonToolTipText", utf8ResourceBundleFormatted.getString("FileChooser.helpButtonToolTipText"));
+    UIManager.put("FileChooser.newFolderErrorText", utf8ResourceBundleFormatted.getString("FileChooser.newFolderErrorText"));
+    UIManager.put("FileChooser.acceptAllFileFilterText", utf8ResourceBundleFormatted.getString("FileChooser.acceptAllFileFilterText"));
+    UIManager.put("ProgressMonitor.progressText", utf8ResourceBundleFormatted.getString("ProgressMonitor.progressText"));
+    UIManager.put("TextArea.font", UIManager.get("TextField.font"));
+  }
+  
+  private void addCustomFonts() {
+    LinkedList<String> linkedList = new LinkedList();
+    linkedList.add("fonts/BoschSans-Black.otf");
+    linkedList.add("fonts/BoschSans-BlackItalic.otf");
+    linkedList.add("fonts/BoschSans-Bold.otf");
+    linkedList.add("fonts/BoschSans-BoldItalic.otf");
+    linkedList.add("fonts/BoschSans-Light.otf");
+    linkedList.add("fonts/BoschSans-LightItalic.otf");
+    linkedList.add("fonts/BoschSans-Medium.otf");
+    linkedList.add("fonts/BoschSans-MediumItalic.otf");
+    linkedList.add("fonts/BoschSans-Regular.otf");
+    linkedList.add("fonts/BoschSans-RegularItalic.otf");
+    linkedList.add("fonts/BoschSansGlobal-Regular.ttf");
+    linkedList.add("fonts/BoschSansGlobal-Bold.ttf");
+    GraphicsEnvironment graphicsEnvironment = GraphicsEnvironment.getLocalGraphicsEnvironment();
+    for (String str : linkedList) {
+      try (InputStream null = getClass().getClassLoader().getResourceAsStream(str)) {
+        graphicsEnvironment.registerFont(Font.createFont(0, inputStream));
+      } catch (FontFormatException|java.io.IOException e) {
+        LOGGER.error("Cannot load Font {}", str, e);
+      } 
+    } 
+  }
+  
+  private void initNetworkCommunication() {
+    System.setProperty("java.net.useSystemProxies", "true");
+    ProxySelector.setDefault((ProxySelector)ProxyManager.getInstance());
+    initUpdateServer();
+  }
+  
+  private void initUpdateServer() {
+    UpdateServerConnection.initSSL();
+  }
+  
+  private void initTestserver() {
+    try {
+      boolean bool = SettingsProxy.getInstance().getGlobalSettings().getBoolean("test_server_enabled");
+      LOGGER.info("test_server_enabled was {}", Boolean.valueOf(bool));
+      if (bool) {
+        TestServer testServer = new TestServer();
+        testServer.start();
+      } 
+    } catch (ConfigurationNotFoundException e) {
+      LOGGER.warn("Global setting 'test_server_enabled' not found", (Throwable)e);
+    } 
+  }
+  
+  private void terminate(int paramInt) {
+    LOGGER.info("Application terminating with exitcode {}", Integer.valueOf(paramInt));
+    System.exit(paramInt);
+  }
+  
+  private void setupPostStartTasks() {
+    ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
+    scheduledExecutorService.schedule(this::warmUpReportGenerator, 5000L, TimeUnit.MILLISECONDS);
+    scheduledExecutorService.shutdown();
+  }
+  
+  private void warmUpReportGenerator() {
+    String str = "com.gigatronik.beds.report.impl.AbstractReportGeneratorImpl";
+    try {
+      LOGGER.trace("Report generator warm-up: loading class {}...", "com.gigatronik.beds.report.impl.AbstractReportGeneratorImpl");
+      Class.forName("com.gigatronik.beds.report.impl.AbstractReportGeneratorImpl");
+    } catch (ClassNotFoundException e) {
+      LOGGER.trace("Report generator warm-up: Failed to load class {}", "com.gigatronik.beds.report.impl.AbstractReportGeneratorImpl", e);
+    } 
+    LOGGER.trace("Report generator warm-up: checking license...");
+    this.ebikeApplication.getFrame().getApplicationPanel().getMainTabbedController().getDiagnosticTab().warmUpReportGenerator();
+  }
+  
+  private void setupFakeTokenPlugin() {
+    ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
+    scheduledExecutorService.schedule(this::plugInFakeToken, 5000L, TimeUnit.MILLISECONDS);
+    scheduledExecutorService.shutdown();
+  }
+  
+  private void plugInFakeToken() {
+    LOGGER.trace("plugInFakeToken started :)");
+    short s1 = -14971;
+    short s2 = 1027;
+    HidDeviceConnectionChangedEvent hidDeviceConnectionChangedEvent = new HidDeviceConnectionChangedEvent(s1, s2, "1234", true);
+    ((EventBasedDongleManager)this.dongleMonitor).onHidDeviceConnectionChanged(hidDeviceConnectionChangedEvent);
+    LOGGER.trace("plugInFakeToken done, you should have a fake token plugged in now");
+  }
+  
+  public void exit() {
+    terminate(0);
+  }
+  
+  public void prepareUserLevelChange() {
+    LOGGER.info("Adjusting GUI by new UserLevel triggered");
+    waitForActiveProcess();
+    LOGGER.info("Reset Gui settings");
+    this.ebikeApplication.resetGui();
+    LOGGER.info("Reset communication state and resume polling");
+    this.ecuConnectionStateHandler.resumeConnectionStateDetection(true, false);
+  }
+  
+  private void waitForActiveProcess() {
+    while (this.ebikeApplication.isRestartBlocked()) {
+      LOGGER.info("Adjusting GUI by new UserLevel blocked: Waiting for application process to finish...");
+      try {
+        Thread.sleep(500L);
+      } catch (InterruptedException e) {
+        LOGGER.error("Error waiting for application process to finish: ", (Throwable)e);
+        Thread.currentThread().interrupt();
+      } 
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/start/Main.java
+========================================================================================================================
+package com.gigatronik.start;
+
+import com.gigatronik.beds.gui.splashscreen.SplashScreenLauncher;
+import com.gigatronik.dart2.bosch.startproject.api.ApplicationController;
+import com.gigatronik.dart2.framework.log.LogFactory;
+import com.gigatronik.dart2.framework.util.benchmark.Stopwatch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class Main {
+  private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
+  
+  public static void main(String[] args) {
+    LOGGER.info("====================Application Start====================");
+    initSplashScreen();
+    initLog();
+    ApplicationController application = new Application();
+    try {
+      Stopwatch watch = new Stopwatch();
+      watch.start();
+      application.initialize();
+      watch.stop();
+      LOGGER.trace("Time for initialize Application: {}ms", Long.valueOf(watch.getMillisecondsElapsed()));
+      watch.start();
+      application.start();
+      watch.stop();
+      LOGGER.trace("Time for start Application: {}ms", Long.valueOf(watch.getMillisecondsElapsed()));
+    } catch (Exception e) {
+      LOGGER.error("Error starting application: ", (Throwable)e);
+      application.exit();
+    } 
+  }
+  
+  private static void initSplashScreen() {
+    SplashScreenLauncher.getInstance().showSplashScreen();
+  }
+  
+  private static void initLog() {
+    LOGGER.info("SLF4J Logfile path is " + System.getProperty("log4j.configurationFile"));
+    LogFactory.initLog();
+    LOGGER.info("Log4j Logfile path is " + System.getProperty("log4j.configurationFile"));
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/start/SystemDumpThread.java
+========================================================================================================================
+package com.gigatronik.start;
+
+import com.gigatronik.dart2.framework.plugin.environment.snapshot.EnvironmentSnapshotPluginImpl;
+import com.gigatronik.dart2.framework.plugins.interfaces.EnvironmentSnapshotDartPlugin;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.List;
+import java.util.TimerTask;
+import net.lingala.zip4j.exception.ZipException;
+import net.lingala.zip4j.io.ZipOutputStream;
+import net.lingala.zip4j.model.ZipParameters;
+import org.apache.commons.codec.binary.Base64;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class SystemDumpThread extends TimerTask {
+  private static final Logger LOGGER = LoggerFactory.getLogger(SystemDumpThread.class);
+  
+  private static final EnvironmentSnapshotDartPlugin ENVIRONMENT_SNAPSHOT_DART_PLUGIN = new EnvironmentSnapshotPluginImpl();
+  
+  private static final String LINE_SEPARATOR = System.getProperty("line.separator");
+  
+  private static final String ZIPPED_ENCRYPTION_PASSWORD = "YWFiZjNkNDU0YmU2NDViYzAyYTNkNmQ4";
+  
+  private static final String ZIPPED_TEXT_FILE_NAME = "dmp_data.txt";
+  
+  private static final String SEARCH_ACRONYM = "**dmp";
+  
+  public void run() {
+    Thread.currentThread().setName("SystemDump-Thread-" + Thread.currentThread().getId());
+    EnvironmentSnapshotDartPlugin.Snapshot snapshot = ENVIRONMENT_SNAPSHOT_DART_PLUGIN.createSnapshot();
+    List<EnvironmentSnapshotDartPlugin.CheckResult> results = snapshot.getResults();
+    StringBuilder stringBuilder = new StringBuilder();
+    results.stream().forEach(result -> {
+          String classSimpleName = result.getCheck().getClass().getSimpleName();
+          stringBuilder.append(classSimpleName).append(LINE_SEPARATOR).append(result.getResult().toString()).append(LINE_SEPARATOR);
+        });
+    try {
+      byte[] zipContent = zipStatementsPWEntries(stringBuilder.toString().getBytes());
+      String base64Content = new String(Base64.encodeBase64(zipContent));
+      LOGGER.info(String.format("%s %s", "**dmp", base64Content));
+    } catch (IOException|ZipException ex) {
+      LOGGER.error("Error converting dump", (Throwable)ex);
+    } 
+  }
+  
+  private byte[] zipStatementsPWEntries(byte[] contentToZip) throws IOException, ZipException {
+    byte[] result;
+    try(ByteArrayOutputStream bos = new ByteArrayOutputStream(); 
+        ZipOutputStream outputStream = new ZipOutputStream(bos)) {
+      ZipParameters zipParameters = getParameters();
+      outputStream.putNextEntry(null, zipParameters);
+      outputStream.write(contentToZip);
+      outputStream.closeEntry();
+      outputStream.finish();
+      result = bos.toByteArray();
+    } 
+    return result;
+  }
+  
+  private ZipParameters getParameters() {
+    ZipParameters zipParameters = new ZipParameters();
+    zipParameters.setCompressionMethod(8);
+    zipParameters.setCompressionLevel(5);
+    zipParameters.setEncryptFiles(true);
+    zipParameters.setEncryptionMethod(0);
+    zipParameters.setPassword("YWFiZjNkNDU0YmU2NDViYzAyYTNkNmQ4");
+    zipParameters.setFileNameInZip("dmp_data.txt");
+    zipParameters.setSourceExternalStream(true);
+    return zipParameters;
+  }
+}
+

@@ -1,0 +1,544 @@
+JAR: tableevaluator-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\tableevaluator-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/tableEvaluator/api/TableEvaluator.java
+========================================================================================================================
+package com.gigatronik.beds.service.tableEvaluator.api;
+
+import com.gigatronik.beds.service.tableEvaluator.impl.TableEvaluatorImpl;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
+public interface TableEvaluator {
+  List<TableEvaluatorImpl.TableEntry> evaluateTable(Map<String, Object> paramMap, Map<String, ComplexResponse> paramMap1, boolean paramBoolean, Version paramVersion);
+  
+  List<TableEvaluatorImpl.TableEntry> evaluateSet(Map<String, Object> paramMap, Map<String, ComplexResponse> paramMap1, boolean paramBoolean, Version paramVersion);
+  
+  Object evaluateExpression(String paramString, Map<String, Object> paramMap) throws IOException;
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/service/tableEvaluator/generated/ObjectFactory.java
+========================================================================================================================
+package com.gigatronik.beds.service.tableEvaluator.generated;
+
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.annotation.XmlElementDecl;
+import javax.xml.bind.annotation.XmlRegistry;
+import javax.xml.namespace.QName;
+
+@XmlRegistry
+public class ObjectFactory {
+  private static final QName _Value_QNAME = new QName("http://www.example.org/TableEvaluator", "value");
+  
+  private static final QName _Row_QNAME = new QName("http://www.example.org/TableEvaluator", "row");
+  
+  private static final QName _Rows_QNAME = new QName("http://www.example.org/TableEvaluator", "rows");
+  
+  public TValue createTValue() {
+    return new TValue();
+  }
+  
+  public TRow createTRow() {
+    return new TRow();
+  }
+  
+  public TRows createTRows() {
+    return new TRows();
+  }
+  
+  @XmlElementDecl(namespace = "http://www.example.org/TableEvaluator", name = "value")
+  public JAXBElement<TValue> createValue(TValue value) {
+    return new JAXBElement(_Value_QNAME, TValue.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.example.org/TableEvaluator", name = "row")
+  public JAXBElement<TRow> createRow(TRow value) {
+    return new JAXBElement(_Row_QNAME, TRow.class, null, value);
+  }
+  
+  @XmlElementDecl(namespace = "http://www.example.org/TableEvaluator", name = "rows")
+  public JAXBElement<TRows> createRows(TRows value) {
+    return new JAXBElement(_Rows_QNAME, TRows.class, null, value);
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/service/tableEvaluator/generated/package-info.java
+========================================================================================================================
+package com.gigatronik.beds.service.tableEvaluator.generated;
+
+import javax.xml.bind.annotation.XmlNsForm;
+import javax.xml.bind.annotation.XmlSchema;
+
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/service/tableEvaluator/generated/TRow.java
+========================================================================================================================
+package com.gigatronik.beds.service.tableEvaluator.generated;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tRow", propOrder = {"value"})
+public class TRow {
+  @XmlElement(required = true)
+  protected List<TValue> value;
+  
+  @XmlAttribute(name = "head")
+  protected boolean head;
+  
+  @XmlAttribute(name = "parameterName")
+  protected String parameterName;
+  
+  @XmlAttribute(name = "captionKey", required = true)
+  protected String captionKey;
+  
+  @XmlAttribute(name = "unit")
+  protected String unit;
+  
+  public List<TValue> getValue() {
+    if (this.value == null)
+      this.value = new ArrayList<>(); 
+    return this.value;
+  }
+  
+  public Boolean isHead() {
+    return this.head;
+  }
+  
+  public void setHead(Boolean value) {
+    this.head = value;
+  }
+  
+  public String getParameterName() {
+    return this.parameterName;
+  }
+  
+  public void setParameterName(String value) {
+    this.parameterName = value;
+  }
+  
+  public String getCaptionKey() {
+    return this.captionKey;
+  }
+  
+  public void setCaptionKey(String value) {
+    this.captionKey = value;
+  }
+  
+  public String getUnit() {
+    return this.unit;
+  }
+  
+  public void setUnit(String value) {
+    this.unit = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/service/tableEvaluator/generated/TRows.java
+========================================================================================================================
+package com.gigatronik.beds.service.tableEvaluator.generated;
+
+import java.util.ArrayList;
+import java.util.List;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tRows", propOrder = {"row"})
+public class TRows {
+  protected List<TRow> row;
+  
+  public List<TRow> getRow() {
+    if (this.row == null)
+      this.row = new ArrayList<>(); 
+    return this.row;
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/service/tableEvaluator/generated/TValue.java
+========================================================================================================================
+package com.gigatronik.beds.service.tableEvaluator.generated;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "tValue")
+public class TValue {
+  @XmlAttribute(name = "visible", required = true)
+  protected String visible;
+  
+  @XmlAttribute(name = "key")
+  protected String key;
+  
+  public String getVisible() {
+    return this.visible;
+  }
+  
+  public void setVisible(String value) {
+    this.visible = value;
+  }
+  
+  public String getKey() {
+    return this.key;
+  }
+  
+  public void setKey(String value) {
+    this.key = value;
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/service/tableEvaluator/impl/TableEvaluatorImpl.java
+========================================================================================================================
+package com.gigatronik.beds.service.tableEvaluator.impl;
+
+import com.gigatronik.beds.service.tableEvaluator.api.TableEvaluator;
+import com.gigatronik.beds.service.tableEvaluator.generated.ObjectFactory;
+import com.gigatronik.beds.service.tableEvaluator.generated.TRow;
+import com.gigatronik.beds.service.tableEvaluator.generated.TRows;
+import com.gigatronik.beds.service.tableEvaluator.generated.TValue;
+import com.gigatronik.beds.settings.SettingsProxy;
+import com.gigatronik.beds.settings.global.GlobalSettingsProxy;
+import com.gigatronik.bosch.utils.ConverterUtil;
+import com.gigatronik.bosch.utils.ConverterUtilAction;
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+import com.gigatronik.dart2.framework.plugins.exceptions.ConfigurationNotFoundException;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.Constants;
+import com.gigatronik.ebike.common.configuration.NegativeResponse;
+import com.gigatronik.ebike.common.util.ConverterUtils;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.MissingResourceException;
+import java.util.Properties;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBElement;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Unmarshaller;
+import org.apache.commons.jexl2.Expression;
+import org.apache.commons.jexl2.JexlContext;
+import org.apache.commons.jexl2.JexlEngine;
+import org.apache.commons.jexl2.MapContext;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class TableEvaluatorImpl implements TableEvaluator {
+  private static final Logger LOGGER = LoggerFactory.getLogger(TableEvaluatorImpl.class);
+  
+  private Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  private GlobalSettingsProxy rwSettings;
+  
+  private final JexlEngine JEXL = new JexlEngine();
+  
+  private final JAXBElement<TRows> CONFIGURATION;
+  
+  public class TableEntry {
+    private final Object caption;
+    
+    private final ComplexResponse value;
+    
+    public TableEntry(Object caption, ComplexResponse value) {
+      this.caption = caption;
+      this.value = value;
+    }
+    
+    public String toString() {
+      return "" + this.caption + " " + this.caption;
+    }
+    
+    public ComplexResponse getValue() {
+      return this.value;
+    }
+    
+    public Object getCaption() {
+      return this.caption;
+    }
+  }
+  
+  public TableEvaluatorImpl(String xmlDatabase) {
+    try {
+      JAXBContext context = JAXBContext.newInstance(new Class<?>[] { ObjectFactory.class });
+      Unmarshaller unmarshaller = context.createUnmarshaller();
+      this.CONFIGURATION = (JAXBElement<TRows>)unmarshaller.unmarshal(TableEvaluatorImpl.class.getClassLoader().getResourceAsStream(xmlDatabase));
+    } catch (JAXBException e) {
+      throw new IllegalArgumentException(e);
+    } 
+  }
+  
+  @Deprecated
+  public TableEvaluatorImpl(InputStream xmlDatabase, Utf8ResourceBundleFormatted bundle) {
+    try {
+      JAXBContext context = JAXBContext.newInstance(ObjectFactory.class.getPackage().getName(), getClass().getClassLoader());
+      Unmarshaller unmarshaller = context.createUnmarshaller();
+      this.CONFIGURATION = (JAXBElement<TRows>)unmarshaller.unmarshal(xmlDatabase);
+    } catch (JAXBException e) {
+      throw new IllegalArgumentException(e);
+    } 
+    this.BUNDLE = bundle;
+  }
+  
+  public List<TableEntry> evaluateTable(Map<String, Object> environment, Map<String, ComplexResponse> parameterValues, boolean isDuConnected, Version duSwVersion) {
+    List<TRow> rows = ((TRows)this.CONFIGURATION.getValue()).getRow();
+    List<TableEntry> result = new LinkedList<>();
+    for (TRow row : rows) {
+      String paramName = row.getParameterName();
+      evaluate(environment, parameterValues, result, row, paramName, isDuConnected, duSwVersion);
+    } 
+    return result;
+  }
+  
+  public List<TableEntry> evaluateSet(Map<String, Object> environment, Map<String, ComplexResponse> parameterValues, boolean isDuConnected, Version duSwVersion) {
+    List<TRow> rows = ((TRows)this.CONFIGURATION.getValue()).getRow();
+    List<TableEntry> result = new LinkedList<>();
+    for (TRow row : rows) {
+      String paramName = row.getParameterName();
+      if (parameterValues != null && parameterValues.containsKey(paramName))
+        evaluate(environment, parameterValues, result, row, paramName, isDuConnected, duSwVersion); 
+    } 
+    return result;
+  }
+  
+  private void evaluate(Map<String, Object> environment, Map<String, ComplexResponse> parameterValues, List<TableEntry> result, TRow row, String paramName, boolean isDuConnected, Version duSwVersion) {
+    String captionKey = row.getCaptionKey();
+    String unit = row.getUnit();
+    for (TValue value : row.getValue()) {
+      String visibleEl = value.getVisible();
+      String valueKey = value.getKey();
+      ComplexResponse parameterValue = null;
+      if (parameterValues != null && paramName != null)
+        parameterValue = parameterValues.get(paramName); 
+      if (parameterValue == null)
+        parameterValue = new ComplexResponse(""); 
+      environment.put("value", parameterValue.toString());
+      boolean isVisible = isValueVisible(visibleEl, environment);
+      if (isVisible) {
+        Object caption = setCaption(captionKey);
+        if (row.isHead())
+          caption = new THead((String)caption); 
+        ComplexResponse valuetext = setValueText(parameterValue, unit, paramName, environment, isDuConnected, duSwVersion, valueKey);
+        result.add(new TableEntry(caption, valuetext));
+        break;
+      } 
+    } 
+  }
+  
+  private ComplexResponse setValueText(ComplexResponse parameterValue, String unit, String paramName, Map<String, Object> environment, boolean isDuConnected, Version duSwVersion, String valueKey) {
+    String valuetext = "";
+    if (parameterValue != null) {
+      if (parameterValue.isPositive()) {
+        valuetext = parameterValue.toString();
+        if (StringUtils.isNotBlank(unit) && !valuetext.contains(Constants.DISPLAY_VALUE_NOT_AVAILABLE))
+          valuetext = addUnit(valuetext, unit); 
+      } else {
+        return parameterValue;
+      } 
+    } else if (paramName != null && environment.containsKey("showNegativeResponse") && showNegReponse(paramName, isDuConnected, duSwVersion)) {
+      return new ComplexResponse(NegativeResponse.GENERAL);
+    } 
+    if (StringUtils.isNotEmpty(valueKey))
+      valuetext = this.BUNDLE.getString(valueKey); 
+    return new ComplexResponse(valuetext);
+  }
+  
+  private String setCaption(String captionKey) {
+    String caption = "";
+    if (!captionKey.isEmpty())
+      try {
+        caption = this.BUNDLE.getString(captionKey);
+      } catch (MissingResourceException e) {
+        LOGGER.error("Can not load localization", (Throwable)e);
+        caption = captionKey;
+      }  
+    return caption;
+  }
+  
+  private boolean isValueVisible(String visibleEl, Map<String, Object> environment) {
+    boolean isVisible;
+    try {
+      isVisible = (Boolean)evaluateExpression(visibleEl, environment);
+    } catch (IOException e) {
+      LOGGER.error("Error in evaluate: " + e);
+      isVisible = false;
+    } 
+    return isVisible;
+  }
+  
+  private boolean showNegReponse(String paramName, boolean isDuConnected, Version duSwVersionParam) {
+    boolean result = true;
+    if (isDuConnected)
+      if ("ModelYear".equals(paramName)) {
+        Version duSwVersionTmp;
+        if (null != duSwVersionParam) {
+          duSwVersionTmp = duSwVersionParam;
+        } else {
+          duSwVersionTmp = new Version(new Integer[] { 1, 5, 1, 2 });
+        } 
+        Version my17Version = new Version(new Integer[] { 1, 5, 1, 0 });
+        if (duSwVersionTmp.compareTo(my17Version) <= 0)
+          result = false; 
+      } else if ("ShiftDetection".equals(paramName) || "AutoGear".equals(paramName) || "AutoDownShift"
+        .equals(paramName) || "DefaultGear".equals(paramName) || "BatteryLockKeyNumber"
+        .equals(paramName)) {
+        result = false;
+      }  
+    return result;
+  }
+  
+  public Object evaluateExpression(String expression, Map<String, Object> parameters) throws IOException {
+    Expression exp = this.JEXL.createExpression(expression);
+    MapContext mapContext = new MapContext(parameters);
+    try {
+      return exp.evaluate((JexlContext)mapContext);
+    } catch (RuntimeException e) {
+      throw new IOException(e);
+    } 
+  }
+  
+  public enum Unit {
+    DISTANCE("unit_distance"),
+    CIRCUMFERENCE("unit_circumference"),
+    SPEED("unit_speed"),
+    TEMPERATURE("unit_temperature");
+    
+    private final String unitName;
+    
+    Unit(String unitName) {
+      this.unitName = unitName;
+    }
+    
+    public String getUnitName() {
+      return this.unitName;
+    }
+  }
+  
+  private String addUnit(String value, String unit) {
+    if (unitIsPartOfSettingsConfig(unit)) {
+      Unit parsedUnit = parseUnit(unit);
+      if (parsedUnit != null)
+        return addUnit(value, unit, parsedUnit); 
+    } 
+    String resultWithUnit = value + " " + value;
+    return StringUtils.isNotBlank(value) ? resultWithUnit : "";
+  }
+  
+  private String addUnit(String value, String unit, Unit parsedUnit) {
+    String resultWithUnit;
+    Properties unitSystemProperties = getTableEvaluatorUnitSystemProperties();
+    int unitSetting = (unitSystemProperties != null && unitSystemProperties.containsKey(parsedUnit.getUnitName())) ? Integer.parseInt(unitSystemProperties.getProperty(parsedUnit.getUnitName())) : 0;
+    ConverterUtilAction action = (unitSetting == 0) ? ConverterUtilAction.ONLY_FORMAT_TO_STANDARD : ConverterUtilAction.CONVERT_TO_NON_STANDARD;
+    switch (parsedUnit) {
+      case DISTANCE:
+        resultWithUnit = ConverterUtil.convertDistance(value, action);
+        break;
+      case CIRCUMFERENCE:
+        resultWithUnit = ConverterUtil.convertCircumference(value, action);
+        break;
+      case SPEED:
+        resultWithUnit = ConverterUtil.convertSpeed(value, action);
+        break;
+      case TEMPERATURE:
+        resultWithUnit = ConverterUtil.convertTemperature(value, action);
+        break;
+      default:
+        resultWithUnit = value + " " + value;
+        break;
+    } 
+    return StringUtils.isNotBlank(value) ? resultWithUnit : "";
+  }
+  
+  private Unit parseUnit(String unit) {
+    Unit parsedUnit = null;
+    try {
+      parsedUnit = Unit.valueOf(unit.toUpperCase());
+    } catch (IllegalArgumentException e) {
+      LOGGER.warn("Could not parse unit into enum, fallback approach will be used", (Throwable)e);
+    } 
+    return parsedUnit;
+  }
+  
+  public Properties getTableEvaluatorUnitSystemProperties() {
+    if (this.rwSettings == null)
+      try {
+        this.rwSettings = SettingsProxy.getInstance().getGlobalSettings();
+      } catch (ConfigurationNotFoundException ex) {
+        LOGGER.error("", (Throwable)ex);
+      }  
+    Properties unitSystemProperties = new Properties();
+    addTableEvaluatorUnitSystemProperty(unitSystemProperties, Unit.DISTANCE.getUnitName(), "0");
+    addTableEvaluatorUnitSystemProperty(unitSystemProperties, Unit.CIRCUMFERENCE.getUnitName(), "0");
+    addTableEvaluatorUnitSystemProperty(unitSystemProperties, Unit.SPEED.getUnitName(), "0");
+    addTableEvaluatorUnitSystemProperty(unitSystemProperties, Unit.TEMPERATURE.getUnitName(), "0");
+    return unitSystemProperties;
+  }
+  
+  private void addTableEvaluatorUnitSystemProperty(Properties unitSystemProperties, String key, String defaultValue) {
+    String value = (this.rwSettings != null) ? this.rwSettings.getProperty(key) : null;
+    unitSystemProperties.setProperty(key, ConverterUtils.isInteger(value) ? value : defaultValue);
+  }
+  
+  private boolean unitIsPartOfSettingsConfig(String unit) {
+    for (Unit current : Unit.values()) {
+      if (current.toString().equalsIgnoreCase(unit))
+        return true; 
+    } 
+    return false;
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/beds/service/tableEvaluator/impl/THead.java
+========================================================================================================================
+package com.gigatronik.beds.service.tableEvaluator.impl;
+
+public class THead {
+  private String value;
+  
+  public THead(String value) {
+    this.value = value;
+  }
+  
+  public String getValue() {
+    return this.value;
+  }
+  
+  public void setValue(String value) {
+    this.value = value;
+  }
+  
+  public String toString() {
+    return this.value;
+  }
+}
+

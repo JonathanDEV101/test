@@ -1,0 +1,109 @@
+JAR: standby.detector-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\standby.detector-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/standbydetector/api/StandbyDetector.java
+========================================================================================================================
+package com.gigatronik.beds.service.standbydetector.api;
+
+public interface StandbyDetector {
+  void subscribe(StandbyListener paramStandbyListener);
+  
+  void unsubscribe(StandbyListener paramStandbyListener);
+  
+  public static interface StandbyListener {
+    void onWakeupFromStandby(StandbyDetector param1StandbyDetector);
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/service/standbydetector/impl/StandbyDetectorImpl.java
+========================================================================================================================
+package com.gigatronik.beds.service.standbydetector.impl;
+
+import com.gigatronik.beds.service.standbydetector.api.StandbyDetector;
+import com.gigatronik.bosch.utils.TimeProvider;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class StandbyDetectorImpl implements StandbyDetector, Runnable {
+  private static final Logger LOGGER = LoggerFactory.getLogger(StandbyDetectorImpl.class);
+  
+  private static final int CHECKS_PER_GRACE_PERIOD = 3;
+  
+  private final TimeProvider timeProvider;
+  
+  private final long gracePeriod;
+  
+  private final List<StandbyDetector.StandbyListener> listeners = Collections.synchronizedList(new LinkedList<>());
+  
+  private final AtomicLong lastTimestamp = new AtomicLong();
+  
+  private ScheduledFuture future;
+  
+  public StandbyDetectorImpl(TimeProvider timeProvider, ScheduledExecutorService executor, int gracePeriod) {
+    this.timeProvider = timeProvider;
+    this.gracePeriod = (long)gracePeriod;
+    if (!isDevelopmentExecution())
+      this.future = executor.scheduleAtFixedRate(this, 0L, getCheckInterval(), TimeUnit.MILLISECONDS); 
+  }
+  
+  private boolean isDevelopmentExecution() {
+    return StringUtils.equals(System.getProperty("developmentRun"), "true");
+  }
+  
+  public void subscribe(StandbyDetector.StandbyListener listener) {
+    this.listeners.add(listener);
+  }
+  
+  public void unsubscribe(StandbyDetector.StandbyListener listener) {
+    this.listeners.remove(listener);
+  }
+  
+  public void run() {
+    detect();
+  }
+  
+  public void cancel() {
+    if (this.future != null)
+      this.future.cancel(true); 
+  }
+  
+  private void detect() {
+    if (this.lastTimestamp.get() == 0L) {
+      init();
+      return;
+    } 
+    long timeSinceLastTimestamp = TimeUnit.NANOSECONDS.toMillis(this.timeProvider.nanos() - this.lastTimestamp.get());
+    if (timeSinceLastTimestamp < this.gracePeriod) {
+      LOGGER.trace("No standby detected. Delay was {} ms", Long.valueOf(timeSinceLastTimestamp));
+    } else {
+      LOGGER.info("Detected a standby! System did not react for {} ms", Long.valueOf(timeSinceLastTimestamp));
+      fireStandbyDetected();
+    } 
+    this.lastTimestamp.set(this.timeProvider.nanos());
+  }
+  
+  private void init() {
+    this.lastTimestamp.set(this.timeProvider.nanos());
+    LOGGER.debug("Standby detector initialized with start timestamp {}, grace period {}, check interval {} ms", this.lastTimestamp, this.gracePeriod, getCheckInterval());
+  }
+  
+  private void fireStandbyDetected() {
+    this.listeners.forEach(listener -> listener.onWakeupFromStandby(this));
+  }
+  
+  private long getCheckInterval() {
+    return this.gracePeriod / 3L;
+  }
+}
+

@@ -1,0 +1,3039 @@
+JAR: ecu.connection.state-8.1.6.0.0.jar
+PAD: C:\Users\extra\Desktop\jar test\decompiled los\compiled en werkend\ecu.connection.state-8.1.6.0.0.jar
+
+========================================================================================================================
+ITEM 1: com/gigatronik/beds/service/ecuconnectionstate/api/BctEventHandler.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.api;
+
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.BctMeasurementProgressEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.BctOperationStateChangeEvent;
+
+public interface BctEventHandler {
+  void subscribeBctOperationStateChanges(BctOperationStateListener paramBctOperationStateListener);
+  
+  void unsubscribeBctOperationStateChanges(BctOperationStateListener paramBctOperationStateListener);
+  
+  void subscribeBctMeasurementProgressChanges(BctMeasurementProgressListener paramBctMeasurementProgressListener);
+  
+  void unsubscribeBctMeasurementProgressChanges(BctMeasurementProgressListener paramBctMeasurementProgressListener);
+  
+  public static interface BctMeasurementProgressListener {
+    void onBctMeasurementProgress(BctMeasurementProgressEvent param1BctMeasurementProgressEvent);
+  }
+  
+  public static interface BctOperationStateListener {
+    void onBctOperationStateChanged(BctOperationStateChangeEvent param1BctOperationStateChangeEvent);
+  }
+}
+
+
+========================================================================================================================
+ITEM 2: com/gigatronik/beds/service/ecuconnectionstate/api/EcuConnectionStateHandler.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.api;
+
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.ChargingStateEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.EcuConnectionStateChangedEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.EcuConnectionStateRefreshEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.ProgressBarEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.SystemConnectionStateChangeEvent;
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedListener;
+import com.gigatronik.beds.service.rightsmanager.api.RightsChangedEventListener;
+import com.gigatronik.dart2.bosch.inactivitydetector.api.InactivityDetector;
+
+public interface EcuConnectionStateHandler extends InactivityDetector.InactivityListener, HidDeviceConnectionChangedListener, RightsChangedEventListener {
+  void startConnectionStateDetection();
+  
+  void suspendConnectionStateDetection(boolean paramBoolean);
+  
+  void resumeConnectionStateDetection(boolean paramBoolean1, boolean paramBoolean2);
+  
+  boolean isConnectionStateDetectionSuspended();
+  
+  BctEventHandler getBctEventHandler();
+  
+  void subscribeEcuConnectionStateChanges(EcuConnectionStateChangeListener paramEcuConnectionStateChangeListener);
+  
+  void unsubscribeEcuConnectionStateChanges(EcuConnectionStateChangeListener paramEcuConnectionStateChangeListener);
+  
+  void subscribeEcuConnectionStateRefreshEvents(EcuConnectionStateRefreshListener paramEcuConnectionStateRefreshListener);
+  
+  void unsubscribeEcuConnectionStateRefreshEvents(EcuConnectionStateRefreshListener paramEcuConnectionStateRefreshListener);
+  
+  void subscribeChargingStateChanges(ChargingStateListener paramChargingStateListener);
+  
+  void unsubscribeChargingStateChanges(ChargingStateListener paramChargingStateListener);
+  
+  void subscribeProgressBarEvent(ProgressBarEventListener paramProgressBarEventListener);
+  
+  void unsubscribeProgressBarEvent(ProgressBarEventListener paramProgressBarEventListener);
+  
+  public static interface ProgressBarEventListener {
+    void onProgressBarEvent(ProgressBarEvent param1ProgressBarEvent);
+  }
+  
+  public static interface ChargingStateListener {
+    void onConnectedBikeChargingStateChanges(ChargingStateEvent param1ChargingStateEvent);
+  }
+  
+  public static interface EcuConnectionStateRefreshListener {
+    void onEcuConnectionStateRefresh(EcuConnectionStateRefreshEvent param1EcuConnectionStateRefreshEvent);
+  }
+  
+  public static interface EcuConnectionStateChangeListener {
+    void onEcuConnectionStateChange(EcuConnectionStateChangedEvent param1EcuConnectionStateChangedEvent);
+    
+    void onSystemConnectionStateChange(SystemConnectionStateChangeEvent param1SystemConnectionStateChangeEvent);
+  }
+}
+
+
+========================================================================================================================
+ITEM 3: com/gigatronik/beds/service/ecuconnectionstate/imp/AbsWrapper.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.service.communication.api.SecurityAccessFailurePopupHandler;
+import com.gigatronik.beds.service.ecu.api.Abs;
+import com.gigatronik.beds.service.rightsmanager.api.RightsManager;
+import com.gigatronik.beds.service.rightsmanager.api.UserLevel;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.ComponentType;
+import com.gigatronik.ebike.common.configuration.Constants;
+import com.gigatronik.ebike.common.configuration.NegativeResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class AbsWrapper {
+  private static final Logger LOGGER = LoggerFactory.getLogger(AbsWrapper.class);
+  
+  private static final int MAX_TESTER_PRESENT = 3;
+  
+  private Constants.EcuMode mode = Constants.EcuMode.NONE;
+  
+  private final Abs absCom;
+  
+  private final RightsManager rightsManager;
+  
+  private final SecurityAccessFailurePopupHandler securityAccessFailurePopupHandler;
+  
+  AbsWrapper(Abs abs, RightsManager rightsManager, SecurityAccessFailurePopupHandler securityAccessFailurePopupHandler) {
+    this.absCom = abs;
+    this.rightsManager = rightsManager;
+    this.securityAccessFailurePopupHandler = securityAccessFailurePopupHandler;
+  }
+  
+  Constants.EcuMode checkState() {
+    if (ping()) {
+      if (this.mode == Constants.EcuMode.NONE)
+        if (this.rightsManager.isUserInLevel(UserLevel.UNKNOWN)) {
+          LOGGER.info("Prevented initialization of new detected device, 'cause of missing dongle.");
+        } else {
+          LOGGER.info("Detected new ECU '{}'", Constants.EcuType.BAS100);
+          onConnect();
+        }  
+    } else if (this.mode != Constants.EcuMode.NONE) {
+      this.mode = Constants.EcuMode.NONE;
+    } 
+    return this.mode;
+  }
+  
+  void resetState() {
+    this.mode = Constants.EcuMode.NONE;
+  }
+  
+  private boolean ping() {
+    ComplexResponse response = new ComplexResponse(NegativeResponse.UNSPECIFIED);
+    if (this.mode == Constants.EcuMode.NONE) {
+      response = this.absCom.startExtendedSession();
+    } else {
+      for (int n = 0; n < 3 && !response.isPositive(); n++)
+        response = this.absCom.sendTesterPresent(); 
+    } 
+    return response.isPositive();
+  }
+  
+  private void onConnect() {
+    this.mode = this.absCom.getEcuMode();
+    if (this.mode == Constants.EcuMode.APP) {
+      ComplexResponse response;
+      switch (this.rightsManager.getUserLevel()) {
+        case IBD:
+          response = this.absCom.executeSecurityAccess(Constants.AccessLevel.IBD);
+          break;
+        case OEM:
+          response = this.absCom.executeSecurityAccess(Constants.AccessLevel.OEM);
+          break;
+        default:
+          response = this.absCom.executeSecurityAccess(Constants.AccessLevel.LEVEL_0);
+          break;
+      } 
+      if (!response.isPositive()) {
+        this.absCom.startDefaultSession(false);
+        this.securityAccessFailurePopupHandler.displaySecurityAccessFailedDialog(true, ComponentType.COMP_BBA100);
+        this.mode = Constants.EcuMode.NONE;
+      } 
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 4: com/gigatronik/beds/service/ecuconnectionstate/imp/BatteryBootloaderChecker.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.Constants;
+import com.gigatronik.ebike.gui.testinterface.TestableJOptionPane;
+import java.awt.EventQueue;
+import java.lang.reflect.InvocationTargetException;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class BatteryBootloaderChecker {
+  private static final Logger LOGGER = LoggerFactory.getLogger(EcuStateThread.class);
+  
+  private static final Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  private static final String TITLE_BATTERY_IN_FBL = "WarningPopUp.EcuInFbl.title";
+  
+  private static final String OPTION_SINGLE_BATTERY = "BatteryFbl.selection.btnSingle.text";
+  
+  private static final String OPTION_DUAL_BATTERY = "BatteryFbl.selection.btnDual.text";
+  
+  private static final String TEXT_NUMBER_OF_BATTERIES = "BatteryFbl.selection.label.text";
+  
+  private static final String TEXT_FLASH_INSTRUCTION = "BatteryFbl.performFlash.text";
+  
+  private static final String TEXT_REMOVE_ONE_BATTERY = "BatteryFbl.disconnectDual.text";
+  
+  private static int BMS_FBL_PINGCOUNTER_DELAY = 1400;
+  
+  private final CommunicationManager communicationManager;
+  
+  BatteryBootloaderChecker(CommunicationManager communicationManager) {
+    this.communicationManager = communicationManager;
+  }
+  
+  boolean checkBootloaderState(Constants.SystemType systemType, boolean isBms1connected, boolean isBms2connected) {
+    if (systemType == Constants.SystemType.NONE || (!isBms1connected && !isBms2connected)) {
+      LOGGER.info("No need for BMS FBL check: SystemType='{}', Bms1ConnectionState='{}', Bms2ConnectionState='{}'", systemType, isBms1connected, isBms2connected);
+      return false;
+    } 
+    LOGGER.debug("Check if there's a BMS in FBL state");
+    this.communicationManager.getHmiCom().writeBmsFblPingCounter("0");
+    startDefaultSessionBms(isBms1connected, isBms2connected, systemType);
+    sleep(BMS_FBL_PINGCOUNTER_DELAY);
+    startExtendedSessionBms(isBms1connected, isBms2connected, systemType);
+    ComplexResponse pingCounter = this.communicationManager.getHmiCom().readBmsFblPingCounter();
+    if (pingCounter.isPositive() && !StringUtils.startsWith(pingCounter.toString(), "0")) {
+      LOGGER.warn("There's a BMS in FBL!");
+      return true;
+    } 
+    LOGGER.debug("No BMS in FBL has been detected");
+    return false;
+  }
+  
+  private void startDefaultSessionBms(boolean bms1IsConnected, boolean bms2IsConnected, Constants.SystemType systemType) {
+    if (systemType == Constants.SystemType.VICTOR) {
+      if (bms1IsConnected)
+        this.communicationManager.getBms1Com().getBmsVictor().startDefaultSession(false); 
+      if (bms2IsConnected)
+        this.communicationManager.getBms2Com().getBmsVictor().startDefaultSession(false); 
+    } else {
+      this.communicationManager.getBms1Com().getBmsClassicPlus().startDefaultSession(false);
+    } 
+  }
+  
+  private void startExtendedSessionBms(boolean bms1IsConnected, boolean bms2IsConnected, Constants.SystemType systemType) {
+    if (systemType == Constants.SystemType.VICTOR) {
+      if (bms1IsConnected)
+        this.communicationManager.getBms1Com().getBmsVictor().startExtendedSession(); 
+      if (bms2IsConnected)
+        this.communicationManager.getBms2Com().getBmsVictor().startExtendedSession(); 
+    } else {
+      this.communicationManager.getBms1Com().getBmsClassicPlus().startExtendedSession();
+    } 
+  }
+  
+  void showBatteryBootloaderWarning() {
+    try {
+      EventQueue.invokeAndWait(() -> {
+            String message = String.format(BUNDLE.getString("WarningPopUp.EcuInFbl.message"), BUNDLE.getString("BATTERY"));
+            TestableJOptionPane.showMessageDialog(message, BUNDLE.getString("WarningPopUp.EcuInFbl.title"), 2);
+            Object[] options = { BUNDLE.getString("BatteryFbl.selection.btnSingle.text"), BUNDLE.getString("BatteryFbl.selection.btnDual.text") };
+            int selected = TestableJOptionPane.showOptionDialog(BUNDLE.getString("BatteryFbl.selection.label.text"), BUNDLE.getString("WarningPopUp.EcuInFbl.title"), -1, 1, null, options, options[0]);
+            if (selected == 0) {
+              TestableJOptionPane.showMessageDialog(BUNDLE.getString("BatteryFbl.performFlash.text"), BUNDLE.getString("WarningPopUp.EcuInFbl.title"), 1);
+            } else {
+              TestableJOptionPane.showMessageDialog(BUNDLE.getString("BatteryFbl.disconnectDual.text"), BUNDLE.getString("WarningPopUp.EcuInFbl.title"), 1);
+              TestableJOptionPane.showMessageDialog(BUNDLE.getString("BatteryFbl.performFlash.text"), BUNDLE.getString("WarningPopUp.EcuInFbl.title"), 1);
+            } 
+          });
+    } catch (InvocationTargetException e) {
+      LOGGER.error("Exception displaying message dialog (PowerPack in FBL): " + e.getMessage(), (Throwable)e);
+    } catch (InterruptedException e) {
+      LOGGER.warn("Warning Interrupted", (Throwable)e);
+      Thread.currentThread().interrupt();
+    } 
+  }
+  
+  private void sleep(int milliSeconds) {
+    try {
+      Thread.sleep((long)milliSeconds);
+    } catch (InterruptedException e) {
+      LOGGER.warn("Sleeping interrupted!", (Throwable)e);
+      Thread.currentThread().interrupt();
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 5: com/gigatronik/beds/service/ecuconnectionstate/imp/BaudrateChecker.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.ecu.api.Hmi;
+import com.gigatronik.beds.service.rightsmanager.api.RightsManager;
+import com.gigatronik.beds.service.rightsmanager.api.UserLevel;
+import com.gigatronik.ebike.common.configuration.Constants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class BaudrateChecker {
+  private static final Logger LOGGER = LoggerFactory.getLogger(BaudrateChecker.class);
+  
+  private static int WAITING_TIME_AFTER_BAUDRATE_CONFIGURATION = 1000;
+  
+  private boolean bms1connected;
+  
+  private boolean bms2connected;
+  
+  private final CommunicationManager communicationManager;
+  
+  private final RightsManager rightsManager;
+  
+  BaudrateChecker(CommunicationManager communicationManager, RightsManager rightsManager) {
+    this.communicationManager = communicationManager;
+    this.rightsManager = rightsManager;
+  }
+  
+  Constants.SystemType checkBaudrate(boolean hmiIsIntuvia) {
+    resetLocalMembers();
+    if (!hmiIsIntuvia)
+      return onNotIntuvia(); 
+    Hmi.ConfiguredCanBaudrate baudrate = readBaudrateSetting();
+    if (baudrate.isIntuviaConfiguredCorrectly()) {
+      Constants.SystemType systemType = tryCurrentSetting(baudrate);
+      if (systemType != Constants.SystemType.NONE)
+        return systemType; 
+      return tryOtherSetting(baudrate);
+    } 
+    return pingAnyEcu();
+  }
+  
+  private Constants.SystemType onNotIntuvia() {
+    LOGGER.debug("No check necessary, 'caus display does only support Victor ECUs.");
+    pingVictorEcus(false);
+    return Constants.SystemType.VICTOR;
+  }
+  
+  private Constants.SystemType tryCurrentSetting(Hmi.ConfiguredCanBaudrate configuredBaudrate) {
+    if (configuredBaudrate == Hmi.ConfiguredCanBaudrate.CLASSIC_125k) {
+      LOGGER.debug("Intuvia's configured Classic+ / 125k, check connection");
+      if (pingClassicPlusEcus()) {
+        LOGGER.debug("SystemType detected! --> It's a CLASSIC+ system");
+        return Constants.SystemType.CLASSIC_PLUS;
+      } 
+    } else {
+      LOGGER.debug("Intuvia's configured Victor / 500k, check connection");
+      if (pingVictorEcus(true)) {
+        LOGGER.debug("SystemType detected! --> It's a VICTOR system");
+        return Constants.SystemType.VICTOR;
+      } 
+    } 
+    LOGGER.debug("Not able to build up a communication with current setting");
+    return Constants.SystemType.NONE;
+  }
+  
+  private Constants.SystemType tryOtherSetting(Hmi.ConfiguredCanBaudrate configuredBaudrate) {
+    if (configuredBaudrate == Hmi.ConfiguredCanBaudrate.VICTOR_500k) {
+      LOGGER.debug("Try Classic+ / 125k baudrate");
+      this.communicationManager.getHmiCom().writeCanBaudrate(Hmi.ConfiguredCanBaudrate.CLASSIC_125k);
+      waitForReconfigurationIsProcessedByEcu();
+      if (pingClassicPlusEcus()) {
+        LOGGER.debug("CAN baudrate configuration done --> It's a CLASSIC+ system");
+        return Constants.SystemType.CLASSIC_PLUS;
+      } 
+    } else {
+      LOGGER.debug("Try Victor / 500k baudrate");
+      this.communicationManager.getHmiCom().writeCanBaudrate(Hmi.ConfiguredCanBaudrate.VICTOR_500k);
+      waitForReconfigurationIsProcessedByEcu();
+      if (pingVictorEcus(true)) {
+        LOGGER.debug("CAN baudrate configuration done --> It's a VICTOR system");
+        return Constants.SystemType.VICTOR;
+      } 
+    } 
+    LOGGER.warn("Not able to build up a communication with any setup");
+    return Constants.SystemType.NONE;
+  }
+  
+  private Constants.SystemType pingAnyEcu() {
+    LOGGER.debug("Read out CAN baudrate is still unvalid, try to reach any ECU");
+    if (pingVictorEcus(true)) {
+      LOGGER.debug("SystemType detected! --> It's a VICTOR system");
+      return Constants.SystemType.VICTOR;
+    } 
+    if (pingClassicPlusEcus()) {
+      LOGGER.debug("SystemType detected! --> It's a CLASSIC+ system");
+      return Constants.SystemType.CLASSIC_PLUS;
+    } 
+    LOGGER.warn("SystemType could not be detected!");
+    return Constants.SystemType.NONE;
+  }
+  
+  private Hmi.ConfiguredCanBaudrate readBaudrateSetting() {
+    Hmi hmiCom = this.communicationManager.getHmiCom();
+    Hmi.ConfiguredCanBaudrate baudrate = hmiCom.readCanBaudrate();
+    if (!baudrate.isIntuviaConfiguredCorrectly()) {
+      LOGGER.debug("Read out CAN baudrate is unvalid ('{}'), write Victor / 500k", baudrate);
+      hmiCom.writeCanBaudrate(Hmi.ConfiguredCanBaudrate.VICTOR_500k);
+      baudrate = hmiCom.readCanBaudrate();
+    } 
+    return baudrate;
+  }
+  
+  private boolean pingVictorEcus(boolean pingBcs) {
+    boolean bcsConnected;
+    this.bms1connected = this.communicationManager.getBms1Com().getBmsVictor().sendTesterPresent().isPositive();
+    this.bms2connected = this.communicationManager.getBms2Com().getBmsVictor().sendTesterPresent().isPositive();
+    if (pingBcs && this.rightsManager.isUserInLevel(UserLevel.IBD)) {
+      bcsConnected = this.communicationManager.getBcsCom().sendTesterPresent().isPositive();
+    } else {
+      bcsConnected = false;
+    } 
+    return (this.bms1connected || this.bms2connected || bcsConnected);
+  }
+  
+  private boolean pingClassicPlusEcus() {
+    this.bms1connected = this.communicationManager.getBms1Com().getBmsClassicPlus().sendTesterPresent().isPositive();
+    this.bms2connected = false;
+    return this.bms1connected;
+  }
+  
+  private void resetLocalMembers() {
+    this.bms1connected = false;
+    this.bms2connected = false;
+  }
+  
+  boolean bms1HasBeenDetectedDuringLastBaudrateCheck() {
+    return this.bms1connected;
+  }
+  
+  boolean bms2HasBeenDetectedDuringLastBaudrateCheck() {
+    return this.bms2connected;
+  }
+  
+  private void waitForReconfigurationIsProcessedByEcu() {
+    try {
+      Thread.sleep((long)WAITING_TIME_AFTER_BAUDRATE_CONFIGURATION);
+    } catch (InterruptedException ex) {
+      LOGGER.warn("Sleep interrupted", (Throwable)ex);
+      Thread.currentThread().interrupt();
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 6: com/gigatronik/beds/service/ecuconnectionstate/imp/BctEventPublisher.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.common.bct.BctState;
+import com.gigatronik.beds.common.event.ApplicationEventQueue;
+import com.gigatronik.beds.service.ecuconnectionstate.api.BctEventHandler;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.BctMeasurementProgressEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.BctOperationStateChangeEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.synchronization.ActionSynchronizer;
+import java.util.ArrayList;
+import java.util.List;
+
+class BctEventPublisher implements BctEventHandler {
+  private final List<BctEventHandler.BctMeasurementProgressListener> progressListeners = new ArrayList<>();
+  
+  private final List<BctEventHandler.BctOperationStateListener> stateListeners = new ArrayList<>();
+  
+  private ApplicationEventQueue applicationEventQueue = ApplicationEventQueue.getInstance();
+  
+  public void subscribeBctMeasurementProgressChanges(BctEventHandler.BctMeasurementProgressListener listener) {
+    if (!this.progressListeners.contains(listener))
+      this.progressListeners.add(listener); 
+  }
+  
+  public void unsubscribeBctMeasurementProgressChanges(BctEventHandler.BctMeasurementProgressListener listener) {
+    this.progressListeners.remove(listener);
+  }
+  
+  protected void publishProgressEvent(BctMeasurementProgressEvent event) {
+    this.applicationEventQueue.queueJob(() -> this.progressListeners.forEach(listener -> listener.onBctMeasurementProgress(event)), "Publish BCT measurement progress event");
+  }
+  
+  public void subscribeBctOperationStateChanges(BctEventHandler.BctOperationStateListener listener) {
+    if (!this.stateListeners.contains(listener))
+      if (listener.getClass().toString().endsWith("ConfigurationManagerImpl")) {
+        this.stateListeners.add(0, listener);
+      } else if (listener.getClass().toString().endsWith("StartMeasurementPanelController") && this.stateListeners.size() > 1) {
+        this.stateListeners.add(1, listener);
+      } else {
+        this.stateListeners.add(listener);
+      }  
+  }
+  
+  public void unsubscribeBctOperationStateChanges(BctEventHandler.BctOperationStateListener listener) {
+    this.stateListeners.remove(listener);
+  }
+  
+  protected void publishOperationStateEvent(BctOperationStateChangeEvent event) {
+    this.applicationEventQueue.queueJob(() -> this.stateListeners.forEach(listener -> listener.onBctOperationStateChanged(event)), "Publish BCT operation state change event");
+    queueReleaseJobForServiceTabThread(event);
+  }
+  
+  private void queueReleaseJobForServiceTabThread(BctOperationStateChangeEvent event) {
+    if (event.getOperatingState() == BctState.IDLE_BATTERY_SET)
+      this.applicationEventQueue.queueJob(() -> ActionSynchronizer.getInstance().notifyComplete(), "Queue notify job for waiting service tab thread at the end of pipe"); 
+  }
+}
+
+
+========================================================================================================================
+ITEM 7: com/gigatronik/beds/service/ecuconnectionstate/imp/BctWrapper.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.common.bct.BctBatteryType;
+import com.gigatronik.beds.common.bct.BctState;
+import com.gigatronik.beds.common.bct.BctTestProgress;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.BctMeasurementProgressEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.BctOperationStateChangeEvent;
+import com.gigatronik.ebike.common.configuration.Constants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class BctWrapper {
+  private static final Logger LOGGER = LoggerFactory.getLogger(BctWrapper.class);
+  
+  private final CommunicationManager communicationManager;
+  
+  private final BctEventPublisher publisher;
+  
+  private BctState previousState = BctState.NOT_CONNECTED;
+  
+  BctWrapper(BctEventPublisher publisher, CommunicationManager communicationManager) {
+    this.publisher = publisher;
+    this.communicationManager = communicationManager;
+  }
+  
+  BctState checkOperationState() {
+    BctState currentState = this.communicationManager.getBctCom().readOperatingState();
+    if (currentState == BctState.NOT_CONNECTED && startExtendedSession())
+      currentState = this.communicationManager.getBctCom().readOperatingState(); 
+    if (currentState != this.previousState) {
+      LOGGER.info("BCT operation state changed from '{}' -> '{}'", this.previousState, currentState);
+      actionOnBctOperationStateChange(currentState);
+      this.previousState = currentState;
+      publishStateChangeEvent(currentState);
+    } 
+    if (currentState == BctState.TEST_RUNNING || currentState == BctState.DISCHARGE_RUNNING) {
+      BctTestProgress progress = this.communicationManager.getBctCom().getMeasurementProgress();
+      publishMeasurementProgressEvent(progress);
+    } 
+    return currentState;
+  }
+  
+  private void actionOnBctOperationStateChange(BctState newState) {
+    BctBatteryType selectedBattery;
+    switch (newState) {
+      case NOT_CONNECTED:
+      case CONNECTED_FBL:
+      case IDLE:
+        this.communicationManager.setEcuType(Constants.EcuType.VICTOR_PP1, Constants.EcuMode.NONE);
+        break;
+      case IDLE_BATTERY_SET:
+        LOGGER.debug("Request configured battery generation from BCT and configure communication layer.");
+        selectedBattery = this.communicationManager.getBctCom().getSelectedBattery();
+        this.communicationManager.setEcuType((selectedBattery == BctBatteryType.CLASSIC) ? Constants.EcuType.CLASSIC_PP : Constants.EcuType.VICTOR_PP1, Constants.EcuMode.APP);
+        break;
+    } 
+  }
+  
+  boolean startExtendedSession() {
+    return this.communicationManager.getBctCom().startExtendedSession().isPositive();
+  }
+  
+  void publishStateChangeEvent(BctState bctState) {
+    this.publisher.publishOperationStateEvent(new BctOperationStateChangeEvent(bctState));
+  }
+  
+  private void publishMeasurementProgressEvent(BctTestProgress progress) {
+    this.publisher.publishProgressEvent(new BctMeasurementProgressEvent(progress));
+  }
+  
+  void resetState() {
+    this.previousState = BctState.NOT_CONNECTED;
+  }
+}
+
+
+========================================================================================================================
+ITEM 8: com/gigatronik/beds/service/ecuconnectionstate/imp/ChargingStateBcsChecker.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.ecu.api.Hmi;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.ChargingStateEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.model.ChargingCheckResult;
+import com.gigatronik.beds.service.rightsmanager.api.RightsManager;
+import com.gigatronik.beds.service.rightsmanager.api.UserLevel;
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+import com.gigatronik.dart2.framework.util.Version;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.ComponentType;
+import com.gigatronik.ebike.common.configuration.Constants;
+import com.gigatronik.ebike.common.configuration.NegativeResponse;
+import com.gigatronik.ebike.gui.testinterface.TestableJOptionPane;
+import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ChargingStateBcsChecker {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ChargingStateBcsChecker.class);
+  
+  private static final Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  private static final int CHECK_TIME_FOR_BCS_CONNECTION = 3000;
+  
+  private static final int MAX_RETRY_BMS_CHARGING_STATE_TOGGLE = 3;
+  
+  private static final int MAX_RETRY_BCS_STOP_CHARGING_STATE_CHANGE = 3;
+  
+  private static final int BCS_STOP_CHARGING_REQUEST_FAILED_WAITING_TIME_BETWEEN_RETRIES = 200;
+  
+  private static final int BMS_END_OF_CHARGING_REQUEST_FAILED_WAITING_TIME_BETWEEN_RETRIES = 200;
+  
+  private static final int BCS_CONNECTION_CHECK_TRIES_CHARGING = 3;
+  
+  private static final int BCS_CONNECTION_CHECK_TRIES_NOT_CHARGING = 1;
+  
+  private static final int BCS_CONNECTION_CHECK_RETRY_WAITING_TIME = 200;
+  
+  private static final String MIN_BMS_SW_VER_4_BCS_DIAG = "1.7.1.1";
+  
+  private static final String MIN_DU3_SW_VER_4_BCS_DIAG = "1.0.1.1";
+  
+  private static final String MIN_DU2_SW_VER_4_BCS_DIAG = "1.7.0.1";
+  
+  private final CommunicationManager communicationManager;
+  
+  private final VciWrapper vciWrapper;
+  
+  private final RightsManager rightsManager;
+  
+  private long lastBcsConnectCheck = 0L;
+  
+  private volatile boolean restoreBcsSession = false;
+  
+  ChargingStateBcsChecker(CommunicationManager communicationManager, VciWrapper vciWrapper, RightsManager rightsManager) {
+    this.communicationManager = communicationManager;
+    this.vciWrapper = vciWrapper;
+    this.rightsManager = rightsManager;
+  }
+  
+  ChargingCheckResult checkChargingStateAndBcsExistence(Constants.EcuType hmiPresentType, Constants.EcuMode hmiPresentMode, boolean duConnected, boolean bms1Connected, boolean bms2Connected, boolean absConnected, boolean bcsConnected) {
+    if (hmiPresentMode == Constants.EcuMode.APP && !bcsConnected && !isInterrupted()) {
+      LOGGER.debug("Check charging state of bike");
+      Hmi.SystemChargingState chargingResponse = this.communicationManager.getHmiCom().readSystemChargeState();
+      boolean chargingState = (chargingResponse == Hmi.SystemChargingState.CHARGING);
+      LOGGER.debug("Current eBike charging state: '{}'", chargingResponse);
+      if (this.rightsManager.isUserInLevel(UserLevel.OEM)) {
+        if (chargingState)
+          return new ChargingCheckResult(true, ChargingStateEvent.ChargingMessage.OEM, Constants.EcuType.NONE, Constants.EcuMode.NONE); 
+        return new ChargingCheckResult();
+      } 
+      if (!chargingState && System.currentTimeMillis() - this.lastBcsConnectCheck < 3000L)
+        return new ChargingCheckResult(); 
+      LOGGER.debug("Checking if BCS's connected");
+      this.lastBcsConnectCheck = System.currentTimeMillis();
+      return checkBcsConnectionState(chargingState, duConnected, bms1Connected, bms2Connected, absConnected);
+    } 
+    return new ChargingCheckResult();
+  }
+  
+  private ChargingCheckResult checkBcsConnectionState(boolean chargingState, boolean duConnected, boolean bms1Connected, boolean bms2Connected, boolean absConnected) {
+    if (!this.vciWrapper.sendTesterPresent(Constants.EcuType.BCS250, chargingState ? 3 : 1, 200)) {
+      if (chargingState)
+        return new ChargingCheckResult(true, ChargingStateEvent.ChargingMessage.IBD_HINT, Constants.EcuType.NONE, Constants.EcuMode.NONE); 
+      return new ChargingCheckResult();
+    } 
+    if (this.rightsManager.isUserInLevel(UserLevel.UNKNOWN)) {
+      LOGGER.info("Prevented initialization of new detected device, 'cause of missing dongle.");
+      return new ChargingCheckResult(false, ChargingStateEvent.ChargingMessage.NO_TEXT, Constants.EcuType.NONE, Constants.EcuMode.NONE);
+    } 
+    LOGGER.info("Detected new ECU '{}'", Constants.EcuType.BCS250);
+    if (!bms1Connected)
+      bms1Connected = this.communicationManager.getBms1Com().getBmsVictor().sendTesterPresent().isPositive(); 
+    if (!bms2Connected)
+      bms2Connected = this.communicationManager.getBms2Com().getBmsVictor().sendTesterPresent().isPositive(); 
+    if (bms1Connected || bms2Connected) {
+      ChargingStateEvent.ChargingMessage preConditionsCheckResult = checkBcsPreConditions(duConnected, bms1Connected, bms2Connected, absConnected);
+      if (preConditionsCheckResult == ChargingStateEvent.ChargingMessage.NO_TEXT) {
+        if (this.communicationManager.getBcsCom().readEcuState() == Constants.EcuMode.APP) {
+          if (this.restoreBcsSession || askUserForBcsDiag()) {
+            boolean bool1 = connectBcs(false, false);
+            return new ChargingCheckResult(false, ChargingStateEvent.ChargingMessage.NO_TEXT, bool1 ? Constants.EcuType.BCS250 : Constants.EcuType.NONE, Constants.EcuMode.APP);
+          } 
+          return new ChargingCheckResult(true, ChargingStateEvent.ChargingMessage.OEM, Constants.EcuType.NONE, Constants.EcuMode.NONE);
+        } 
+        boolean bool = connectBcs(false, true);
+        return new ChargingCheckResult(false, ChargingStateEvent.ChargingMessage.NO_TEXT, bool ? Constants.EcuType.BCS250 : Constants.EcuType.NONE, Constants.EcuMode.FBL);
+      } 
+      return new ChargingCheckResult(true, preConditionsCheckResult, Constants.EcuType.NONE, Constants.EcuMode.NONE);
+    } 
+    Constants.EcuMode bcsMode = this.communicationManager.getBcsCom().readEcuState();
+    boolean success = connectBcs(true, (bcsMode == Constants.EcuMode.FBL));
+    return new ChargingCheckResult(false, ChargingStateEvent.ChargingMessage.NO_TEXT, success ? Constants.EcuType.BCS250 : Constants.EcuType.NONE, bcsMode);
+  }
+  
+  private ChargingStateEvent.ChargingMessage checkBcsPreConditions(boolean duConnected, boolean bms1Connected, boolean bms2Connected, boolean absConnected) {
+    boolean cDualBat = false;
+    boolean duIsSleeping = false;
+    Version duSwVer = null;
+    Version bmsSwVer = null;
+    boolean cEbikeOk = eBikeEcusFblCheck(duConnected, bms1Connected, bms2Connected, absConnected);
+    if (cEbikeOk) {
+      if (!this.vciWrapper.startExtendedSession(Constants.EcuType.VICTOR_DU, 2, 200))
+        LOGGER.debug("DU extended session failed! Try gathering SW version anyway ..."); 
+      ComplexResponse duSwVerResp = this.communicationManager.getDuCom().getDuVictor().readSoftwareVersion();
+      if (duSwVerResp.isPositive()) {
+        duSwVer = conv2Version(duSwVerResp.toString());
+      } else {
+        try {
+          if (duSwVerResp.getNegativeResponse() == NegativeResponse.TIMEOUT) {
+            LOGGER.debug("DU seems to be sleeping, 'cause BMS is fully charged, so skip DU firmware check!");
+            duIsSleeping = true;
+          } else {
+            LOGGER.warn("DU refused to share SW version, BCS preconditions are not fulfilled!");
+            cEbikeOk = false;
+          } 
+        } catch (ComplexResponse.DataAccessException ex) {
+          LOGGER.error("Error accesssing negative firmware version request response from DU '{}'", duSwVerResp, ex);
+          cEbikeOk = false;
+        } 
+      } 
+    } 
+    ComplexResponse response = this.communicationManager.getDuCom().getDuVictor().readComponentType();
+    ComponentType compType = response.isPositive() ? ComponentType.parse(response.toString()) : ComponentType.NONE;
+    if (compType.isBDU2xx() || compType.isBDU3xx()) {
+      Version minReqDuSwVer = conv2Version(compType.isBDU2xx() ? "1.7.0.1" : "1.0.1.1");
+      if (!duIsSleeping && (!cEbikeOk || duSwVer == null || duSwVer.compareTo(minReqDuSwVer) < 0)) {
+        LOGGER.warn("BCS preconditions not fulfilled: DU SW Version too low: '{}', should be at least: '{}'", duSwVer, minReqDuSwVer);
+        cEbikeOk = false;
+      } 
+    } 
+    if (cEbikeOk) {
+      this.vciWrapper.startExtendedSession(Constants.EcuType.VICTOR_PP1, 2, 200);
+      bmsSwVer = conv2Version(this.communicationManager.getBms1Com().getBmsVictor().readSoftwareVersion().toString());
+    } 
+    Version minReqBmsSwVer = conv2Version("1.7.1.1");
+    if (!cEbikeOk || bmsSwVer == null || bmsSwVer.compareTo(minReqBmsSwVer) < 0) {
+      LOGGER.warn("BCS preconditions not fulfilled: BMS SW Version too low: '{}', should be at least: '{}'", bmsSwVer, minReqBmsSwVer);
+      cEbikeOk = false;
+    } 
+    if (bms2Connected) {
+      LOGGER.warn("BCS preconditions not fulfilled: Dual battery system detected!");
+      cDualBat = true;
+    } 
+    return interpretPreConditionCheckResult(cEbikeOk, cDualBat);
+  }
+  
+  private boolean eBikeEcusFblCheck(boolean duConnected, boolean bms1Connected, boolean bms2Connected, boolean absConnected) {
+    if ((duConnected || this.communicationManager.getDuCom().getDuVictor().sendTesterPresent().isPositive()) && 
+      this.communicationManager.getDuCom().getDuVictor().readEcuState() != Constants.EcuMode.APP) {
+      LOGGER.warn("DU's in FBL, BCS diagnose session conditions not given!");
+      return false;
+    } 
+    if (bms1Connected && 
+      this.communicationManager.getBms1Com().getBmsVictor().readEcuState() != Constants.EcuMode.APP) {
+      LOGGER.warn("BMS1's in FBL, BCS diagnose session conditions not given!");
+      return false;
+    } 
+    if (bms2Connected && 
+      this.communicationManager.getBms2Com().getBmsVictor().readEcuState() != Constants.EcuMode.APP) {
+      LOGGER.warn("BMS2's in FBL, BCS diagnose session conditions not given!");
+      return false;
+    } 
+    if ((absConnected || this.communicationManager.getAbsCom().sendTesterPresent().isPositive()) && 
+      this.communicationManager.getAbsCom().readEcuState() != Constants.EcuMode.APP) {
+      LOGGER.warn("ABS's in FBL, BCS diagnose session conditions not given!");
+      return false;
+    } 
+    LOGGER.debug("All connected eBike ECUs are in APP");
+    return true;
+  }
+  
+  private boolean askUserForBcsDiag() {
+    int selected = TestableJOptionPane.showOptionDialog(BUNDLE.getString("BcsDiagnoseSession.userSelection.label.text"), 
+        BUNDLE.getString("BcsDiagnoseSession.userSelection.title"), 0, 3, null, null, null);
+    LOGGER.debug("User selection BCS diagnose session: '{}'", Integer.valueOf(selected));
+    return (selected == 0);
+  }
+  
+  private boolean connectBcs(boolean bmsless, boolean bcsInFbl) {
+    LOGGER.debug("eBike connected to the BCS in FBL: '{}', has a BMS: '{}'", Boolean.valueOf(bcsInFbl), Boolean.valueOf(!bmsless));
+    boolean success = true;
+    if (!bmsless)
+      success = prepareBmsForBcsDiagnosticSession(); 
+    if (!bcsInFbl && success)
+      success = prepareBcsForBcsDiagnosticSession(); 
+    if (success) {
+      LOGGER.debug("Connecting BCS worked!");
+      this.restoreBcsSession = false;
+      return true;
+    } 
+    LOGGER.error("Connecting BCS did not work!");
+    TestableJOptionPane.showMessageDialog(BUNDLE.getString("BcsDiagnoseSession.error.label.text"), BUNDLE.getString("BcsDiagnoseSession.error.title"), 0);
+    return false;
+  }
+  
+  private boolean prepareBcsForBcsDiagnosticSession() {
+    if (!this.vciWrapper.startExtendedSession(Constants.EcuType.BCS250, 2, 200)) {
+      LOGGER.warn("Connecting BCS error: BCS extended session or security access failed");
+      return false;
+    } 
+    if (!forceBcsStopCharging()) {
+      LOGGER.warn("Connecting BCS error: Toggling BCS state machine failed");
+      return false;
+    } 
+    return true;
+  }
+  
+  private boolean prepareBmsForBcsDiagnosticSession() {
+    if (!this.vciWrapper.startExtendedSession(Constants.EcuType.VICTOR_PP1, 2, 200) || !this.vciWrapper.securityAccess(Constants.EcuType.VICTOR_PP1, 2, 200)) {
+      LOGGER.warn("Connecting BCS error: BMS extended session or security access failed");
+      return false;
+    } 
+    if (!toggleBatteryChargingState()) {
+      LOGGER.warn("Connecting BCS error: Toggling BMS state machine failed");
+      return false;
+    } 
+    return true;
+  }
+  
+  private boolean toggleBatteryChargingState() {
+    boolean success = false;
+    for (int i = 0; i < 3; i++) {
+      success = this.communicationManager.getBms1Com().getBmsVictor().controlBatteryBehaviorWithChargerStart().isPositive();
+      if (success)
+        break; 
+      sleep(200);
+    } 
+    return success;
+  }
+  
+  private boolean forceBcsStopCharging() {
+    boolean result = false;
+    for (int i = 0; i < 3; i++) {
+      result = this.communicationManager.getBcsCom().stopCharging();
+      if (result)
+        break; 
+      sleep(200);
+    } 
+    return result;
+  }
+  
+  private ChargingStateEvent.ChargingMessage interpretPreConditionCheckResult(boolean cEbikeOk, boolean cDualBat) {
+    if (!cEbikeOk)
+      return cDualBat ? ChargingStateEvent.ChargingMessage.EBIKE_AND_DUALBAT : ChargingStateEvent.ChargingMessage.EBIKE; 
+    return cDualBat ? ChargingStateEvent.ChargingMessage.DUALBAT : ChargingStateEvent.ChargingMessage.NO_TEXT;
+  }
+  
+  void onResetCommunicationStates(boolean stayInBcsMode) {
+    this.restoreBcsSession = stayInBcsMode;
+  }
+  
+  private Version conv2Version(String version) {
+    Version result = null;
+    if (version != null)
+      try {
+        result = Version.parse(version);
+      } catch (IOException|NumberFormatException ex) {
+        LOGGER.warn("Error parsing version '{}'", version, ex);
+      }  
+    return result;
+  }
+  
+  private void sleep(int milliSeconds) {
+    try {
+      Thread.sleep((long)milliSeconds);
+    } catch (InterruptedException e) {
+      LOGGER.warn("Sleeping interrupted!", (Throwable)e);
+      Thread.currentThread().interrupt();
+    } 
+  }
+  
+  private boolean isInterrupted() {
+    return Thread.currentThread().isInterrupted();
+  }
+}
+
+
+========================================================================================================================
+ITEM 9: com/gigatronik/beds/service/ecuconnectionstate/imp/ChargingStateHandler.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.service.ecuconnectionstate.api.EcuConnectionStateHandler;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.ChargingStateEvent;
+import com.gigatronik.ebike.common.configuration.Constants;
+import java.util.ArrayList;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class ChargingStateHandler {
+  private static final Logger LOGGER = LoggerFactory.getLogger(EcuStateThread.class);
+  
+  private static int ITERATION_WAITING_TIME = 1000;
+  
+  private final List<EcuConnectionStateHandler.ChargingStateListener> chargingStateCallbacks = new ArrayList<>();
+  
+  private final VciWrapper vciWrapper;
+  
+  private class ChargingStateThread implements Runnable {
+    private final Constants.EcuType connectedHmi;
+    
+    ChargingStateThread(Constants.EcuType connectedHmi) {
+      this.connectedHmi = connectedHmi;
+    }
+    
+    public void run() {
+      try {
+        synchronized (this) {
+          while (true) {
+            wait((long)ChargingStateHandler.ITERATION_WAITING_TIME);
+            if (!ChargingStateHandler.this.vciWrapper.sendTesterPresent(this.connectedHmi))
+              return; 
+          } 
+        } 
+      } catch (InterruptedException e) {
+        ChargingStateHandler.LOGGER.error("ChargingStateThread: Interrupted -> {}", e.getMessage(), e);
+        Thread.currentThread().interrupt();
+      } 
+    }
+  }
+  
+  ChargingStateHandler(VciWrapper vciWrapper) {
+    this.vciWrapper = vciWrapper;
+  }
+  
+  synchronized void startChargingStatePolling(ChargingStateEvent.ChargingMessage message, Constants.EcuType hmiPresentType) {
+    ChargingStateEvent event = new ChargingStateEvent(message);
+    event.startCharging();
+    publishChargingStateEvent(event);
+    waitForHmiDisconnect(hmiPresentType);
+    event.stopCharging();
+    publishChargingStateEvent(event);
+  }
+  
+  void waitForHmiDisconnect(Constants.EcuType hmiPresentType) {
+    Thread hmiPollingThread = new Thread(new ChargingStateThread(hmiPresentType));
+    hmiPollingThread.start();
+    try {
+      hmiPollingThread.join();
+    } catch (InterruptedException e) {
+      LOGGER.error("waitForHmiDisconnect(): Error while calling hmiPollingThread.join() -> ", (Throwable)e);
+      Thread.currentThread().interrupt();
+    } 
+  }
+  
+  synchronized void subscribeChargingStateChanges(EcuConnectionStateHandler.ChargingStateListener listener) {
+    if (!this.chargingStateCallbacks.contains(listener))
+      this.chargingStateCallbacks.add(listener); 
+  }
+  
+  synchronized void unsubscribeChargingStateChanges(EcuConnectionStateHandler.ChargingStateListener listener) {
+    this.chargingStateCallbacks.remove(listener);
+  }
+  
+  private void publishChargingStateEvent(ChargingStateEvent event) {
+    this.chargingStateCallbacks.forEach(listener -> listener.onConnectedBikeChargingStateChanges(event));
+  }
+}
+
+
+========================================================================================================================
+ITEM 10: com/gigatronik/beds/service/ecuconnectionstate/imp/EcuConnectionStateHandlerFactory.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.ecuconnectionstate.api.EcuConnectionStateHandler;
+import com.gigatronik.beds.service.rightsmanager.api.RightsManager;
+
+public class EcuConnectionStateHandlerFactory {
+  public static EcuConnectionStateHandler createInstance(CommunicationManager communicationManager, RightsManager rightsManager) {
+    return new EcuStateThread(communicationManager, rightsManager);
+  }
+}
+
+
+========================================================================================================================
+ITEM 11: com/gigatronik/beds/service/ecuconnectionstate/imp/EcuConnectionStatePublisher.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.service.ecuconnectionstate.api.EcuConnectionStateHandler;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.EcuConnectionStateChangedEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.EcuConnectionStateRefreshEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.SystemConnectionStateChangeEvent;
+import java.util.ArrayList;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class EcuConnectionStatePublisher {
+  private static final Logger LOGGER = LoggerFactory.getLogger(EcuConnectionStatePublisher.class);
+  
+  private final List<EcuConnectionStateHandler.EcuConnectionStateChangeListener> ecuConnectionStateChangeCallbacks = new ArrayList<>();
+  
+  private final List<EcuConnectionStateHandler.EcuConnectionStateRefreshListener> ecuConnectionStateRefreshCallbacks = new ArrayList<>();
+  
+  synchronized void subscribeConnectionStateChangedEvents(EcuConnectionStateHandler.EcuConnectionStateChangeListener listener) {
+    if (!this.ecuConnectionStateChangeCallbacks.contains(listener))
+      this.ecuConnectionStateChangeCallbacks.add(listener); 
+  }
+  
+  synchronized void unsubscribeConnectionStateChangedEvents(EcuConnectionStateHandler.EcuConnectionStateChangeListener listener) {
+    if (this.ecuConnectionStateChangeCallbacks.contains(listener))
+      this.ecuConnectionStateChangeCallbacks.remove(listener); 
+  }
+  
+  synchronized void publishEcuConnectionStateChangedEvent(EcuConnectionStateChangedEvent event) {
+    LOGGER.info("Fire EcuConnectionStateChangedEvent: '{}'", event);
+    for (EcuConnectionStateHandler.EcuConnectionStateChangeListener callback : this.ecuConnectionStateChangeCallbacks)
+      callback.onEcuConnectionStateChange(event); 
+  }
+  
+  synchronized void publishSystemConnectionStateChangeEvent(SystemConnectionStateChangeEvent event) {
+    LOGGER.info("Fire SystemConnectionStateChangeEvent: '{}'", event);
+    for (EcuConnectionStateHandler.EcuConnectionStateChangeListener callback : this.ecuConnectionStateChangeCallbacks)
+      callback.onSystemConnectionStateChange(event); 
+  }
+  
+  synchronized void subscribeEcuConnectionStateRefreshEvents(EcuConnectionStateHandler.EcuConnectionStateRefreshListener listener) {
+    if (!this.ecuConnectionStateRefreshCallbacks.contains(listener))
+      this.ecuConnectionStateRefreshCallbacks.add(listener); 
+  }
+  
+  synchronized void unsubscribeEcuConnectionStateRefreshEvents(EcuConnectionStateHandler.EcuConnectionStateRefreshListener listener) {
+    if (this.ecuConnectionStateRefreshCallbacks.contains(listener))
+      this.ecuConnectionStateRefreshCallbacks.remove(listener); 
+  }
+  
+  synchronized void publishEcuConnectionStateRefreshEvent(EcuConnectionStateRefreshEvent event) {
+    LOGGER.info("Fire EcuConnectionStateRefreshEvent: '{}'", event);
+    for (EcuConnectionStateHandler.EcuConnectionStateRefreshListener callback : this.ecuConnectionStateRefreshCallbacks)
+      callback.onEcuConnectionStateRefresh(event); 
+  }
+}
+
+
+========================================================================================================================
+ITEM 12: com/gigatronik/beds/service/ecuconnectionstate/imp/EcuStateFacade.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.ebike.common.configuration.Constants;
+
+public interface EcuStateFacade {
+  void resetConnectionStatesAndFireEcuDisconnectCallbacks(boolean paramBoolean1, boolean paramBoolean2);
+  
+  boolean shouldHidEventsBeIgnored();
+  
+  void onHidDeviceConnect(Constants.HidDevice paramHidDevice);
+  
+  void onHidDeviceDisconnect(Constants.HidDevice paramHidDevice);
+}
+
+
+========================================================================================================================
+ITEM 13: com/gigatronik/beds/service/ecuconnectionstate/imp/EcuStateThread.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.common.bct.BctState;
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.communication.api.SecurityAccessFailurePopupHandler;
+import com.gigatronik.beds.service.communication.impl.SecurityAccessFailurePopupHandlerFactory;
+import com.gigatronik.beds.service.ecu.api.Hmi;
+import com.gigatronik.beds.service.ecu.impl.hmi.HmiImpl;
+import com.gigatronik.beds.service.ecuconnectionstate.api.BctEventHandler;
+import com.gigatronik.beds.service.ecuconnectionstate.api.EcuConnectionStateHandler;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.ChargingStateEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.EcuConnectionStateChangedEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.EcuConnectionStateRefreshEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.SystemConnectionStateChangeEvent;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.model.ChargingCheckResult;
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.beds.service.rightsmanager.api.RightsChangedEvent;
+import com.gigatronik.beds.service.rightsmanager.api.RightsManager;
+import com.gigatronik.beds.service.rightsmanager.api.UserLevel;
+import com.gigatronik.dart2.bosch.service.internationalization.ResourceBundleFactory;
+import com.gigatronik.dart2.bosch.service.internationalization.Utf8ResourceBundleFormatted;
+import com.gigatronik.ebike.common.configuration.Constants;
+import com.gigatronik.ebike.common.util.ConfigurationHelper;
+import com.gigatronik.ebike.gui.testinterface.TestableJOptionPane;
+import java.awt.Container;
+import java.awt.EventQueue;
+import java.awt.Frame;
+import java.lang.reflect.InvocationTargetException;
+import java.util.concurrent.Executors;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class EcuStateThread implements EcuConnectionStateHandler, Runnable, EcuStateFacade {
+  private static final Logger LOGGER = LoggerFactory.getLogger(EcuStateThread.class);
+  
+  private static final Utf8ResourceBundleFormatted BUNDLE = ResourceBundleFactory.newDefaultResourceBundle();
+  
+  private static final int SLEEP_TIME_BETWEEN_POLLING_CYLCES = 500;
+  
+  private static final int SLEEP_TIME_UPON_HMI_ONBOARD_STATE_SERVICE_RESPONSE_UNVALID = 500;
+  
+  private static final int HMI_EXTENDED_SESSION_FAILED_RETRY_WAITING_TIME = 1000;
+  
+  private static final int ECU_SECURITY_ACCESS_FAILED_RETRY_WAITING_TIME = 1000;
+  
+  private static final int SYSTEM_TYPE_DETECTION_FAILED_RETRY_WAITING_TIME = 1000;
+  
+  private static final int MAX_RETRY_EXTENDED_SESSION_BUI = 5;
+  
+  private static final int MAX_NR_OF_SECURITY_ACCESS_ATTEMPTS = 3;
+  
+  private static final int MAX_SYSTEM_TYPE_DETECTION_RETRIES = 3;
+  
+  private static final int MAX_BCT_STATUS_FAILURES_ALLOWED = 10;
+  
+  private Constants.EcuType hmiPresentType = Constants.EcuType.NONE;
+  
+  private Constants.EcuType duPresentType = Constants.EcuType.NONE;
+  
+  private Constants.EcuType bms1PresentType = Constants.EcuType.NONE;
+  
+  private Constants.EcuType bms2PresentType = Constants.EcuType.NONE;
+  
+  private Constants.EcuType absPresentType = Constants.EcuType.NONE;
+  
+  private Constants.EcuType bcsPresentType = Constants.EcuType.NONE;
+  
+  private Constants.EcuType duPreviousType = Constants.EcuType.NONE;
+  
+  private Constants.EcuType bms1PreviousType = Constants.EcuType.NONE;
+  
+  private Constants.EcuType bms2PreviousType = Constants.EcuType.NONE;
+  
+  private Constants.EcuMode hmiPresentMode = Constants.EcuMode.NONE;
+  
+  private Constants.EcuMode duPresentMode = Constants.EcuMode.NONE;
+  
+  private Constants.EcuMode bms1PresentMode = Constants.EcuMode.NONE;
+  
+  private Constants.EcuMode bms2PresentMode = Constants.EcuMode.NONE;
+  
+  private Constants.HidDevice connectedDevice = Constants.HidDevice.NONE;
+  
+  private Constants.SystemType systemType = Constants.SystemType.NONE;
+  
+  private volatile boolean bikeConnected = false;
+  
+  private String previousDuSerial = "";
+  
+  private volatile boolean systemConnectionCallbackFired = false;
+  
+  private int bctStatusResponseFailureCounter = 0;
+  
+  private final BctWrapper bctWrapper;
+  
+  private final BctEventPublisher bctEventPublisher;
+  
+  private final AbsWrapper absWrapper;
+  
+  private final VciWrapper vciWrapper;
+  
+  private final RightsManager rightsManager;
+  
+  private final HidDeviceConnectionController hidDeviceConnectionController;
+  
+  private final CommunicationManager communicationManager;
+  
+  private final PollingStarter pollingStarter;
+  
+  private final SuspensionManager suspensionManager;
+  
+  private final InitializationDialogController initializationDialogController;
+  
+  private final BaudrateChecker baudrateChecker;
+  
+  private final BatteryBootloaderChecker batteryBootloaderChecker;
+  
+  private final ChargingStateBcsChecker chargingStateBcsChecker;
+  
+  private final ChargingStateHandler chargingStateHandler;
+  
+  private final SystemTypeDetectionFailureHandler systemTypeDetectionFailureHandler;
+  
+  private final SecurityAccessFailurePopupHandler securityAccessFailurePopupHandler;
+  
+  private final HidDeviceDisconnectionDetector hidDeviceDisconnectionDetector;
+  
+  private final EcuConnectionStatePublisher publisher;
+  
+  EcuStateThread(CommunicationManager communicationManager, RightsManager rightsManager) {
+    this.communicationManager = communicationManager;
+    this.rightsManager = rightsManager;
+    this.securityAccessFailurePopupHandler = SecurityAccessFailurePopupHandlerFactory.createInstance(rightsManager);
+    this.vciWrapper = new VciWrapper(rightsManager, communicationManager);
+    this.bctEventPublisher = new BctEventPublisher();
+    this.bctWrapper = new BctWrapper(this.bctEventPublisher, communicationManager);
+    this.absWrapper = new AbsWrapper(communicationManager.getAbsCom(), rightsManager, this.securityAccessFailurePopupHandler);
+    this.hidDeviceConnectionController = new HidDeviceConnectionController(this);
+    this.pollingStarter = new PollingStarter(this, this.hidDeviceConnectionController);
+    this
+      .suspensionManager = new SuspensionManager(Executors.newSingleThreadExecutor(new BasicThreadFactory.Builder().namingPattern("ResumeEcuConnectionStateDetectionExecutor").build()), this);
+    this.initializationDialogController = new InitializationDialogController();
+    this.baudrateChecker = new BaudrateChecker(communicationManager, rightsManager);
+    this.batteryBootloaderChecker = new BatteryBootloaderChecker(communicationManager);
+    this.chargingStateBcsChecker = new ChargingStateBcsChecker(communicationManager, this.vciWrapper, rightsManager);
+    this.chargingStateHandler = new ChargingStateHandler(this.vciWrapper);
+    this.systemTypeDetectionFailureHandler = new SystemTypeDetectionFailureHandler(communicationManager, this.suspensionManager);
+    this.hidDeviceDisconnectionDetector = new HidDeviceDisconnectionDetector(this.hidDeviceConnectionController, this);
+    this.publisher = new EcuConnectionStatePublisher();
+    rightsManager.addListener(this);
+  }
+  
+  public void startConnectionStateDetection() {
+    this.pollingStarter.startEcuPolling();
+  }
+  
+  public void suspendConnectionStateDetection(boolean ignoreUsbEvents) {
+    this.suspensionManager.controlSuspension(ignoreUsbEvents);
+  }
+  
+  public void resumeConnectionStateDetection(boolean reinitializeHardware, boolean restoreBcsSession) {
+    this.suspensionManager.controlResumption(reinitializeHardware, restoreBcsSession);
+  }
+  
+  public boolean isConnectionStateDetectionSuspended() {
+    return this.suspensionManager.isSuspensionExecuted();
+  }
+  
+  public synchronized void onHidDeviceConnect(Constants.HidDevice device) {
+    LOGGER.debug("Start connecting HID-Device: '{}', connected device is: '{}'", device, this.connectedDevice);
+    if (this.rightsManager.isUserInLevel(UserLevel.UNKNOWN)) {
+      LOGGER.error("Unknown user level: System initialization is prevented");
+      return;
+    } 
+    if (this.connectedDevice == Constants.HidDevice.NONE && device != Constants.HidDevice.NONE && this.suspensionManager.isHidEventProcessingAllowed()) {
+      initGatewayConnectionStateFlags(device);
+      switch (this.hmiPresentType) {
+        case BUI21X:
+        case BUI25X:
+        case BUI270:
+        case BUI275:
+        case BUI330:
+        case BUI350:
+        case COBI:
+          if (initializeHmiAndFireEcuConnectCallback(device)) {
+            checkBikeState(true);
+            break;
+          } 
+          resetGatewayConnectionStateFlags();
+          return;
+        case BCT:
+          if (initializeBctAndFireEcuConnectCallback(device)) {
+            updateBctConnectionState();
+            fireBctSystemConnectCallback();
+            break;
+          } 
+          resetGatewayConnectionStateFlags();
+          return;
+      } 
+      this.initializationDialogController.closeDialog();
+      processInitializationResult(device);
+    } 
+    LOGGER.debug("Finish connecting HID-Device: '{}', connected device is: '{}', interruption state is: '{}'", device, this.connectedDevice, isInterrupted());
+  }
+  
+  private void processInitializationResult(Constants.HidDevice device) {
+    if (this.systemTypeDetectionFailureHandler.isDetectionFailed() && !this.systemTypeDetectionFailureHandler.isContinuationInHmiStandAloneModeOk()) {
+      LOGGER.warn("Detected HMI disconnection during system type detection procedure!");
+      resetConnectionStatesAndFireEcuDisconnectCallbacks(true, false);
+    } else {
+      this.connectedDevice = device;
+    } 
+  }
+  
+  public boolean shouldHidEventsBeIgnored() {
+    return !this.suspensionManager.isHidEventProcessingAllowed();
+  }
+  
+  private void initGatewayConnectionStateFlags(Constants.HidDevice device) {
+    this.hmiPresentType = ConfigurationHelper.getEcuTypeFromDevice(device);
+    this.hmiPresentMode = ConfigurationHelper.getEcuModeFromDevice(device);
+    ((HmiImpl)this.communicationManager.getHmiCom()).configureInstance(this.hmiPresentType);
+  }
+  
+  private void resetGatewayConnectionStateFlags() {
+    LOGGER.warn("Stopped initialization of HMI / BCT! Device connection event aboarded!");
+    this.hmiPresentType = Constants.EcuType.NONE;
+    this.hmiPresentMode = Constants.EcuMode.NONE;
+  }
+  
+  public synchronized void onHidDeviceDisconnect(Constants.HidDevice device) {
+    LOGGER.debug("Start disconnecting HID-Device: '{}', connected device is: '{}'", device, this.connectedDevice);
+    if (this.connectedDevice == device && this.suspensionManager.isHidEventProcessingAllowed()) {
+      determineAndFireSystemDisconnectionEvent();
+      if (this.hmiPresentType == Constants.EcuType.BCT)
+        this.bctWrapper.publishStateChangeEvent(BctState.NOT_CONNECTED); 
+      resetConnectionStatesAndFireEcuDisconnectCallbacks(true, false);
+    } 
+    LOGGER.debug("Finish disconnecting HID-Device: '{}', connected device is: '{}'", device, this.connectedDevice);
+  }
+  
+  private void determineAndFireSystemDisconnectionEvent() {
+    if (this.systemConnectionCallbackFired) {
+      if (this.hmiPresentType == Constants.EcuType.BCT) {
+        fireSystemConnectionStateChangeCallback(SystemConnectionStateChangeEvent.InitAction.BCT_DISCONNECT);
+      } else {
+        fireSystemConnectionStateChangeCallback(SystemConnectionStateChangeEvent.InitAction.BIKE_DISCONNECT);
+      } 
+      this.systemConnectionCallbackFired = false;
+    } 
+  }
+  
+  private void resetLocalEcuConnectionStateFlags(boolean kickHmiAsWell, boolean stayInBcsMode) {
+    if (kickHmiAsWell) {
+      this.hmiPresentType = Constants.EcuType.NONE;
+      this.hmiPresentMode = Constants.EcuMode.NONE;
+      this.connectedDevice = Constants.HidDevice.NONE;
+      this.hidDeviceDisconnectionDetector.setHidDevice(Constants.HidDevice.NONE);
+    } 
+    this.duPresentType = Constants.EcuType.NONE;
+    this.duPreviousType = Constants.EcuType.NONE;
+    this.duPresentMode = Constants.EcuMode.NONE;
+    this.bms1PresentType = Constants.EcuType.NONE;
+    this.bms1PreviousType = Constants.EcuType.NONE;
+    this.bms1PresentMode = Constants.EcuMode.NONE;
+    this.bms2PresentType = Constants.EcuType.NONE;
+    this.bms2PreviousType = Constants.EcuType.NONE;
+    this.bms2PresentMode = Constants.EcuMode.NONE;
+    this.absPresentType = Constants.EcuType.NONE;
+    this.absWrapper.resetState();
+    this.bcsPresentType = Constants.EcuType.NONE;
+    this.bctWrapper.resetState();
+    this.systemType = Constants.SystemType.NONE;
+    this.systemTypeDetectionFailureHandler.onDetectionFinished();
+    this.bikeConnected = false;
+    this.chargingStateBcsChecker.onResetCommunicationStates(stayInBcsMode);
+  }
+  
+  private void fireEcuDisconnectCallbacks(boolean kickHmiAsWell) {
+    if (this.hmiPresentType != Constants.EcuType.NONE && kickHmiAsWell)
+      fireEcuDisconnectCallback(this.hmiPresentType); 
+    if (this.duPresentType != Constants.EcuType.NONE)
+      fireEcuDisconnectCallback(this.duPresentType); 
+    if (this.bms1PresentType != Constants.EcuType.NONE)
+      fireEcuDisconnectCallback(this.bms1PresentType); 
+    if (this.bms2PresentType != Constants.EcuType.NONE)
+      fireEcuDisconnectCallback(this.bms2PresentType); 
+    if (this.absPresentType != Constants.EcuType.NONE)
+      fireEcuDisconnectCallback(this.absPresentType); 
+    if (this.bcsPresentType != Constants.EcuType.NONE)
+      fireEcuDisconnectCallback(this.bcsPresentType); 
+  }
+  
+  public synchronized void resetConnectionStatesAndFireEcuDisconnectCallbacks(boolean kickHmiAsWell, boolean stayInBcsMode) {
+    LOGGER.debug("Reset (kickHmiAsWell='{}', stayInBcsMode='{}')! Currently connected are: HMI='{}', DU='{}' , BMS1='{}', BMS2='{}', ABS='{}', BCS='{}'", kickHmiAsWell, stayInBcsMode, this.hmiPresentType, this.duPresentType, this.bms1PresentType, this.bms2PresentType, this.absPresentType, this.bcsPresentType);
+    fireEcuDisconnectCallbacks(kickHmiAsWell);
+    resetLocalEcuConnectionStateFlags(kickHmiAsWell, stayInBcsMode);
+  }
+  
+  private synchronized void checkSystemState() {
+    switch (this.hmiPresentType) {
+      case BUI21X:
+      case BUI25X:
+      case BUI270:
+      case BUI275:
+      case BUI330:
+      case BUI350:
+      case COBI:
+        checkBikeState(false);
+        break;
+      case BCT:
+        updateBctConnectionState();
+        break;
+    } 
+    this.initializationDialogController.closeDialog();
+  }
+  
+  private void onDriveUnitInitialized() {
+    if (this.hmiPresentMode != Constants.EcuMode.NONE) {
+      String presentDuSerial;
+      if (this.hmiPresentMode == Constants.EcuMode.APP && this.duPresentMode == Constants.EcuMode.APP) {
+        presentDuSerial = this.vciWrapper.readSerialNumberDu(this.duPresentType);
+        LOGGER.debug("DU serial number => '{}'", presentDuSerial);
+      } else {
+        presentDuSerial = "";
+      } 
+      this.initializationDialogController.closeDialog();
+      if (StringUtils.isNotBlank(presentDuSerial) && StringUtils.equals(presentDuSerial, this.previousDuSerial)) {
+        fireSystemConnectionStateChangeCallback(SystemConnectionStateChangeEvent.InitAction.BIKE_RECONNECT);
+      } else {
+        fireSystemConnectionStateChangeCallback(SystemConnectionStateChangeEvent.InitAction.BIKE_CONNECT);
+        this.previousDuSerial = presentDuSerial;
+      } 
+      this.systemConnectionCallbackFired = true;
+    } 
+  }
+  
+  private void onHmiStandaloneInitialized() {
+    if (this.hmiPresentType != Constants.EcuType.NONE && this.duPresentType == Constants.EcuType.NONE && this.bms1PresentType == Constants.EcuType.NONE && this.bms2PresentType == Constants.EcuType.NONE) {
+      this.initializationDialogController.closeDialog();
+      fireSystemConnectionStateChangeCallback(SystemConnectionStateChangeEvent.InitAction.HMI_STANDALONE_CONNECT);
+      this.systemConnectionCallbackFired = true;
+    } 
+  }
+  
+  private void fireBctSystemConnectCallback() {
+    fireSystemConnectionStateChangeCallback(SystemConnectionStateChangeEvent.InitAction.BCT_CONNECT);
+    this.systemConnectionCallbackFired = true;
+  }
+  
+  public void run() {
+    while (true) {
+      if (this.connectedDevice != Constants.HidDevice.NONE && this.suspensionManager.isPollingAllowed())
+        checkSystemState(); 
+      this.suspensionManager.suspendIfRequested();
+      this.suspensionManager.waitForNextPollingCycle(500);
+    } 
+  }
+  
+  private void fireEcuConnectCallback(Constants.EcuType type, Constants.EcuMode mode) {
+    this.communicationManager.setEcuType(type, mode);
+    EcuConnectionStateChangedEvent event = EcuConnectionStateChangedEvent.createEcuConnectEvent(type, mode);
+    this.publisher.publishEcuConnectionStateChangedEvent(event);
+  }
+  
+  private void fireEcuDisconnectCallback(Constants.EcuType type) {
+    this.communicationManager.setEcuType(type, Constants.EcuMode.NONE);
+    EcuConnectionStateChangedEvent event = EcuConnectionStateChangedEvent.createEcuDisconnectEvent(type);
+    this.publisher.publishEcuConnectionStateChangedEvent(event);
+  }
+  
+  private void fireSystemConnectionStateChangeCallback(SystemConnectionStateChangeEvent.InitAction action) {
+    this.publisher.publishSystemConnectionStateChangeEvent(new SystemConnectionStateChangeEvent(action));
+  }
+  
+  private boolean checkOnboardState() {
+    boolean onboardState = getHmiSocketState();
+    if (onboardState != this.bikeConnected && !isInterrupted()) {
+      if (onboardState) {
+        onBuiConnectToBike();
+      } else {
+        onBuiDisconnectFromBike();
+      } 
+      this.bikeConnected = onboardState;
+    } 
+    return this.bikeConnected;
+  }
+  
+  private boolean getHmiSocketState() {
+    Hmi.OnboardState onboardResponse = readHmiOnboardState();
+    if (onboardResponse.isNegative() && this.bikeConnected) {
+      LOGGER.debug("Retry reading the HMI socket state after a negative response, but wait '{}' before retry", Integer.valueOf(500));
+      sleep(500);
+      onboardResponse = readHmiOnboardState();
+    } 
+    boolean onboardState = (onboardResponse == Hmi.OnboardState.ONBOARD);
+    LOGGER.debug("HMI <-> socket connection state: '{}'", Boolean.valueOf(onboardState));
+    return onboardState;
+  }
+  
+  private Hmi.OnboardState readHmiOnboardState() {
+    Hmi.OnboardState onboardResponse = this.communicationManager.getHmiCom().readOnboardCondition();
+    feedHidDeviceDisconnectionDetector((onboardResponse == Hmi.OnboardState.TIMEOUT));
+    return onboardResponse;
+  }
+  
+  private void feedHidDeviceDisconnectionDetector(boolean timoutOccured) {
+    if (timoutOccured) {
+      this.hidDeviceDisconnectionDetector.incrementTimeoutCounter();
+    } else {
+      this.hidDeviceDisconnectionDetector.clearTimeoutCounter();
+    } 
+  }
+  
+  private void onBuiConnectToBike() {
+    this.initializationDialogController.openDialog();
+    this.systemType = detectSystemTypeWithFailureHandling();
+    if (this.bcsPresentType == Constants.EcuType.NONE)
+      checkBatteryBootloaderState(); 
+  }
+  
+  private void checkBatteryBootloaderState() {
+    if (this.batteryBootloaderChecker.checkBootloaderState(this.systemType, this.baudrateChecker.bms1HasBeenDetectedDuringLastBaudrateCheck(), this.baudrateChecker.bms2HasBeenDetectedDuringLastBaudrateCheck())) {
+      this.initializationDialogController.closeDialog();
+      this.batteryBootloaderChecker.showBatteryBootloaderWarning();
+    } 
+  }
+  
+  private Constants.SystemType detectSystemTypeWithFailureHandling() {
+    Constants.SystemType detectedSystemType;
+    boolean hmiIsConnected = true;
+    do {
+      detectedSystemType = detectSystemType();
+      if (detectedSystemType != Constants.SystemType.NONE) {
+        this.systemTypeDetectionFailureHandler.onDetectionFinished();
+      } else if (!isInterrupted()) {
+        hmiIsConnected = this.systemTypeDetectionFailureHandler.onDetectionFailure();
+      } 
+    } while (detectedSystemType == Constants.SystemType.NONE && hmiIsConnected && this.systemTypeDetectionFailureHandler.isFurtherRetryAllowed() && !isInterrupted());
+    return detectedSystemType;
+  }
+  
+  private Constants.SystemType detectSystemType() {
+    Constants.SystemType detectedSystemType = Constants.SystemType.NONE;
+    for (int n = 0; n < 3 && !isInterrupted(); n++) {
+      LOGGER.debug("Configuring CAN baudrate, try no. '{}'", Integer.valueOf(n + 1));
+      detectedSystemType = this.baudrateChecker.checkBaudrate((this.hmiPresentType == Constants.EcuType.BUI25X));
+      if (detectedSystemType != Constants.SystemType.NONE)
+        break; 
+      sleep(1000);
+    } 
+    return detectedSystemType;
+  }
+  
+  private void onBuiDisconnectFromBike() {
+    fireEcuDisconnectCallbacks(false);
+    resetLocalEcuConnectionStateFlags(false, false);
+  }
+  
+  private void handleChargingState(ChargingStateEvent.ChargingMessage message) {
+    LOGGER.debug("Display charging window with text: '{}'", message);
+    this.vciWrapper.startDefaultSession(this.hmiPresentType, false);
+    this.vciWrapper.startDefaultSession(this.duPresentType, false);
+    this.vciWrapper.startDefaultSession(this.bms1PresentType, false);
+    this.vciWrapper.startDefaultSession(this.bms2PresentType, false);
+    this.vciWrapper.startDefaultSession(this.absPresentType, false);
+    this.chargingStateHandler.startChargingStatePolling(message, this.hmiPresentType);
+  }
+  
+  private void checkBikeState(boolean initialPollingRun) {
+    boolean hmiHasBeenRemoved = false;
+    if (this.hmiPresentMode == Constants.EcuMode.APP && checkOnboardState()) {
+      ChargingCheckResult chargingCheckResult = this.chargingStateBcsChecker.checkChargingStateAndBcsExistence(this.hmiPresentType, this.hmiPresentMode, (this.duPresentType != Constants.EcuType.NONE), (this.bms1PresentType != Constants.EcuType.NONE), (this.bms2PresentType != Constants.EcuType.NONE), (this.absPresentType != Constants.EcuType.NONE), (this.bcsPresentType != Constants.EcuType.NONE));
+      processChargingCheckResult(chargingCheckResult);
+      if (chargingCheckResult.isEbikeCharging())
+        return; 
+      updateBms1ConnectionState();
+      updateBms2ConnectionState();
+      updateDuConnectionState();
+      updateAbsConnectionState();
+      hmiHasBeenRemoved = updateBcsConnectionState();
+    } 
+    if (isSystemConnectCallbackFiringAllowed() && !hmiHasBeenRemoved)
+      determineAndFireSystemConnectionStateChangeEventIfNecessary(initialPollingRun); 
+    this.duPreviousType = this.duPresentType;
+    this.bms1PreviousType = this.bms1PresentType;
+    this.bms2PreviousType = this.bms2PresentType;
+  }
+  
+  private boolean isSystemConnectCallbackFiringAllowed() {
+    return ((!this.systemTypeDetectionFailureHandler.isDetectionFailed() || 
+      this.systemTypeDetectionFailureHandler.isContinuationInHmiStandAloneModeOk()) && 
+      !isInterrupted());
+  }
+  
+  private void determineAndFireSystemConnectionStateChangeEventIfNecessary(boolean initialPolllingRun) {
+    if (this.duPresentType != Constants.EcuType.NONE && this.duPreviousType == Constants.EcuType.NONE) {
+      onDriveUnitInitialized();
+    } else if ((this.bms1PresentType != Constants.EcuType.NONE || this.bms2PresentType != Constants.EcuType.NONE) && this.bms1PreviousType == Constants.EcuType.NONE && this.bms2PreviousType == Constants.EcuType.NONE) {
+      fireSystemConnectionStateChangeCallback(SystemConnectionStateChangeEvent.InitAction.BIKE_CONNECT);
+    } else if (initialPolllingRun) {
+      onHmiStandaloneInitialized();
+    } 
+  }
+  
+  private void updateBctConnectionState() {
+    if (this.hmiPresentMode == Constants.EcuMode.APP && this.bctWrapper.checkOperationState() == BctState.NOT_CONNECTED) {
+      LOGGER.warn("BCT's not responding on the operation state request!");
+      this.bctStatusResponseFailureCounter++;
+      if (this.bctStatusResponseFailureCounter == 10) {
+        resetConnectionStatesAndFireEcuDisconnectCallbacks(true, false);
+        this.bctStatusResponseFailureCounter = 0;
+      } 
+    } else {
+      this.bctStatusResponseFailureCounter = 0;
+    } 
+  }
+  
+  private void updateDuConnectionState() {
+    if ((this.bms1PresentMode == Constants.EcuMode.APP || this.bms2PresentMode == Constants.EcuMode.APP || this.duPreviousType != Constants.EcuType.NONE) && !isInterrupted())
+      if (this.systemType == Constants.SystemType.VICTOR) {
+        this.duPresentType = checkEcuState(Constants.EcuType.VICTOR_DU, (this.duPreviousType == Constants.EcuType.NONE)) ? Constants.EcuType.VICTOR_DU : Constants.EcuType.NONE;
+      } else if (this.systemType == Constants.SystemType.CLASSIC_PLUS) {
+        this.duPresentType = checkEcuState(Constants.EcuType.CLASSIC_DU, (this.duPreviousType == Constants.EcuType.NONE)) ? Constants.EcuType.CLASSIC_DU : Constants.EcuType.NONE;
+      }  
+  }
+  
+  private void updateBms1ConnectionState() {
+    if (this.systemType == Constants.SystemType.VICTOR && !isInterrupted()) {
+      this.bms1PresentType = checkEcuState(Constants.EcuType.VICTOR_PP1, (this.bms1PreviousType == Constants.EcuType.NONE)) ? Constants.EcuType.VICTOR_PP1 : Constants.EcuType.NONE;
+    } else if (this.systemType == Constants.SystemType.CLASSIC_PLUS && !isInterrupted()) {
+      this.bms1PresentType = checkEcuState(Constants.EcuType.CLASSIC_PP, (this.bms1PreviousType == Constants.EcuType.NONE)) ? Constants.EcuType.CLASSIC_PP : Constants.EcuType.NONE;
+    } 
+  }
+  
+  private void updateBms2ConnectionState() {
+    if (this.systemType == Constants.SystemType.VICTOR && this.bcsPresentType == Constants.EcuType.NONE && !isInterrupted())
+      this.bms2PresentType = checkEcuState(Constants.EcuType.VICTOR_PP2, (this.bms2PreviousType == Constants.EcuType.NONE)) ? Constants.EcuType.VICTOR_PP2 : Constants.EcuType.NONE; 
+  }
+  
+  private void updateAbsConnectionState() {
+    Constants.EcuMode mode;
+    if (((this.bms1PresentType == Constants.EcuType.VICTOR_PP1 && this.bms1PresentMode == Constants.EcuMode.APP) || (this.bms2PresentType == Constants.EcuType.VICTOR_PP2 && this.bms2PresentMode == Constants.EcuMode.APP)) && 
+      
+      !isInterrupted()) {
+      mode = this.absWrapper.checkState();
+    } else {
+      this.absWrapper.resetState();
+      mode = Constants.EcuMode.NONE;
+    } 
+    if ((mode == Constants.EcuMode.APP || mode == Constants.EcuMode.FBL) && this.absPresentType == Constants.EcuType.NONE) {
+      this.absPresentType = Constants.EcuType.BAS100;
+      fireEcuConnectCallback(this.absPresentType, mode);
+    } else if (mode == Constants.EcuMode.NONE && this.absPresentType == Constants.EcuType.BAS100) {
+      fireEcuDisconnectCallback(this.absPresentType);
+      this.absPresentType = Constants.EcuType.NONE;
+    } 
+  }
+  
+  private boolean updateBcsConnectionState() {
+    if (this.bcsPresentType != Constants.EcuType.NONE && this.rightsManager.isUserInLevel(UserLevel.IBD) && !this.vciWrapper.pingEcu(Constants.EcuType.BCS250, false)) {
+      LOGGER.debug("Initiate disconnection procedure of BCS");
+      fireEcuConnectionStateRefreshCallback(new EcuConnectionStateRefreshEvent(this.bcsPresentType, Constants.EcuMode.NONE));
+      JDialog dialog = openBlockingDialog();
+      this.chargingStateHandler.waitForHmiDisconnect(this.hmiPresentType);
+      dialog.dispose();
+      return true;
+    } 
+    return false;
+  }
+  
+  private boolean checkEcuState(Constants.EcuType ecu, boolean ecuNotYetConnected) {
+    Constants.EcuMode mode = Constants.EcuMode.NONE;
+    boolean ecuIsConnected = this.vciWrapper.pingEcu(ecu, ecuNotYetConnected);
+    if (ecuIsConnected && ecuNotYetConnected) {
+      if (this.rightsManager.isUserInLevel(UserLevel.UNKNOWN)) {
+        LOGGER.info("Prevented initialization of new detected device, 'cause of missing dongle.");
+        return false;
+      } 
+      LOGGER.info("Detected new ECU '{}'", ecu);
+      mode = determineEcuModeAndExecuteSecurityAccess(ecu);
+      if (mode == Constants.EcuMode.NONE) {
+        LOGGER.warn("Drop ECU detection on initialization failure.");
+        return false;
+      } 
+      saveModeOfDecetedEcu(ecu, mode);
+    } 
+    fireAppropriateEcuConnectionStateChangeEvent(ecuIsConnected, ecuNotYetConnected, ecu, mode);
+    return ecuIsConnected;
+  }
+  
+  private void fireAppropriateEcuConnectionStateChangeEvent(boolean ecuIsConnected, boolean ecuNotYetConnected, Constants.EcuType type, Constants.EcuMode mode) {
+    if (ecuIsConnected && ecuNotYetConnected) {
+      fireEcuConnectCallback(type, mode);
+    } else if (!ecuIsConnected && !ecuNotYetConnected) {
+      fireEcuDisconnectCallback(type);
+    } 
+  }
+  
+  private Constants.EcuMode determineEcuModeAndExecuteSecurityAccess(Constants.EcuType ecu) {
+    if (ecu == Constants.EcuType.CLASSIC_DU || ecu == Constants.EcuType.CLASSIC_PP)
+      return determineEcuModeAndExecuteSecurityAccessClassicPlus(ecu); 
+    return determineEcuModeAndExecuteSecurityAccessVictor(ecu);
+  }
+  
+  private void saveModeOfDecetedEcu(Constants.EcuType ecu, Constants.EcuMode mode) {
+    switch (ecu) {
+      case VICTOR_PP1:
+      case CLASSIC_PP:
+        this.bms1PresentMode = mode;
+        break;
+      case VICTOR_PP2:
+        this.bms2PresentMode = mode;
+        break;
+      case VICTOR_DU:
+      case CLASSIC_DU:
+        this.duPresentMode = mode;
+        break;
+    } 
+  }
+  
+  private Constants.EcuMode determineEcuModeAndExecuteSecurityAccessVictor(Constants.EcuType ecu) {
+    Constants.EcuMode mode = this.vciWrapper.readEcuState(ecu);
+    LOGGER.debug("Detected mode '{}' for ECU '{}'", mode, ecu);
+    if (mode == Constants.EcuMode.APP) {
+      LOGGER.debug("Ask '{}' for security access permission", ecu);
+      if (!this.vciWrapper.securityAccess(ecu, 3, 1000) && !isInterrupted())
+        this.securityAccessFailurePopupHandler.displaySecurityAccessFailedDialog(true, ecu); 
+    } 
+    return isInterrupted() ? Constants.EcuMode.NONE : mode;
+  }
+  
+  private Constants.EcuMode determineEcuModeAndExecuteSecurityAccessClassicPlus(Constants.EcuType ecu) {
+    LOGGER.debug("Ask '{}' for security access permission. Will be refused if ECU's in FBL!", ecu);
+    this.vciWrapper.securityAccess(ecu, 3, 1000);
+    Constants.EcuMode mode = this.vciWrapper.readEcuState(ecu);
+    LOGGER.debug("Detected mode '{}' for ECU '{}'", mode, ecu);
+    return mode;
+  }
+  
+  private void sleep(int milliSeconds) {
+    try {
+      Thread.sleep((long)milliSeconds);
+    } catch (InterruptedException e) {
+      LOGGER.warn("Sleeping interrupted!", (Throwable)e);
+      Thread.currentThread().interrupt();
+    } 
+  }
+  
+  private boolean initializeHmiAndFireEcuConnectCallback(Constants.HidDevice device) {
+    if ((this.hmiPresentMode == Constants.EcuMode.APP || this.hmiPresentType == Constants.EcuType.BUI350) && !this.vciWrapper.startExtendedSession(this.hmiPresentType, 5, 1000)) {
+      showGatewayConnectionErrorDialog();
+      return false;
+    } 
+    if (isBui3xxInternalProcessRunning(this.hmiPresentType, this.hmiPresentMode)) {
+      LOGGER.info("Kiox in flashing state has been plugged, initialization procedure not executed.");
+      return false;
+    } 
+    if (this.hmiPresentMode == Constants.EcuMode.APP) {
+      if (!this.vciWrapper.securityAccess(this.hmiPresentType, 3, 1000)) {
+        this.securityAccessFailurePopupHandler.displaySecurityAccessFailedDialog(true, this.hmiPresentType);
+        return false;
+      } 
+      ChargingCheckResult result = this.chargingStateBcsChecker.checkChargingStateAndBcsExistence(this.hmiPresentType, this.hmiPresentMode, false, false, false, false, false);
+      processChargingCheckResult(result);
+      if (result.isEbikeCharging())
+        return false; 
+      this.initializationDialogController.openDialog();
+    } 
+    fireEcuConnectCallback(this.hmiPresentType, this.hmiPresentMode);
+    this.hidDeviceDisconnectionDetector.setHidDevice(device);
+    return true;
+  }
+  
+  private void processChargingCheckResult(ChargingCheckResult chargingCheckResult) {
+    if (chargingCheckResult.isEbikeCharging()) {
+      handleChargingState(chargingCheckResult.getChargingMessage());
+    } else if (chargingCheckResult.bcsGotInitialized()) {
+      this.bcsPresentType = chargingCheckResult.getTypeOfConnectedBcs();
+      fireEcuConnectCallback(chargingCheckResult.getTypeOfConnectedBcs(), chargingCheckResult.getModeOfConnectedBcs());
+    } 
+  }
+  
+  private boolean isBui3xxInternalProcessRunning(Constants.EcuType hmiType, Constants.EcuMode hmiMode) {
+    if ((hmiType == Constants.EcuType.BUI330 || hmiType == Constants.EcuType.BUI350) && hmiMode == Constants.EcuMode.FBL)
+      return this.communicationManager.getHmiCom().isFlashProcessRunning(); 
+    return false;
+  }
+  
+  private boolean initializeBctAndFireEcuConnectCallback(Constants.HidDevice device) {
+    if (this.hmiPresentMode == Constants.EcuMode.APP) {
+      if (!this.bctWrapper.startExtendedSession()) {
+        showGatewayConnectionErrorDialog();
+        return false;
+      } 
+      this.initializationDialogController.openDialog();
+    } 
+    fireEcuConnectCallback(this.hmiPresentType, this.hmiPresentMode);
+    if (this.hmiPresentMode == Constants.EcuMode.FBL)
+      this.bctWrapper.publishStateChangeEvent(BctState.CONNECTED_FBL); 
+    this.hidDeviceDisconnectionDetector.setHidDevice(device);
+    return true;
+  }
+  
+  private void showGatewayConnectionErrorDialog() {
+    try {
+      EventQueue.invokeAndWait(() -> TestableJOptionPane.showMessageDialog(BUNDLE.getString("EcuPollingThread.error.hmiNotResponding.message"), BUNDLE.getString("EcuPollingThread.error.hmiNotResponding.title"), 0));
+    } catch (InvocationTargetException e) {
+      LOGGER.error("Exception displaying message dialog (HMI not responsive): " + e.getMessage(), (Throwable)e);
+    } catch (InterruptedException in) {
+      LOGGER.error("Error in the current Thread. The thread was interrupted");
+      Thread.currentThread().interrupt();
+    } 
+  }
+  
+  private JDialog openBlockingDialog() {
+    TestableJOptionPane optionPane = new TestableJOptionPane(BUNDLE.getString("BcsDiagnoseSession.disconnected.label.text"), -1, -1, null, new Object[0], null);
+    JFrame frame = TestableJOptionPane.getDefaultParentFrame();
+    JDialog dialog = new JDialog((Frame)frame);
+    dialog.setTitle(BUNDLE.getString("BcsDiagnoseSession.disconnected.title"));
+    dialog.setModal(true);
+    dialog.setContentPane((Container)optionPane);
+    dialog.setDefaultCloseOperation(0);
+    dialog.pack();
+    dialog.setLocationRelativeTo(frame);
+    SwingUtilities.invokeLater(() -> dialog.setVisible(true));
+    return dialog;
+  }
+  
+  private boolean isInterrupted() {
+    return Thread.currentThread().isInterrupted();
+  }
+  
+  public void subscribeEcuConnectionStateChanges(EcuConnectionStateHandler.EcuConnectionStateChangeListener callback) {
+    this.publisher.subscribeConnectionStateChangedEvents(callback);
+  }
+  
+  public void unsubscribeEcuConnectionStateChanges(EcuConnectionStateHandler.EcuConnectionStateChangeListener callback) {
+    this.publisher.unsubscribeConnectionStateChangedEvents(callback);
+  }
+  
+  public void subscribeChargingStateChanges(EcuConnectionStateHandler.ChargingStateListener listener) {
+    this.chargingStateHandler.subscribeChargingStateChanges(listener);
+  }
+  
+  public void unsubscribeChargingStateChanges(EcuConnectionStateHandler.ChargingStateListener listener) {
+    this.chargingStateHandler.unsubscribeChargingStateChanges(listener);
+  }
+  
+  public void subscribeEcuConnectionStateRefreshEvents(EcuConnectionStateHandler.EcuConnectionStateRefreshListener listener) {
+    this.publisher.subscribeEcuConnectionStateRefreshEvents(listener);
+  }
+  
+  public void unsubscribeEcuConnectionStateRefreshEvents(EcuConnectionStateHandler.EcuConnectionStateRefreshListener listener) {
+    this.publisher.unsubscribeEcuConnectionStateRefreshEvents(listener);
+  }
+  
+  private void fireEcuConnectionStateRefreshCallback(EcuConnectionStateRefreshEvent event) {
+    this.publisher.publishEcuConnectionStateRefreshEvent(event);
+  }
+  
+  public synchronized void subscribeProgressBarEvent(EcuConnectionStateHandler.ProgressBarEventListener listener) {
+    this.initializationDialogController.subscribe(listener);
+  }
+  
+  public synchronized void unsubscribeProgressBarEvent(EcuConnectionStateHandler.ProgressBarEventListener listener) {
+    this.initializationDialogController.unsubscribe(listener);
+  }
+  
+  public void onInactivity() {
+    LOGGER.info("Stopping ECU polling and disconnect ECUs caused by user inactivity ...");
+    this.suspensionManager.controlSuspension(true);
+    resetConnectionStatesAndFireEcuDisconnectCallbacks(true, false);
+  }
+  
+  public void onInactivitySetBack() {
+    LOGGER.info("Re-start ECU polling after user inactivity ...");
+    this.suspensionManager.controlResumption(true, false);
+  }
+  
+  public void onHidDeviceConnectionChanged(HidDeviceConnectionChangedEvent event) {
+    this.hidDeviceConnectionController.onHidDeviceConnectionChanged(event);
+  }
+  
+  public void onRightsChanged(RightsChangedEvent event) {
+    this.hidDeviceConnectionController.onUserLevelChanged(event.getUserLevel());
+  }
+  
+  public BctEventHandler getBctEventHandler() {
+    return this.bctEventPublisher;
+  }
+}
+
+
+========================================================================================================================
+ITEM 14: com/gigatronik/beds/service/ecuconnectionstate/imp/HidDeviceConnectionController.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.beds.service.rightsmanager.api.UserLevel;
+import com.gigatronik.dart2.bosch.applicationprocess.ApplicationProcessManager;
+import com.gigatronik.dart2.bosch.applicationprocess.ApplicationProcessStateChangedEvent;
+import com.gigatronik.dart2.bosch.applicationprocess.ApplicationProcessStateChangesListener;
+import com.gigatronik.ebike.common.configuration.Constants;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class HidDeviceConnectionController implements ApplicationProcessStateChangesListener {
+  private static final Logger LOGGER = LoggerFactory.getLogger(HidDeviceConnectionController.class);
+  
+  private final ScheduledExecutorService deviceStateChangeReporter = Executors.newSingleThreadScheduledExecutor(new BasicThreadFactory.Builder().namingPattern("deviceStateChangeReporter-%d").build());
+  
+  private volatile Constants.HidDevice connectedDevice = Constants.HidDevice.NONE;
+  
+  private volatile Constants.HidDevice newDevice = Constants.HidDevice.NONE;
+  
+  private ScheduledFuture connectionJobFuture;
+  
+  private UserLevel currentUserLevel = UserLevel.UNKNOWN;
+  
+  private boolean blockingTaskIsCurrentlyExecuted = false;
+  
+  private boolean guiIsInitialized = false;
+  
+  private final EcuStateFacade ecuStateFacade;
+  
+  HidDeviceConnectionController(EcuStateFacade ecuStateFacade) {
+    this.ecuStateFacade = ecuStateFacade;
+    ApplicationProcessManager.getInstance().addListener(this);
+  }
+  
+  synchronized void onHidDeviceConnectionChanged(HidDeviceConnectionChangedEvent event) {
+    if (event.getVendorId() == 4236) {
+      Constants.HidDevice device = Constants.HidDevice.fromPid(event.getProductId());
+      if (device != null)
+        if (event.getState()) {
+          onDeviceConnected(device);
+        } else {
+          onDeviceDisconnected(device);
+        }  
+    } 
+  }
+  
+  private void onDeviceConnected(Constants.HidDevice device) {
+    LOGGER.info("HID device {} [PID_{},VID_{}] connected", device, String.format("%x", device.getPid()), String.format("%x", device.getVid()));
+    this.newDevice = device;
+    if (connectConditions())
+      connect(this.newDevice); 
+  }
+  
+  private void connect(Constants.HidDevice device) {
+    LOGGER.debug("Initialize now new connected device '{}'", device);
+    this.connectedDevice = device;
+    distributeConnectionEvent(device);
+    this.newDevice = Constants.HidDevice.NONE;
+  }
+  
+  private void onDeviceDisconnected(Constants.HidDevice device) {
+    LOGGER.info("HID device {} [PID_{},VID_{}] disconnected", device, String.format("%x", device.getPid()), String.format("%x", device.getVid()));
+    removeUninitializedDeviceIfNecessary(device);
+    removeInitializedDeviceIfNecessary(device);
+  }
+  
+  private void removeUninitializedDeviceIfNecessary(Constants.HidDevice device) {
+    if (device == this.newDevice) {
+      LOGGER.debug("Remove '{}' from connection queue", device);
+      this.newDevice = Constants.HidDevice.NONE;
+    } 
+  }
+  
+  private void removeInitializedDeviceIfNecessary(Constants.HidDevice device) {
+    if (device == this.connectedDevice) {
+      LOGGER.debug("Remove connected device '{}'", device);
+      distributeDisconnectionEvent(device);
+      this.connectedDevice = Constants.HidDevice.NONE;
+      this.connectionJobFuture = null;
+    } 
+  }
+  
+  private void distributeConnectionEvent(Constants.HidDevice device) {
+    if (!this.ecuStateFacade.shouldHidEventsBeIgnored()) {
+      this.connectionJobFuture = this.deviceStateChangeReporter.schedule(() -> this.ecuStateFacade.onHidDeviceConnect(device), 0L, TimeUnit.MILLISECONDS);
+    } else {
+      LOGGER.warn("HID connection event is not passed to the EcuStateThread, 'cause HID events are ignored at the moment");
+    } 
+  }
+  
+  private void distributeDisconnectionEvent(Constants.HidDevice device) {
+    if (!this.ecuStateFacade.shouldHidEventsBeIgnored()) {
+      interruptRunningConnectionJob();
+      this.deviceStateChangeReporter.execute(() -> this.ecuStateFacade.onHidDeviceDisconnect(device));
+    } else {
+      LOGGER.warn("HID connection event is not passed to the EcuStateThread, 'cause HID events are ignored at the moment");
+    } 
+  }
+  
+  private void interruptRunningConnectionJob() {
+    if (this.connectionJobFuture != null && !this.connectionJobFuture.isDone()) {
+      LOGGER.info("Interrupt currently running ECU initialization / connection job!");
+      this.connectionJobFuture.cancel(true);
+    } 
+  }
+  
+  synchronized void onUserLevelChanged(UserLevel newUserLevel) {
+    this.currentUserLevel = newUserLevel;
+    LOGGER.debug("User level changed to '{}'! Prove if there's a device that should be connected now ...", this.currentUserLevel);
+    if (connectConditions())
+      connect(this.newDevice); 
+  }
+  
+  synchronized void onEcuPollingStarted() {
+    this.guiIsInitialized = true;
+    LOGGER.debug("Main-Thread / GUI / application are now initialized! Prove if there's a device that should be connected now ...");
+    if (connectConditions())
+      connect(this.newDevice); 
+  }
+  
+  public synchronized void onApplicationProcessStateChanged(ApplicationProcessStateChangedEvent event) {
+    LOGGER.debug("ApplicationProcessStateChangedEvent received: '{}'", event);
+    boolean currentState = event.getApplicationProcessManager().isProcessActive(ApplicationProcessManager.ApplicationProcess.READ_SERVICE_PARAMS);
+    if (currentState != this.blockingTaskIsCurrentlyExecuted) {
+      this.blockingTaskIsCurrentlyExecuted = currentState;
+      LOGGER.debug("Blocking application state changed to '{}'! Prove if there's a device that should be connected now ...", Boolean.valueOf(this.blockingTaskIsCurrentlyExecuted));
+      if (connectConditions())
+        connect(this.newDevice); 
+    } 
+  }
+  
+  private boolean connectConditions() {
+    boolean noDeviceIsInitialized = (this.connectedDevice == Constants.HidDevice.NONE);
+    boolean uninitializedDeviceIsAvailable = (this.newDevice != Constants.HidDevice.NONE);
+    boolean userLevelIsKnown = (this.currentUserLevel != UserLevel.UNKNOWN);
+    boolean applicationIsInitialized = this.guiIsInitialized;
+    boolean initializationOfNewDeviceIsAllowed = !this.blockingTaskIsCurrentlyExecuted;
+    LOGGER.debug("connectConditions(): noDeviceIsInitialized='{}', uninitializedDeviceIsAvailable='{}', userLevelIsKnown='{}', applicationIsInitialized='{}', initializationOfNewDeviceIsAllowed='{}'", noDeviceIsInitialized, uninitializedDeviceIsAvailable, userLevelIsKnown, applicationIsInitialized, initializationOfNewDeviceIsAllowed);
+    return (noDeviceIsInitialized && uninitializedDeviceIsAvailable && userLevelIsKnown && applicationIsInitialized && initializationOfNewDeviceIsAllowed);
+  }
+}
+
+
+========================================================================================================================
+ITEM 15: com/gigatronik/beds/service/ecuconnectionstate/imp/HidDeviceDisconnectionDetector.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.service.hiddriverwrapper.api.HidDeviceConnectionChangedEvent;
+import com.gigatronik.ebike.common.configuration.Constants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class HidDeviceDisconnectionDetector {
+  private static final Logger LOGGER = LoggerFactory.getLogger(HidDeviceDisconnectionDetector.class);
+  
+  private static final int THRESHOLD_TIMEOUTS = 10;
+  
+  private final HidDeviceConnectionController hidDeviceConnectionController;
+  
+  private final EcuStateFacade ecuStateFacade;
+  
+  private int requestTimeoutCounter = 0;
+  
+  private Constants.HidDevice connectedDevice = Constants.HidDevice.NONE;
+  
+  HidDeviceDisconnectionDetector(HidDeviceConnectionController hidDeviceConnectionController, EcuStateFacade ecuStateFacade) {
+    this.hidDeviceConnectionController = hidDeviceConnectionController;
+    this.ecuStateFacade = ecuStateFacade;
+  }
+  
+  void setHidDevice(Constants.HidDevice device) {
+    LOGGER.trace("New device for detection received '{}'", device);
+    this.connectedDevice = device;
+    clearTimeoutCounter();
+  }
+  
+  void clearTimeoutCounter() {
+    this.requestTimeoutCounter = 0;
+  }
+  
+  void incrementTimeoutCounter() {
+    LOGGER.trace("Increment timeout counter");
+    if (++this.requestTimeoutCounter >= 10)
+      disconnectHidDevice(); 
+  }
+  
+  private void disconnectHidDevice() {
+    if (this.connectedDevice != Constants.HidDevice.NONE) {
+      LOGGER.warn("Trigger disconnection of HID device '{}' after '{}' timeout responses", this.connectedDevice, Integer.valueOf(this.requestTimeoutCounter));
+      fixConnectionStateMissingDisconnectionEventFromHidDriver();
+      fixConnectionStateBlockingApplicationStateWasActiveDuringHidDisconnectionEvent();
+    } else {
+      LOGGER.error("Disconnection of HID device triggered, but connection device was '{}'!", this.connectedDevice);
+    } 
+    setHidDevice(Constants.HidDevice.NONE);
+  }
+  
+  private void fixConnectionStateMissingDisconnectionEventFromHidDriver() {
+    this.hidDeviceConnectionController.onHidDeviceConnectionChanged(new HidDeviceConnectionChangedEvent(this.connectedDevice.getPid(), this.connectedDevice.getVid(), null, false));
+  }
+  
+  private void fixConnectionStateBlockingApplicationStateWasActiveDuringHidDisconnectionEvent() {
+    this.ecuStateFacade.onHidDeviceDisconnect(this.connectedDevice);
+  }
+}
+
+
+========================================================================================================================
+ITEM 16: com/gigatronik/beds/service/ecuconnectionstate/imp/InitializationDialogController.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.service.ecuconnectionstate.api.EcuConnectionStateHandler;
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.ProgressBarEvent;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class InitializationDialogController {
+  private static final Logger LOGGER = LoggerFactory.getLogger(InitializationDialogController.class);
+  
+  private final List<EcuConnectionStateHandler.ProgressBarEventListener> progressBarCallbacks = new ArrayList<>();
+  
+  private final AtomicBoolean initializationDialogIsOpen = new AtomicBoolean(false);
+  
+  boolean isDialogOpen() {
+    return this.initializationDialogIsOpen.get();
+  }
+  
+  void openDialog() {
+    if (this.initializationDialogIsOpen.compareAndSet(false, true)) {
+      LOGGER.debug("Open initialization dialog");
+      ProgressBarEvent event = new ProgressBarEvent();
+      event.setName("dlgInitSystemProgress");
+      event.setProgressMessageKey("EBikeApplication.INITIALIZING_SYSTEM");
+      event.setProgressBarValue(-1);
+      event.showProgressBar();
+      publishEvent(event);
+    } 
+  }
+  
+  void closeDialog() {
+    if (this.initializationDialogIsOpen.compareAndSet(true, false)) {
+      LOGGER.debug("Close initialization dialog");
+      ProgressBarEvent event = new ProgressBarEvent();
+      event.disposeProgressBar();
+      publishEvent(event);
+    } 
+  }
+  
+  void subscribe(EcuConnectionStateHandler.ProgressBarEventListener listener) {
+    this.progressBarCallbacks.add(listener);
+  }
+  
+  void unsubscribe(EcuConnectionStateHandler.ProgressBarEventListener listener) {
+    this.progressBarCallbacks.remove(listener);
+  }
+  
+  private void publishEvent(ProgressBarEvent event) {
+    this.progressBarCallbacks.forEach(listener -> listener.onProgressBarEvent(event));
+  }
+}
+
+
+========================================================================================================================
+ITEM 17: com/gigatronik/beds/service/ecuconnectionstate/imp/PollingStarter.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+
+class PollingStarter {
+  private final EcuStateThread ecuStateThread;
+  
+  private final HidDeviceConnectionController hidDeviceConnectionController;
+  
+  private final AtomicBoolean started = new AtomicBoolean(false);
+  
+  PollingStarter(EcuStateThread ecuStateThread, HidDeviceConnectionController hidDeviceConnectionController) {
+    this.ecuStateThread = ecuStateThread;
+    this.hidDeviceConnectionController = hidDeviceConnectionController;
+  }
+  
+  void startEcuPolling() {
+    if (this.started.compareAndSet(false, true)) {
+      Thread systemStatePoller = new Thread(this.ecuStateThread);
+      systemStatePoller.setName("EcuStateThread-" + systemStatePoller.getId());
+      systemStatePoller.start();
+      this.hidDeviceConnectionController.onEcuPollingStarted();
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 18: com/gigatronik/beds/service/ecuconnectionstate/imp/SuspensionManager.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.diagserver.bosch.impl.BoschServer;
+import com.gigatronik.ebike.common.configuration.Constants;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class SuspensionManager {
+  private static final Logger LOGGER = LoggerFactory.getLogger(SuspensionManager.class);
+  
+  private static final int SUSPENSION_EXECUTION_TIMEOUT = 3000;
+  
+  private final AtomicReference<SuspensionState> suspendState = new AtomicReference<>(SuspensionState.NOT_SUSPENDED);
+  
+  private final AtomicInteger ecuPollingStopCounter = new AtomicInteger(0);
+  
+  private boolean doReinitializationOfEcusOnNextStartPollingRequest = false;
+  
+  private boolean doRestoreBcsSessionOnNextStartPollingRequest = false;
+  
+  private final Object syncObjectSuspensionStatus = new Object();
+  
+  private final Object syncObjectSleepInterruption = new Object();
+  
+  private final Executor resumeEcuConnectionStateDetectionExecutor;
+  
+  private final EcuStateFacade ecuStateFacade;
+  
+  private final int suspensionExecutionTimeout;
+  
+  private enum SuspensionState {
+    NOT_SUSPENDED, SUSPENSION_ORDERED_IGNORE_USB_EVENTS, SUSPENSION_ORDERED_CARE_ABOUT_USB_EVENTS, SUSPENSION_EXECUTED_IGNORE_USB_EVENTS, SUSPENSION_EXECUTED_CARE_ABOUT_USB_EVENTS;
+  }
+  
+  SuspensionManager(Executor resumeEcuConnectionStateDetectionExecutor, EcuStateFacade ecuStateFacade) {
+    this(resumeEcuConnectionStateDetectionExecutor, ecuStateFacade, 3000);
+  }
+  
+  SuspensionManager(Executor resumeEcuConnectionStateDetectionExecutor, EcuStateFacade ecuStateFacade, int suspensionExecutionTimeout) {
+    this.resumeEcuConnectionStateDetectionExecutor = resumeEcuConnectionStateDetectionExecutor;
+    this.ecuStateFacade = ecuStateFacade;
+    this.suspensionExecutionTimeout = suspensionExecutionTimeout;
+  }
+  
+  boolean isSuspensionExecuted() {
+    return (this.suspendState.get() == SuspensionState.SUSPENSION_EXECUTED_CARE_ABOUT_USB_EVENTS || this.suspendState.get() == SuspensionState.SUSPENSION_EXECUTED_IGNORE_USB_EVENTS);
+  }
+  
+  boolean isSuspensionOrdered() {
+    return (this.suspendState.get() == SuspensionState.SUSPENSION_ORDERED_CARE_ABOUT_USB_EVENTS || this.suspendState.get() == SuspensionState.SUSPENSION_ORDERED_IGNORE_USB_EVENTS);
+  }
+  
+  boolean isPollingAllowed() {
+    return (this.suspendState.get() == SuspensionState.NOT_SUSPENDED);
+  }
+  
+  boolean isHidEventProcessingAllowed() {
+    return (isPollingAllowed() || this.suspendState.get() == SuspensionState.SUSPENSION_ORDERED_CARE_ABOUT_USB_EVENTS || this.suspendState.get() == SuspensionState.SUSPENSION_EXECUTED_CARE_ABOUT_USB_EVENTS);
+  }
+  
+  synchronized void controlResumption(boolean resetConnectionStates, boolean restoreBcsSession) {
+    LOGGER.info("controlResumption(reset='{}', restoreBcsSession='{}') called! '{}' other threads prevent the resumption.", resetConnectionStates, restoreBcsSession, this.ecuPollingStopCounter.get() - 1);
+    this.doReinitializationOfEcusOnNextStartPollingRequest = resetConnectionStates ? resetConnectionStates : this.doReinitializationOfEcusOnNextStartPollingRequest;
+    this.doRestoreBcsSessionOnNextStartPollingRequest = restoreBcsSession ? restoreBcsSession : this.doRestoreBcsSessionOnNextStartPollingRequest;
+    if (this.ecuPollingStopCounter.decrementAndGet() <= 0) {
+      resetConnectionStatesAndResumeChangeDetection(this.doReinitializationOfEcusOnNextStartPollingRequest, this.doRestoreBcsSessionOnNextStartPollingRequest);
+      this.doReinitializationOfEcusOnNextStartPollingRequest = false;
+      this.doRestoreBcsSessionOnNextStartPollingRequest = false;
+      this.ecuPollingStopCounter.set(0);
+    } 
+  }
+  
+  private void resetConnectionStatesAndResumeChangeDetection(boolean resetConnectionStates, boolean restoreBcsSession) {
+    LOGGER.debug("(Re)start ECU connection state change detection with resetConnectionStates='{}', restoreBcsSession='{}'", Boolean.valueOf(resetConnectionStates), Boolean.valueOf(restoreBcsSession));
+    if (resetConnectionStates)
+      this.ecuStateFacade.resetConnectionStatesAndFireEcuDisconnectCallbacks(true, restoreBcsSession); 
+    this.suspendState.set(SuspensionState.NOT_SUSPENDED);
+    if (resetConnectionStates)
+      this.resumeEcuConnectionStateDetectionExecutor.execute(() -> {
+            LOGGER.trace("Asynchronous reinitialization of connected ECUs job started");
+            reInitializeConnectedEcus();
+          }); 
+  }
+  
+  private void reInitializeConnectedEcus() {
+    Constants.HidDevice device = BoschServer.getInstance().getDevice();
+    if (device != Constants.HidDevice.NONE) {
+      LOGGER.info("Simulate '{}' has been physically re-connected and restart ECU initialization", device);
+      this.ecuStateFacade.onHidDeviceConnect(device);
+    } else {
+      LOGGER.warn("Reconnection simulation of ECUs not possible, 'cause connected HID device is '{}'", device);
+    } 
+  }
+  
+  void controlSuspension(boolean ignoreUsbEvents) {
+    LOGGER.info("controlSuspension(ignoreUsbEvents='{}') called! '{}' thread(s) ordered suspension as well.", Boolean.valueOf(ignoreUsbEvents), this.ecuPollingStopCounter);
+    this.ecuPollingStopCounter.incrementAndGet();
+    if (isWaitingConditionFulfilled(ignoreUsbEvents)) {
+      LOGGER.debug("ECU state thread has been ordered to stop polling. Wait for request execution.");
+      waitForSuspensionExecution(this.suspensionExecutionTimeout);
+    } 
+  }
+  
+  private synchronized boolean isWaitingConditionFulfilled(boolean ignoreUsbEvents) {
+    if (this.suspendState.compareAndSet(SuspensionState.NOT_SUSPENDED, predictSuspensionOrderState(ignoreUsbEvents)))
+      return true; 
+    if (isSuspensionOrdered()) {
+      if (ignoreUsbEvents)
+        this.suspendState.compareAndSet(SuspensionState.SUSPENSION_ORDERED_CARE_ABOUT_USB_EVENTS, SuspensionState.SUSPENSION_ORDERED_IGNORE_USB_EVENTS); 
+      return true;
+    } 
+    if (ignoreUsbEvents)
+      this.suspendState.compareAndSet(SuspensionState.SUSPENSION_EXECUTED_CARE_ABOUT_USB_EVENTS, SuspensionState.SUSPENSION_EXECUTED_IGNORE_USB_EVENTS); 
+    return false;
+  }
+  
+  private SuspensionState predictSuspensionOrderState(boolean ignoreUsbEvents) {
+    return ignoreUsbEvents ? SuspensionState.SUSPENSION_ORDERED_IGNORE_USB_EVENTS : SuspensionState.SUSPENSION_ORDERED_CARE_ABOUT_USB_EVENTS;
+  }
+  
+  private void waitForSuspensionExecution(int timeout) {
+    long startTime = System.currentTimeMillis();
+    synchronized (this.syncObjectSleepInterruption) {
+      this.syncObjectSleepInterruption.notify();
+    } 
+    synchronized (this.syncObjectSuspensionStatus) {
+      try {
+        this.syncObjectSuspensionStatus.wait((long)timeout);
+      } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
+        LOGGER.warn("Waiting for suspension of the ECU state polling thread has been interrupted", (Throwable)ex);
+      } 
+    } 
+    long passedTime = System.currentTimeMillis() - startTime;
+    LOGGER.debug("Waiting for suspension execution finished after '{}' ms", Long.valueOf(passedTime));
+  }
+  
+  void suspendIfRequested() {
+    if (this.suspendState.compareAndSet(SuspensionState.SUSPENSION_ORDERED_CARE_ABOUT_USB_EVENTS, SuspensionState.SUSPENSION_EXECUTED_CARE_ABOUT_USB_EVENTS) || 
+      this.suspendState.compareAndSet(SuspensionState.SUSPENSION_ORDERED_IGNORE_USB_EVENTS, SuspensionState.SUSPENSION_EXECUTED_IGNORE_USB_EVENTS))
+      synchronized (this.syncObjectSuspensionStatus) {
+        this.syncObjectSuspensionStatus.notifyAll();
+      }  
+  }
+  
+  void waitForNextPollingCycle(int waitingTimeBetweenPollingCycles) {
+    synchronized (this.syncObjectSleepInterruption) {
+      try {
+        this.syncObjectSleepInterruption.wait((long)waitingTimeBetweenPollingCycles);
+      } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
+        LOGGER.warn("EcuStateThread sleeping has been interrupted", (Throwable)ex);
+      } 
+    } 
+  }
+}
+
+
+========================================================================================================================
+ITEM 19: com/gigatronik/beds/service/ecuconnectionstate/imp/SystemTypeDetectionFailureHandler.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class SystemTypeDetectionFailureHandler {
+  private static final Logger LOGGER = LoggerFactory.getLogger(SystemTypeDetectionFailureHandler.class);
+  
+  private static final int MAX_NR_OF_SYSTEM_TYPE_DETECTION_RETRIES = 3;
+  
+  private boolean systemTypeDetectionFailed = false;
+  
+  private boolean preceedInHmiStandAloneMode = false;
+  
+  private int systemTypeDetectionTries = 0;
+  
+  private final CommunicationManager communicationManager;
+  
+  private final SuspensionManager suspensionManager;
+  
+  SystemTypeDetectionFailureHandler(CommunicationManager communicationManager, SuspensionManager suspensionManager) {
+    this.communicationManager = communicationManager;
+    this.suspensionManager = suspensionManager;
+  }
+  
+  boolean isDetectionFailed() {
+    return this.systemTypeDetectionFailed;
+  }
+  
+  boolean isContinuationInHmiStandAloneModeOk() {
+    return this.preceedInHmiStandAloneMode;
+  }
+  
+  synchronized void onDetectionFinished() {
+    this.systemTypeDetectionFailed = false;
+    this.preceedInHmiStandAloneMode = false;
+    this.systemTypeDetectionTries = 0;
+  }
+  
+  synchronized boolean onDetectionFailure() {
+    LOGGER.warn("Intuvia's on socket, but system type could not be determined, retry with hard reset! (Try: '{}' of '{}')", Integer.valueOf(this.systemTypeDetectionTries + 1), Integer.valueOf(3));
+    this.systemTypeDetectionFailed = true;
+    return executeSynchronousHardResetOnHmi();
+  }
+  
+  private boolean executeSynchronousHardResetOnHmi() {
+    this.suspensionManager.controlSuspension(true);
+    this.communicationManager.getHmiCom().executeHardReset(true);
+    this.suspensionManager.controlResumption(false, false);
+    return this.communicationManager.startHmiDiagnosticSession();
+  }
+  
+  synchronized boolean isFurtherRetryAllowed() {
+    if (++this.systemTypeDetectionTries < 3)
+      return true; 
+    LOGGER.warn("Finally give up detecting system type, work with Intuvia in standalone mode");
+    this.preceedInHmiStandAloneMode = true;
+    return false;
+  }
+}
+
+
+========================================================================================================================
+ITEM 20: com/gigatronik/beds/service/ecuconnectionstate/imp/VciWrapper.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.imp;
+
+import com.gigatronik.beds.service.communication.api.CommunicationManager;
+import com.gigatronik.beds.service.rightsmanager.api.RightsManager;
+import com.gigatronik.ebike.common.configuration.ComplexResponse;
+import com.gigatronik.ebike.common.configuration.Constants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class VciWrapper {
+  private static final Logger LOGGER = LoggerFactory.getLogger(VciWrapper.class);
+  
+  private static final int MAX_RETRY_TESTER_PRESENT_SENDING = 3;
+  
+  private static final int WAITING_TIME_BETWEEN_TESTER_PRESENT_RETRIES = 200;
+  
+  private final RightsManager rightsManager;
+  
+  private final CommunicationManager communicationManager;
+  
+  VciWrapper(RightsManager rightsManager, CommunicationManager communicationManager) {
+    this.rightsManager = rightsManager;
+    this.communicationManager = communicationManager;
+  }
+  
+  boolean sendTesterPresent(Constants.EcuType ecu, int maxTry, int waitingTimeBetweenRetries) {
+    for (int n = 0; n < maxTry && !isInterrupted(); n++) {
+      if (sendTesterPresent(ecu))
+        return true; 
+      sleep(waitingTimeBetweenRetries);
+    } 
+    return false;
+  }
+  
+  boolean sendTesterPresent(Constants.EcuType ecu) {
+    boolean connected = false;
+    switch (ecu) {
+      case BUI21X:
+      case BUI25X:
+      case BUI270:
+      case BUI275:
+      case BUI330:
+      case BUI350:
+      case COBI:
+        connected = this.communicationManager.getHmiCom().sendTesterPresent().isPositive();
+        break;
+      case BCT:
+        connected = this.communicationManager.getBctCom().sendTesterPresent().isPositive();
+        break;
+      case VICTOR_DU:
+        connected = this.communicationManager.getDuCom().getDuVictor().sendTesterPresent().isPositive();
+        break;
+      case CLASSIC_DU:
+        connected = this.communicationManager.getDuCom().getDuClassicPlus().sendTesterPresent().isPositive();
+        break;
+      case VICTOR_PP1:
+        connected = this.communicationManager.getBms1Com().getBmsVictor().sendTesterPresent().isPositive();
+        break;
+      case VICTOR_PP2:
+        connected = this.communicationManager.getBms2Com().getBmsVictor().sendTesterPresent().isPositive();
+        break;
+      case CLASSIC_PP:
+        connected = this.communicationManager.getBms1Com().getBmsClassicPlus().sendTesterPresent().isPositive();
+        break;
+      case BCS250:
+        connected = this.communicationManager.getBcsCom().sendTesterPresent().isPositive();
+        break;
+      case BAS100:
+        connected = this.communicationManager.getAbsCom().sendTesterPresent().isPositive();
+        break;
+    } 
+    return connected;
+  }
+  
+  boolean startExtendedSession(Constants.EcuType ecu, int maxTry, int waitingTimeBetweenRetries) {
+    for (int n = 0; n < maxTry && !isInterrupted(); n++) {
+      if (startExtendedSession(ecu))
+        return true; 
+      sleep(waitingTimeBetweenRetries);
+    } 
+    return false;
+  }
+  
+  boolean startExtendedSession(Constants.EcuType ecu) {
+    boolean connected = false;
+    switch (ecu) {
+      case BUI21X:
+      case BUI25X:
+      case BUI270:
+      case BUI275:
+      case BUI330:
+      case BUI350:
+      case COBI:
+        connected = this.communicationManager.getHmiCom().startExtendedSession().isPositive();
+        break;
+      case BCT:
+        connected = this.communicationManager.getBctCom().startExtendedSession().isPositive();
+        break;
+      case VICTOR_DU:
+        connected = this.communicationManager.getDuCom().getDuVictor().startExtendedSession().isPositive();
+        break;
+      case CLASSIC_DU:
+        connected = this.communicationManager.getDuCom().getDuClassicPlus().startExtendedSession().isPositive();
+        break;
+      case VICTOR_PP1:
+        connected = this.communicationManager.getBms1Com().getBmsVictor().startExtendedSession().isPositive();
+        break;
+      case VICTOR_PP2:
+        connected = this.communicationManager.getBms2Com().getBmsVictor().startExtendedSession().isPositive();
+        break;
+      case CLASSIC_PP:
+        connected = this.communicationManager.getBms1Com().getBmsClassicPlus().startExtendedSession().isPositive();
+        break;
+      case BCS250:
+        connected = this.communicationManager.getBcsCom().startExtendedSession().isPositive();
+        break;
+      case BAS100:
+        connected = this.communicationManager.getAbsCom().startExtendedSession().isPositive();
+        break;
+    } 
+    return connected;
+  }
+  
+  boolean startDefaultSession(Constants.EcuType ecu, boolean waitForEcu) {
+    boolean connected = false;
+    switch (ecu) {
+      case BUI21X:
+      case BUI25X:
+      case BUI270:
+      case BUI275:
+      case BUI330:
+      case BUI350:
+      case COBI:
+        connected = this.communicationManager.getHmiCom().startDefaultSession(waitForEcu).isPositive();
+        break;
+      case BCT:
+        connected = this.communicationManager.getBctCom().startDefaultSession(waitForEcu).isPositive();
+        break;
+      case VICTOR_DU:
+        connected = this.communicationManager.getDuCom().getDuVictor().startDefaultSession(waitForEcu).isPositive();
+        break;
+      case CLASSIC_DU:
+        connected = this.communicationManager.getDuCom().getDuClassicPlus().startDefaultSession(waitForEcu).isPositive();
+        break;
+      case VICTOR_PP1:
+        connected = this.communicationManager.getBms1Com().getBmsVictor().startDefaultSession(waitForEcu).isPositive();
+        break;
+      case VICTOR_PP2:
+        connected = this.communicationManager.getBms2Com().getBmsVictor().startDefaultSession(waitForEcu).isPositive();
+        break;
+      case CLASSIC_PP:
+        connected = this.communicationManager.getBms1Com().getBmsClassicPlus().startDefaultSession(waitForEcu).isPositive();
+        break;
+      case BCS250:
+        connected = this.communicationManager.getBcsCom().startDefaultSession(waitForEcu).isPositive();
+        break;
+      case BAS100:
+        connected = this.communicationManager.getAbsCom().startDefaultSession(waitForEcu).isPositive();
+        break;
+    } 
+    return connected;
+  }
+  
+  boolean securityAccess(Constants.EcuType ecu, int maxTry, int waitingTimeBetweenRetries) {
+    for (int n = 0; n < maxTry && !isInterrupted(); n++) {
+      if (securityAccess(ecu))
+        return true; 
+      sleep(waitingTimeBetweenRetries);
+    } 
+    return false;
+  }
+  
+  boolean securityAccess(Constants.EcuType ecu) {
+    boolean connected;
+    switch (ecu) {
+      case BUI330:
+      case BUI350:
+        connected = this.communicationManager.getHmiCom().executeSecurityAccess(this.rightsManager.getAccessLevel()).isPositive();
+        break;
+      case VICTOR_DU:
+        connected = this.communicationManager.getDuCom().getDuVictor().executeSecurityAccess(this.rightsManager.getAccessLevel()).isPositive();
+        break;
+      case CLASSIC_DU:
+        connected = this.communicationManager.getDuCom().getDuClassicPlus().executeSecurityAccess(this.rightsManager.getAccessLevel()).isPositive();
+        break;
+      case VICTOR_PP1:
+        connected = this.communicationManager.getBms1Com().getBmsVictor().executeSecurityAccess(this.rightsManager.getAccessLevel()).isPositive();
+        break;
+      case VICTOR_PP2:
+        connected = this.communicationManager.getBms2Com().getBmsVictor().executeSecurityAccess(this.rightsManager.getAccessLevel()).isPositive();
+        break;
+      case CLASSIC_PP:
+        connected = this.communicationManager.getBms1Com().getBmsClassicPlus().executeSecurityAccess(this.rightsManager.getAccessLevel()).isPositive();
+        break;
+      case BCS250:
+        connected = this.communicationManager.getBcsCom().executeSecurityAccess(this.rightsManager.getAccessLevel()).isPositive();
+        break;
+      case BAS100:
+        connected = this.communicationManager.getAbsCom().executeSecurityAccess(this.rightsManager.getAccessLevel()).isPositive();
+        break;
+      case BUI21X:
+      case BUI25X:
+      case BUI270:
+      case BUI275:
+      case COBI:
+      case BCT:
+      case ESHIFT:
+        connected = true;
+        break;
+      default:
+        connected = false;
+        break;
+    } 
+    return connected;
+  }
+  
+  boolean pingEcu(Constants.EcuType ecu, boolean ecuNotYetConnected) {
+    boolean connected;
+    if (ecuNotYetConnected) {
+      connected = startExtendedSession(ecu);
+    } else {
+      connected = sendTesterPresent(ecu, 3, 200);
+    } 
+    return connected;
+  }
+  
+  Constants.EcuMode readEcuState(Constants.EcuType ecu) {
+    Constants.EcuMode result = Constants.EcuMode.NONE;
+    switch (ecu) {
+      case CLASSIC_PP:
+        result = this.communicationManager.getBms1Com().getBmsClassicPlus().readEcuState();
+        break;
+      case CLASSIC_DU:
+        result = this.communicationManager.getDuCom().getDuClassicPlus().readEcuState();
+        break;
+      case VICTOR_DU:
+        result = this.communicationManager.getDuCom().getDuVictor().readEcuState();
+        break;
+      case VICTOR_PP1:
+        result = this.communicationManager.getBms1Com().getBmsVictor().readEcuState();
+        break;
+      case VICTOR_PP2:
+        result = this.communicationManager.getBms2Com().getBmsVictor().readEcuState();
+        break;
+      case BAS100:
+        result = this.communicationManager.getAbsCom().readEcuState();
+        break;
+      case BCS250:
+        result = this.communicationManager.getBcsCom().readEcuState();
+        break;
+    } 
+    return result;
+  }
+  
+  String readSerialNumberDu(Constants.EcuType ecu) {
+    String serialNumber = "n/a";
+    ComplexResponse response = null;
+    switch (ecu) {
+      case CLASSIC_DU:
+        response = this.communicationManager.getDuCom().getDuClassicPlus().readSerialNumberFormatted();
+        break;
+      case VICTOR_DU:
+        response = this.communicationManager.getDuCom().getDuVictor().readSerialNumberFormatted();
+        break;
+    } 
+    if (response != null && response.isPositive())
+      serialNumber = response.toString(); 
+    return serialNumber;
+  }
+  
+  private void sleep(int milliSeconds) {
+    try {
+      Thread.sleep((long)milliSeconds);
+    } catch (InterruptedException ex) {
+      LOGGER.debug("Sleeping interrupted!", (Throwable)ex);
+      Thread.currentThread().interrupt();
+    } 
+  }
+  
+  private boolean isInterrupted() {
+    return Thread.currentThread().isInterrupted();
+  }
+}
+
+
+========================================================================================================================
+ITEM 21: com/gigatronik/beds/service/ecuconnectionstate/impl/event/BctMeasurementProgressEvent.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.impl.event;
+
+import com.gigatronik.beds.common.bct.BctTestProgress;
+
+public class BctMeasurementProgressEvent {
+  private final transient BctTestProgress progress;
+  
+  public BctMeasurementProgressEvent(BctTestProgress progress) {
+    this.progress = progress;
+  }
+  
+  public BctTestProgress getMeasurementProgress() {
+    return this.progress;
+  }
+  
+  public String toString() {
+    return "RemainingMinutes: '" + this.progress.getRemainingMinutes() + "'; StateOfCharge: '" + 
+      this.progress.getStateOfCharge() + "'";
+  }
+}
+
+
+========================================================================================================================
+ITEM 22: com/gigatronik/beds/service/ecuconnectionstate/impl/event/BctOperationStateChangeEvent.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.impl.event;
+
+import com.gigatronik.beds.common.bct.BctState;
+
+public class BctOperationStateChangeEvent {
+  private final BctState bctState;
+  
+  public BctOperationStateChangeEvent(BctState bctState) {
+    this.bctState = bctState;
+  }
+  
+  public BctState getOperatingState() {
+    return this.bctState;
+  }
+  
+  public String toString() {
+    return this.bctState.toString();
+  }
+}
+
+
+========================================================================================================================
+ITEM 23: com/gigatronik/beds/service/ecuconnectionstate/impl/event/ChargingStateEvent.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.impl.event;
+
+public class ChargingStateEvent {
+  private ChargingState state = ChargingState.UNKNOWN;
+  
+  private ChargingMessage text = ChargingMessage.NO_TEXT;
+  
+  public enum ChargingMessage {
+    NO_TEXT, OEM, IBD_HINT, EBIKE_AND_DUALBAT, EBIKE, DUALBAT;
+  }
+  
+  public enum ChargingState {
+    UNKNOWN, START_CHARGING, STOP_CHARGING;
+  }
+  
+  public ChargingStateEvent(ChargingMessage msg) {
+    this.text = msg;
+  }
+  
+  public ChargingState getState() {
+    return this.state;
+  }
+  
+  public void startCharging() {
+    this.state = ChargingState.START_CHARGING;
+  }
+  
+  public void stopCharging() {
+    this.state = ChargingState.STOP_CHARGING;
+  }
+  
+  public ChargingMessage getMessage() {
+    return this.text;
+  }
+}
+
+
+========================================================================================================================
+ITEM 24: com/gigatronik/beds/service/ecuconnectionstate/impl/event/EcuConnectionStateChangedEvent.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.impl.event;
+
+import com.gigatronik.ebike.common.configuration.Constants;
+
+public class EcuConnectionStateChangedEvent {
+  private final Constants.EcuType type;
+  
+  private final Constants.EcuMode mode;
+  
+  public static EcuConnectionStateChangedEvent createEcuConnectEvent(Constants.EcuType type, Constants.EcuMode mode) {
+    return new EcuConnectionStateChangedEvent(type, mode);
+  }
+  
+  public static EcuConnectionStateChangedEvent createEcuDisconnectEvent(Constants.EcuType type) {
+    return new EcuConnectionStateChangedEvent(type, Constants.EcuMode.NONE);
+  }
+  
+  private EcuConnectionStateChangedEvent(Constants.EcuType type, Constants.EcuMode mode) {
+    this.type = type;
+    this.mode = mode;
+  }
+  
+  private EcuConnectionStateChangedEvent() {
+    this.type = Constants.EcuType.NONE;
+    this.mode = Constants.EcuMode.NONE;
+  }
+  
+  public Constants.EcuType getEcuType() {
+    return this.type;
+  }
+  
+  public Constants.EcuMode getEcuMode() {
+    return this.mode;
+  }
+  
+  public boolean isEcuConnected() {
+    return (this.mode != Constants.EcuMode.NONE);
+  }
+  
+  public String toString() {
+    return "[type=" + this.type + ",mode=" + this.mode + "]";
+  }
+}
+
+
+========================================================================================================================
+ITEM 25: com/gigatronik/beds/service/ecuconnectionstate/impl/event/EcuConnectionStateRefreshEvent.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.impl.event;
+
+import com.gigatronik.ebike.common.configuration.Constants;
+
+public class EcuConnectionStateRefreshEvent {
+  private final Constants.EcuType type;
+  
+  private final Constants.EcuMode mode;
+  
+  public EcuConnectionStateRefreshEvent(Constants.EcuType type, Constants.EcuMode mode) {
+    this.type = type;
+    this.mode = mode;
+  }
+  
+  public Constants.EcuType getEcuType() {
+    return this.type;
+  }
+  
+  public Constants.EcuMode getEcuMode() {
+    return this.mode;
+  }
+  
+  public String toString() {
+    return "[type=" + this.type + ",mode=" + this.mode + "]";
+  }
+}
+
+
+========================================================================================================================
+ITEM 26: com/gigatronik/beds/service/ecuconnectionstate/impl/event/ProgressBarEvent.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.impl.event;
+
+public class ProgressBarEvent {
+  private String name;
+  
+  private String progressMessageKey;
+  
+  private int progressBarValue;
+  
+  private PROGRESS_BAR_STATE state;
+  
+  public enum PROGRESS_BAR_STATE {
+    SHOW, DISPOSE;
+  }
+  
+  public String getName() {
+    return this.name;
+  }
+  
+  public void setName(String name) {
+    this.name = name;
+  }
+  
+  public String getProgressMessageKey() {
+    return this.progressMessageKey;
+  }
+  
+  public void setProgressMessageKey(String progressMessageKey) {
+    this.progressMessageKey = progressMessageKey;
+  }
+  
+  public int getProgressBarValue() {
+    return this.progressBarValue;
+  }
+  
+  public void setProgressBarValue(int progressBarValue) {
+    this.progressBarValue = progressBarValue;
+  }
+  
+  public PROGRESS_BAR_STATE getState() {
+    return this.state;
+  }
+  
+  public void showProgressBar() {
+    this.state = PROGRESS_BAR_STATE.SHOW;
+  }
+  
+  public void disposeProgressBar() {
+    this.state = PROGRESS_BAR_STATE.DISPOSE;
+  }
+}
+
+
+========================================================================================================================
+ITEM 27: com/gigatronik/beds/service/ecuconnectionstate/impl/event/SystemConnectionStateChangeEvent.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.impl.event;
+
+public class SystemConnectionStateChangeEvent {
+  private final InitAction action;
+  
+  public enum InitAction {
+    HMI_STANDALONE_CONNECT, BIKE_CONNECT, BIKE_RECONNECT, BIKE_DISCONNECT, BCT_CONNECT, BCT_DISCONNECT;
+  }
+  
+  public SystemConnectionStateChangeEvent(InitAction action) {
+    this.action = action;
+  }
+  
+  public InitAction getAction() {
+    return this.action;
+  }
+  
+  public String toString() {
+    return "[action=" + this.action + "]";
+  }
+}
+
+
+========================================================================================================================
+ITEM 28: com/gigatronik/beds/service/ecuconnectionstate/impl/model/ChargingCheckResult.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.impl.model;
+
+import com.gigatronik.beds.service.ecuconnectionstate.impl.event.ChargingStateEvent;
+import com.gigatronik.ebike.common.configuration.Constants;
+
+public class ChargingCheckResult {
+  private final boolean chargingState;
+  
+  private final ChargingStateEvent.ChargingMessage chargingMessage;
+  
+  private final Constants.EcuType typeOfConnectedBcs;
+  
+  private final Constants.EcuMode modeOfConnectedBcs;
+  
+  public ChargingCheckResult(boolean chargingState, ChargingStateEvent.ChargingMessage chargingMessage, Constants.EcuType typeOfConnectedBcs, Constants.EcuMode modeOfConnectedBcs) {
+    this.chargingState = chargingState;
+    this.chargingMessage = chargingMessage;
+    this.typeOfConnectedBcs = typeOfConnectedBcs;
+    this.modeOfConnectedBcs = modeOfConnectedBcs;
+  }
+  
+  public ChargingCheckResult() {
+    this.chargingState = false;
+    this.chargingMessage = ChargingStateEvent.ChargingMessage.NO_TEXT;
+    this.typeOfConnectedBcs = Constants.EcuType.NONE;
+    this.modeOfConnectedBcs = Constants.EcuMode.NONE;
+  }
+  
+  public boolean isEbikeCharging() {
+    return this.chargingState;
+  }
+  
+  public ChargingStateEvent.ChargingMessage getChargingMessage() {
+    return this.chargingMessage;
+  }
+  
+  public boolean bcsGotInitialized() {
+    return (this.typeOfConnectedBcs != Constants.EcuType.NONE);
+  }
+  
+  public Constants.EcuType getTypeOfConnectedBcs() {
+    return this.typeOfConnectedBcs;
+  }
+  
+  public Constants.EcuMode getModeOfConnectedBcs() {
+    return this.modeOfConnectedBcs;
+  }
+}
+
+
+========================================================================================================================
+ITEM 29: com/gigatronik/beds/service/ecuconnectionstate/impl/synchronization/ActionSynchronizer.java
+========================================================================================================================
+package com.gigatronik.beds.service.ecuconnectionstate.impl.synchronization;
+
+public class ActionSynchronizer {
+  private static final ActionSynchronizer SYNCHRONIZER = new ActionSynchronizer();
+  
+  private boolean completed;
+  
+  public static ActionSynchronizer getInstance() {
+    return SYNCHRONIZER;
+  }
+  
+  public synchronized void clear() {
+    this.completed = false;
+  }
+  
+  public synchronized void notifyComplete() {
+    this.completed = true;
+    notifyAll();
+  }
+  
+  public synchronized boolean waitCompletion(long timeout) throws InterruptedException {
+    long endTime = System.currentTimeMillis() + timeout;
+    while (!this.completed && (timeout = endTime - System.currentTimeMillis()) > 0L)
+      wait(timeout); 
+    return this.completed;
+  }
+}
+

@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Project name:    BEDS - group.allmodules-pctool
+    Package name:    com.gigatronik.dart2.bosch:group.allmodules-pctool
+    File name:       pom.xml
+
+    Company:         AKKA Industry Consulting GmbH
+    Copyright:       © AKKA Industry Consulting GmbH 2021. All rights reserved.
+
+    This software is the intellectual property of AKKA Industry Consulting GmbH.
+    Any usage is subject to the applicable license agreements. Note: The rights may
+    have been ceded to a third party by contract.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.gigatronik.dart2.bosch</groupId>
+        <artifactId>BEDS-pom</artifactId>
+        <version>8.1.6.0.0</version>
+    </parent>
+    <artifactId>group.allmodules-pctool</artifactId>
+    <packaging>pom</packaging>
+    <name>BEDS - group.allmodules-pctool</name>
+    <description>A project that groups all dependencies required to build the pc-tool</description>
+
+    <dependencies>
+        <!--BEDS dependencies-->
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>token</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>gui</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>communication.layer.hid-usb</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>ecu.flash.mfgtoollib</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>odx.parser</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>ui.testserver</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>lockservice.servicesession</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>lockservice.usersession</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>updateserver</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>internationalization</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>rightsmanager</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>tableevaluator</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>startproject.api</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>token.manager</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>standby.detector</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>ecu</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>ecu.flash</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>ecu.flash.container</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>starter</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>odx.parser</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>ecu.flash.mfgtoollib</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>gui</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>communication.layer.hid-usb</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>ui.testserver</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>token</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>remotecontrol.client</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>utils</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>remotecontrol.common</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>lockservice.common</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>lockservice.servicesession</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>lockservice.usersession</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>lockservice.client</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>common</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>report.generator</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>nativeloader</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>hiddriver.wrapper</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.gigatronik.dart2.bosch</groupId>
+            <artifactId>updateserver</artifactId>
+            <classifier>sources</classifier>
+        </dependency>
+
+        <!--DART dependencies-->
+        <dependency>
+            <groupId>com.gigatronik.dart2.framework</groupId>
+            <artifactId>plugin.odxdb</artifactId>
+        </dependency>
+    </dependencies>
+</project>
